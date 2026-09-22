@@ -1,0 +1,123 @@
+{
+  "name": "mindstream",
+  "displayName": "MindStream",
+  "description": "A personal developer roadmap: record notes, ideas, and fixes and track their status within your project.",
+  "version": "0.1.0",
+  "publisher": "mindstream",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "mindstream",
+          "title": "MindStream",
+          "icon": "icons/mindstream.svg"
+        }
+      ]
+    },
+    "views": {
+      "mindstream": [
+        {
+          "type": "webview",
+          "id": "mindstream.sidebar",
+          "name": "Notes",
+          "icon": "icons/mindstream.svg",
+          "contextualTitle": "MindStream"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "mindstream.addNote",
+        "title": "Quick Note",
+        "category": "MindStream",
+        "icon": "$(add)"
+      },
+      {
+        "command": "mindstream.manageTypes",
+        "title": "Manage Types",
+        "category": "MindStream",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "mindstream.refresh",
+        "title": "Refresh",
+        "category": "MindStream",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "mindstream.showSidebar",
+        "title": "Open MindStream Panel",
+        "category": "MindStream",
+        "icon": "$(list-unordered)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "mindstream.addNote",
+          "when": "view == mindstream.sidebar",
+          "group": "navigation@1"
+        },
+        {
+          "command": "mindstream.manageTypes",
+          "when": "view == mindstream.sidebar",
+          "group": "navigation@2"
+        },
+        {
+          "command": "mindstream.refresh",
+          "when": "view == mindstream.sidebar",
+          "group": "navigation@3"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "mindstream.addNote",
+        "key": "ctrl+alt+m",
+        "mac": "cmd+alt+m"
+      }
+    ],
+    "configuration": {
+      "title": "MindStream",
+      "properties": {
+        "mindstream.ui.direction": {
+          "type": "string",
+          "enum": [
+            "ltr",
+            "rtl"
+          ],
+          "default": "ltr",
+          "description": "Interface text direction. Use 'rtl' to read Arabic notes from right to left; all labels remain in English."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "test": "npm run compile && mocha",
+    "package": "npm run compile && vsce package"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/codicons": "^0.0.46-24",
+    "@vscode/vsce": "^3.2.0",
+    "esbuild": "^0.24.0",
+    "mocha": "^10.7.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4"
+  }
+}
