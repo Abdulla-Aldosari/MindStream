@@ -11,6 +11,7 @@ body {
 }
 
 /* Ensures `hidden` elements stay hidden even if the class defines its own display */
+/* Ensures `hidden` elements stay hidden even if the class defines its own display */
 [hidden] {
   display: none !important;
 }
