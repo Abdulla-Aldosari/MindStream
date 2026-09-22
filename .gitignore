@@ -1,5 +1,7 @@
+.vsenv
 node_modules
 out
 dist
 *.vsix
 .vscode-test
+.vscode/runbox.*
