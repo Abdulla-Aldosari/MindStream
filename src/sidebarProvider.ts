@@ -222,9 +222,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'media', 'sidebar.css'));
     const codiconCssUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'media', 'codicon.css'));
     const nonce = getNonce();
-    const direction = this.getDirection();
     return `<!DOCTYPE html>
-<html lang="en" dir="${direction}">
+<html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data:; font-src ${webview.cspSource};">
@@ -235,14 +234,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 </head>
 <body>
   <div id="toolbar" class="toolbar">
-    <select id="category-filter" class="view-mode" title="Filter by category">
-      <option value="all">All Categories</option>
-    </select>
-    <select id="view-mode" class="view-mode" title="View mode">
-      <option value="auto">Auto Sort</option>
-      <option value="fixed">Fixed Order</option>
-      <option value="grouped">Grouped</option>
-    </select>
+    <div id="category-filter-container" title="Filter by category"></div>
+    <div id="view-mode-container" title="View mode"></div>
     <button id="btn-add" class="btn btn-primary" title="Quick note">+ Note</button>
     <button id="btn-archive-toggle" class="btn btn-ghost" title="Show/hide archive">Archive</button>
     <span class="spacer"></span>
@@ -262,12 +255,33 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         <button id="modal-close" class="icon-btn" title="Close">✕</button>
       </div>
       <label class="field"><span>Title</span><input id="f-title" type="text" placeholder="Write the idea/task briefly"></label>
-      <label class="field"><span>Type</span><select id="f-type"></select></label>
-      <label class="field"><span>Category</span><select id="f-category"></select></label>
+      <div class="field"><span>Type</span><div id="f-type-container"></div></div>
+      <div class="field"><span>Category</span><div id="f-category-container"></div></div>
       <label class="field"><span>Description (optional)</span><textarea id="f-desc" rows="3" placeholder="Extra details..."></textarea></label>
       <div class="modal-actions">
         <button id="modal-cancel" class="btn btn-ghost">Cancel</button>
         <button id="modal-save" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+  <div id="view-modal" class="modal" hidden>
+    <div class="modal-card viewer-card">
+      <div class="modal-header viewer-header">
+        <button id="view-close" class="icon-btn" title="Close">✕</button>
+      </div>
+      <span id="view-title" class="viewer-title"></span>
+      <div id="view-desc" class="viewer-desc">
+        <div id="view-desc-scroll" class="viewer-desc-scroll"></div>
+      </div>
+      <div id="view-timestamps" class="viewer-timestamps"></div>
+      <div class="modal-actions">
+        <div class="viewer-meta">
+          <span id="view-type" class="card-type"></span>
+          <span id="view-category" class="viewer-category"></span>
+          <span id="view-status" class="status"></span>
+        </div>
+        <button id="view-edit" class="btn btn-primary">Edit</button>
+        <button id="view-close-btn" class="btn btn-ghost">Close</button>
       </div>
     </div>
   </div>

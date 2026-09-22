@@ -103,7 +103,7 @@
             "rtl"
           ],
           "default": "ltr",
-          "description": "Interface text direction. Use 'rtl' to read Arabic notes from right to left; all labels remain in English."
+          "description": "Reading direction for note titles and descriptions. Use 'rtl' to read Arabic notes right-to-left; the interface keeps VS Code's default direction and all labels remain in English."
         }
       }
     }

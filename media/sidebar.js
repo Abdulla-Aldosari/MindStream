@@ -27,13 +27,18 @@
     editingId: null,
     viewMode: saved.viewMode || 'auto',
     collapsed: saved.collapsed || {},
-    categoryFilter: saved.categoryFilter || 'all'
+    categoryFilter: saved.categoryFilter || 'all',
+    formTypeId: null,
+    formCategoryId: null,
+    direction: 'ltr'
   };
 
   const $ = (id) => document.getElementById(id);
   const listEl = $('list');
   const emptyEl = $('empty');
   const modalEl = $('modal');
+  const viewModalEl = $('view-modal');
+  let viewingItem = null;
   let tooltipEl = null;
   let tooltipTimer = null;
 
@@ -60,6 +65,147 @@
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  // --- Custom select component (replaces native <select>) ---
+
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function escapeAttr(value) {
+    return escapeHtml(value).replace(/`/g, '&#96;');
+  }
+
+  const csIcons = {
+    chevron: '<svg width="17" height="17" viewBox="0 0 21 21" class="cs-chevron" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="m6 9l6 6l6-6"></path></svg>',
+    checkmark: '<svg width="17" height="17" viewBox="0 0 24 24" class="cs-check" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 6L9 17l-5-5"></path></svg>'
+  };
+
+  function renderCustomSelect(wrapperId, btnId, menuId, options, selectedValue, btnExtraClass, menuUp, wrapExtraClass) {
+    const selectedOption = options.find(function (o) {
+      return o.value === selectedValue;
+    });
+    const selectedLabel = selectedOption ? selectedOption.label : options.length ? options[0].label : '—';
+
+    const items = options
+      .map(function (opt) {
+        const isSelected = opt.value === selectedValue;
+        const badgeHtml = opt.badge ? '<span class="cs-item-badge">' + opt.badge + '</span>' : '';
+        const isStart = opt.badgePosition === 'start';
+        const itemClass = opt.itemClass ? ' ' + opt.itemClass : '';
+        return (
+          '<div class="cs-item' + itemClass + '" role="menuitem" tabindex="-1" data-value="' + escapeAttr(opt.value) + '">' +
+          '<span class="cs-item-label-group">' +
+          (isStart ? badgeHtml : '') +
+          '<span class="cs-item-label">' + escapeHtml(opt.label) + '</span>' +
+          (!isStart ? badgeHtml : '') +
+          '</span>' +
+          (isSelected ? csIcons.checkmark : '') +
+          '</div>'
+        );
+      })
+      .join('');
+
+    const menuClass = 'cs-menu' + (menuUp ? ' cs-menu-up' : '');
+    const wrapClass = 'cs-wrap' + (wrapExtraClass ? ' ' + wrapExtraClass : '');
+    const selectedItemClass = selectedOption && selectedOption.itemClass ? ' ' + selectedOption.itemClass : '';
+
+    return (
+      '<div class="' + wrapClass + '" id="' + escapeAttr(wrapperId) + '">' +
+      '<button class="cs-btn' + (btnExtraClass ? ' ' + btnExtraClass : '') + selectedItemClass + '" type="button" aria-haspopup="menu" aria-expanded="false" id="' + escapeAttr(btnId) + '">' +
+      '<span class="cs-btn-label">' + escapeHtml(selectedLabel) + '</span>' +
+      csIcons.chevron +
+      '</button>' +
+      '<div class="' + menuClass + '" role="menu" id="' + escapeAttr(menuId) + '" hidden>' +
+      '<div class="cs-menu-items-wrapper">' + items + '</div>' +
+      '</div>' +
+      '</div>'
+    );
+  }
+
+  function bindCustomSelect(wrapperId, btnId, menuId, onChange) {
+    const wrap = document.getElementById(wrapperId);
+    const btn = document.getElementById(btnId);
+    const menu = document.getElementById(menuId);
+
+    if (!btn || !menu) {
+      return;
+    }
+
+    function closeMenu() {
+      if (!menu.hidden) {
+        menu.hidden = true;
+        btn.setAttribute('aria-expanded', 'false');
+      }
+      document.removeEventListener('pointerdown', onPointerDown, true);
+      window.removeEventListener('blur', onWindowBlur);
+    }
+
+    function onPointerDown(e) {
+      if (wrap && !wrap.contains(e.target)) {
+        closeMenu();
+      }
+    }
+
+    function onWindowBlur() {
+      closeMenu();
+    }
+
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (!menu.hidden) {
+        closeMenu();
+      } else {
+        menu.hidden = false;
+        btn.setAttribute('aria-expanded', 'true');
+        menu.querySelectorAll('.cs-item').forEach(function (el) {
+          el.removeAttribute('data-highlighted');
+        });
+        const checkEl = menu.querySelector('.cs-check');
+        if (checkEl) {
+          const highlightedItem = checkEl.closest('.cs-item');
+          highlightedItem.setAttribute('data-highlighted', '');
+          const itemsWrapper = menu.querySelector('.cs-menu-items-wrapper');
+          if (itemsWrapper) {
+            itemsWrapper.scrollTop =
+              highlightedItem.offsetTop - itemsWrapper.clientHeight / 2 + highlightedItem.offsetHeight / 2;
+          }
+        }
+        document.addEventListener('pointerdown', onPointerDown, true);
+        window.addEventListener('blur', onWindowBlur);
+      }
+    });
+
+    menu.querySelectorAll('.cs-item').forEach(function (item) {
+      item.addEventListener('click', function () {
+        const labelEl = btn.querySelector('.cs-btn-label');
+        const itemLabelEl = item.querySelector('.cs-item-label');
+        if (labelEl && itemLabelEl) {
+          labelEl.textContent = itemLabelEl.textContent;
+        }
+        menu.querySelectorAll('.cs-check').forEach(function (el) {
+          el.remove();
+        });
+        item.insertAdjacentHTML('beforeend', csIcons.checkmark);
+        onChange(item.dataset.value);
+        closeMenu();
+      });
+      item.addEventListener('mouseenter', function () {
+        menu.querySelectorAll('.cs-item').forEach(function (el) {
+          el.removeAttribute('data-highlighted');
+        });
+        item.setAttribute('data-highlighted', '');
+      });
+      item.addEventListener('mouseleave', function () {
+        item.removeAttribute('data-highlighted');
+      });
+    });
   }
 
   // --- Ordering / grouping ---
@@ -130,6 +276,9 @@
       }
     }
 
+    // Mark cards whose description is truncated so the "view" button appears.
+    markTruncatedCards();
+
     // FLIP animation (only when order actually changes)
     if (state.viewMode === 'auto' || state.viewMode === 'grouped') {
       animateFlip(prevPositions, changedIds);
@@ -192,6 +341,7 @@
     const card = document.createElement('div');
     card.className = 'card' + (item.archived ? ' archived' : '');
     card.dataset.id = item.id;
+    card.setAttribute('dir', state.direction);
 
     const head = document.createElement('div');
     head.className = 'card-head';
@@ -211,7 +361,6 @@
       const desc = document.createElement('div');
       desc.className = 'card-desc';
       desc.textContent = item.description;
-      desc.title = item.description;
       card.appendChild(desc);
     }
 
@@ -232,12 +381,34 @@
     spacer.className = 'spacer';
     footer.appendChild(spacer);
 
+    const viewBtn = btnIcon('codicon-eye', 'View note', () => openView(item));
+    viewBtn.classList.add('card-view-btn');
+    footer.appendChild(viewBtn);
     footer.appendChild(btnIcon('codicon-edit', 'Edit', () => openEdit(item)));
     footer.appendChild(btnIcon('codicon-archive', item.archived ? 'Unarchive' : 'Archive', () => toggleArchive(item)));
     footer.appendChild(btnIcon('codicon-trash', 'Delete permanently', () => deleteItem(item), true));
 
     card.appendChild(footer);
+
+    card.addEventListener('dblclick', (e) => {
+      if (e.target.closest('button, .status')) {
+        return;
+      }
+      openView(item);
+    });
+
     return card;
+  }
+
+  function markTruncatedCards() {
+    listEl.querySelectorAll('.card').forEach((el) => {
+      const desc = el.querySelector('.card-desc');
+      if (desc && desc.scrollHeight > desc.clientHeight) {
+        el.classList.add('has-overflow');
+      } else {
+        el.classList.remove('has-overflow');
+      }
+    });
   }
 
   function buildGroupHeader(statusKey, items) {
@@ -387,26 +558,47 @@
     vscode.postMessage({ type: 'deleteItem', id: item.id });
   }
 
-  function fillTypeSelect() {
-    const sel = $('f-type');
-    sel.innerHTML = '';
-    for (const t of state.types) {
-      const opt = document.createElement('option');
-      opt.value = t.id;
-      opt.textContent = t.label;
-      sel.appendChild(opt);
-    }
+  function fillTypeSelect(selectedTypeId) {
+    const options = state.types.map(function (t) {
+      const badge = t.icon && ICONS[t.icon]
+        ? '<span class="codicon ' + ICONS[t.icon] + '"></span>'
+        : '';
+      return { value: t.id, label: t.label, badge: badge, badgePosition: 'start' };
+    });
+    state.formTypeId = selectedTypeId != null ? selectedTypeId : (state.types[0] && state.types[0].id) || null;
+    $('f-type-container').innerHTML = renderCustomSelect(
+      'f-type-wrap',
+      'f-type-btn',
+      'f-type-menu',
+      options,
+      state.formTypeId,
+      '',
+      false,
+      'cs-wrap-full'
+    );
+    bindCustomSelect('f-type-wrap', 'f-type-btn', 'f-type-menu', function (value) {
+      state.formTypeId = value;
+    });
   }
 
-  function fillCategorySelect() {
-    const sel = $('f-category');
-    sel.innerHTML = '';
-    for (const c of state.categories) {
-      const opt = document.createElement('option');
-      opt.value = c.id;
-      opt.textContent = c.label;
-      sel.appendChild(opt);
-    }
+  function fillCategorySelect(selectedCategoryId) {
+    const options = state.categories.map(function (c) {
+      return { value: c.id, label: c.label };
+    });
+    state.formCategoryId = selectedCategoryId != null ? selectedCategoryId : (state.categories[0] && state.categories[0].id) || null;
+    $('f-category-container').innerHTML = renderCustomSelect(
+      'f-category-wrap',
+      'f-category-btn',
+      'f-category-menu',
+      options,
+      state.formCategoryId,
+      '',
+      false,
+      'cs-wrap-full'
+    );
+    bindCustomSelect('f-category-wrap', 'f-category-btn', 'f-category-menu', function (value) {
+      state.formCategoryId = value;
+    });
   }
 
   function openAdd() {
@@ -414,15 +606,9 @@
     $('modal-title').textContent = 'New note';
     $('f-title').value = '';
     $('f-desc').value = '';
-    fillTypeSelect();
-    fillCategorySelect();
-    if (state.types.length > 0) {
-      $('f-type').value = state.types[0].id;
-    }
+    fillTypeSelect(state.types[0] && state.types[0].id);
     // Default to the currently filtered category when adding a note.
-    if (state.categoryFilter !== 'all') {
-      $('f-category').value = state.categoryFilter;
-    }
+    fillCategorySelect(state.categoryFilter !== 'all' ? state.categoryFilter : null);
     modalEl.hidden = false;
     $('f-title').focus();
   }
@@ -432,10 +618,8 @@
     $('modal-title').textContent = 'Edit note';
     $('f-title').value = item.title;
     $('f-desc').value = item.description || '';
-    fillTypeSelect();
-    fillCategorySelect();
-    $('f-type').value = item.typeId;
-    $('f-category').value = item.categoryId;
+    fillTypeSelect(item.typeId);
+    fillCategorySelect(item.categoryId);
     modalEl.hidden = false;
     $('f-title').focus();
   }
@@ -455,14 +639,58 @@
       type: state.editingId ? 'updateItem' : 'addItem',
       title: title,
       description: $('f-desc').value,
-      typeId: $('f-type').value,
-      categoryId: $('f-category').value
+      typeId: state.formTypeId,
+      categoryId: state.formCategoryId
     };
     if (state.editingId) {
       payload.id = state.editingId;
     }
     vscode.postMessage(payload);
     closeModal();
+  }
+
+  function formatDate(value) {
+    if (!value) {
+      return '';
+    }
+    return new Date(value).toLocaleString();
+  }
+
+  function openView(item) {
+    viewingItem = item;
+
+    const t = typeOf(item.typeId);
+    const cat = state.categories.find((c) => c.id === item.categoryId);
+
+    const titleEl = $('view-title');
+    titleEl.textContent = item.title;
+    titleEl.setAttribute('dir', state.direction);
+
+    const typeEl = $('view-type');
+    typeEl.innerHTML = '<span class="' + iconClass(t.icon) + '"></span> ' + esc(t.label);
+
+    const catEl = $('view-category');
+    catEl.textContent = cat ? cat.label : '';
+    catEl.hidden = !cat;
+
+    const statusEl = $('view-status');
+    statusEl.className = 'status ' + item.status;
+    statusEl.textContent = state.statusLabels[item.status] || item.status;
+
+    const descEl = $('view-desc');
+    descEl.setAttribute('dir', state.direction);
+    descEl.hidden = !item.description;
+    $('view-desc-scroll').textContent = item.description || '';
+
+    $('view-timestamps').textContent =
+      'Created: ' + formatDate(item.createdAt) + '\u2003\u00b7\u2003Updated: ' + formatDate(item.updatedAt);
+
+    viewModalEl.hidden = false;
+  }
+
+  function closeView() {
+    viewModalEl.hidden = true;
+    viewingItem = null;
   }
 
   function setArchiveVisible(visible) {
@@ -594,9 +822,7 @@
     state.categories = msg.categories || [];
     state.statusLabels = msg.statusLabels || {};
     state.includeArchived = !!msg.includeArchived;
-    if (msg.direction === 'rtl' || msg.direction === 'ltr') {
-      document.documentElement.setAttribute('dir', msg.direction);
-    }
+    state.direction = msg.direction === 'rtl' ? 'rtl' : 'ltr';
     setArchiveVisible(state.includeArchived);
     populateCategoryFilter();
     renderList(changedIds);
@@ -608,39 +834,52 @@
   });
 
   function populateCategoryFilter() {
-    const sel = $('category-filter');
     const current = state.categoryFilter;
-    sel.innerHTML = '';
-    const allOpt = document.createElement('option');
-    allOpt.value = 'all';
-    allOpt.textContent = 'All Categories';
-    sel.appendChild(allOpt);
-    for (const c of state.categories) {
-      const opt = document.createElement('option');
-      opt.value = c.id;
-      opt.textContent = c.label;
-      sel.appendChild(opt);
-    }
-    // Keep the previous selection if it still exists; otherwise fall back to "all".
-    sel.value = state.categories.some((c) => c.id === current) ? current : 'all';
-    state.categoryFilter = sel.value;
+    const options = [{ value: 'all', label: 'All Categories' }].concat(
+      state.categories.map(function (c) {
+        return { value: c.id, label: c.label };
+      })
+    );
+    state.categoryFilter = state.categories.some((c) => c.id === current) ? current : 'all';
+    $('category-filter-container').innerHTML = renderCustomSelect(
+      'category-filter-wrap',
+      'category-filter-btn',
+      'category-filter-menu',
+      options,
+      state.categoryFilter,
+      'cs-btn-toolbar',
+      false,
+      ''
+    );
+    bindCustomSelect('category-filter-wrap', 'category-filter-btn', 'category-filter-menu', function (value) {
+      state.categoryFilter = value;
+      persist();
+      renderList();
+    });
   }
 
-  const viewModeEl = $('view-mode');
-  viewModeEl.value = state.viewMode;
-  viewModeEl.addEventListener('change', () => {
-    state.viewMode = viewModeEl.value;
-    persist();
-    renderList();
-  });
-
-  const categoryFilterEl = $('category-filter');
-  categoryFilterEl.value = state.categoryFilter;
-  categoryFilterEl.addEventListener('change', () => {
-    state.categoryFilter = categoryFilterEl.value;
-    persist();
-    renderList();
-  });
+  function initViewModeSelect() {
+    const options = [
+      { value: 'auto', label: 'Auto Sort' },
+      { value: 'fixed', label: 'Fixed Order' },
+      { value: 'grouped', label: 'Grouped' }
+    ];
+    $('view-mode-container').innerHTML = renderCustomSelect(
+      'view-mode-wrap',
+      'view-mode-btn',
+      'view-mode-menu',
+      options,
+      state.viewMode,
+      'cs-btn-toolbar',
+      false,
+      ''
+    );
+    bindCustomSelect('view-mode-wrap', 'view-mode-btn', 'view-mode-menu', function (value) {
+      state.viewMode = value;
+      persist();
+      renderList();
+    });
+  }
 
   $('btn-add').addEventListener('click', openAdd);
   $('btn-archive-toggle').addEventListener('click', () => {
@@ -697,6 +936,15 @@
   $('modal-close').addEventListener('click', closeModal);
   $('modal-cancel').addEventListener('click', closeModal);
   $('modal-save').addEventListener('click', saveModal);
+  $('view-close').addEventListener('click', closeView);
+  $('view-close-btn').addEventListener('click', closeView);
+  $('view-edit').addEventListener('click', () => {
+    const item = viewingItem;
+    closeView();
+    if (item) {
+      openEdit(item);
+    }
+  });
 
   $('categories-close').addEventListener('click', closeCategoriesModal);
   $('btn-add-category').addEventListener('click', addCategoryFromInput);
@@ -710,6 +958,8 @@
     if (e.key === 'Escape') {
       if (!modalEl.hidden) {
         closeModal();
+      } else if (!viewModalEl.hidden) {
+        closeView();
       } else if (!$('categories-modal').hidden) {
         closeCategoriesModal();
       } else if (!$('more-menu').hidden) {
@@ -728,6 +978,11 @@
       menu.hidden = true;
     }
   });
+
+  // Initialize the custom dropdowns (view mode is static; category filter is
+  // re-rendered whenever new state arrives, so render an initial empty set).
+  initViewModeSelect();
+  populateCategoryFilter();
 
   // Request the initial state on startup
   vscode.postMessage({ type: 'refresh' });
