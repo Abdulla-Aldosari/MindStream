@@ -1,7 +1,9 @@
 import * as assert from 'assert';
 import { createEmptyData, normalizeData, StorageService } from '../src/storage';
 import { TypesRegistry } from '../src/typesRegistry';
+import { CategoriesRegistry } from '../src/categoriesRegistry';
 import { ItemsStore } from '../src/itemsStore';
+import { GENERAL_CATEGORY_ID } from '../src/models';
 import { InMemoryStorage } from './helpers';
 
 describe('StorageService', () => {
@@ -11,16 +13,29 @@ describe('StorageService', () => {
     assert.strictEqual(data.version, 1);
     assert.strictEqual(data.items.length, 0);
     assert.ok(data.types.length >= 8, 'default types must be present');
+    assert.strictEqual(data.categories.length, 1, 'a default General category must exist');
   });
 
   it('reads existing data and normalizes the incomplete structure', () => {
     const s = StorageService.fromText(
-      JSON.stringify({ version: 1, types: [], items: [{ id: 'x', typeId: 't', title: 'Title' }] })
+      JSON.stringify({
+        version: 1,
+        types: [],
+        categories: [],
+        items: [{ id: 'x', typeId: 't', categoryId: 'general', title: 'Title' }]
+      })
     );
     const data = s.getData();
     assert.strictEqual(data.items.length, 1);
     assert.deepStrictEqual(data.items[0].statusHistory, [{ status: 'pending', at: data.items[0].statusHistory[0].at }]);
     assert.strictEqual(data.items[0].archived, false);
+  });
+
+  it('ignores legacy items without a categoryId', () => {
+    const s = StorageService.fromText(
+      JSON.stringify({ version: 1, types: [], categories: [], items: [{ id: 'x', typeId: 't', title: 'Legacy' }] })
+    );
+    assert.strictEqual(s.getData().items.length, 0);
   });
 
   it('handles corrupt JSON by falling back to default data', () => {
@@ -70,6 +85,37 @@ describe('TypesRegistry', () => {
     const moved = types.reassign(a.id, b.id);
     assert.strictEqual(moved, 2);
     assert.ok(items.list().every((it) => it.typeId === b.id));
+  });
+});
+
+describe('CategoriesRegistry', () => {
+  function setup() {
+    const storage = new InMemoryStorage(createEmptyData());
+    return { storage, categories: new CategoriesRegistry(storage), items: new ItemsStore(storage) };
+  }
+
+  it('has a default General category that cannot be deleted', () => {
+    const { categories } = setup();
+    assert.strictEqual(categories.list().length, 1);
+    assert.strictEqual(categories.list()[0].id, GENERAL_CATEGORY_ID);
+    assert.strictEqual(categories.remove(GENERAL_CATEGORY_ID), false);
+  });
+
+  it('adds, renames and counts items', () => {
+    const { categories, items } = setup();
+    const cat = categories.add('Before Release');
+    items.create({ typeId: 't', title: 'A', categoryId: cat.id });
+    items.create({ typeId: 't', title: 'B', categoryId: cat.id });
+    categories.rename(cat.id, 'Pre-Launch');
+    assert.strictEqual(categories.label(cat.id), 'Pre-Launch');
+    assert.strictEqual(categories.countItems(cat.id), 2);
+  });
+
+  it('deletes a non-default category', () => {
+    const { categories } = setup();
+    const cat = categories.add('Temp');
+    assert.strictEqual(categories.remove(cat.id), true);
+    assert.strictEqual(categories.get(cat.id), undefined);
   });
 });
 

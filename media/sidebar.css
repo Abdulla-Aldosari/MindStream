@@ -26,6 +26,8 @@ body {
 
 .toolbar {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--gap);
   padding: var(--gap);
   border-bottom: 1px solid var(--vscode-panel-border, transparent);
@@ -171,6 +173,81 @@ body {
   line-height: 1.4;
   pointer-events: none;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* Kebab "more options" dropdown menu */
+.more-menu {
+  position: fixed;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  background: var(--vscode-menu-background, var(--vscode-editorWidget-background, var(--vscode-editor-background)));
+  border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, #444));
+  border-radius: 6px;
+  padding: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+.more-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+}
+.more-menu-item:hover {
+  background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
+}
+.more-menu-item.danger:hover {
+  color: var(--vscode-errorForeground);
+}
+
+/* Categories management modal */
+.categories-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.category-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+.category-row:hover {
+  background: var(--vscode-list-hoverBackground, var(--vscode-toolbar-hoverBackground));
+}
+.category-label {
+  font-size: 12px;
+  word-break: break-word;
+}
+.category-count {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+}
+.category-rename-input {
+  flex: 1;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 4px;
+  padding: 3px 6px;
+}
+.category-rename-input:focus {
+  outline: 1px solid var(--vscode-focusBorder);
 }
 
 /* Arrow pointing down toward the chip (default: tooltip above the chip) */

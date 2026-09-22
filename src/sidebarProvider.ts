@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { MindStreamStatus } from './models';
 import { ItemsStore } from './itemsStore';
 import { TypesRegistry } from './typesRegistry';
+import { CategoriesRegistry } from './categoriesRegistry';
 
 export const VIEW_TYPE = 'mindstream.sidebar';
 
@@ -15,11 +16,16 @@ interface WebviewMessage {
     | 'toggleArchive'
     | 'toggleArchiveView'
     | 'insertTestData'
-    | 'clearAll';
+    | 'clearAll'
+    | 'addCategory'
+    | 'renameCategory'
+    | 'deleteCategory';
   id?: string;
   title?: string;
   description?: string;
   typeId?: string;
+  categoryId?: string;
+  label?: string;
   status?: MindStreamStatus;
   archived?: boolean;
 }
@@ -41,7 +47,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly items: ItemsStore,
-    private readonly types: TypesRegistry
+    private readonly types: TypesRegistry,
+    private readonly categories: CategoriesRegistry
   ) {}
 
   resolveWebviewView(
@@ -65,6 +72,16 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     this.postState();
   }
 
+  /** Tells the webview to open the note editor modal. */
+  openAddNote(): void {
+    this._view?.webview.postMessage({ type: 'openAddNote' });
+  }
+
+  /** Tells the webview to open the categories management modal. */
+  openCategories(): void {
+    this._view?.webview.postMessage({ type: 'openCategories' });
+  }
+
   private updateBadge(): void {
     if (!this._view) {
       return;
@@ -84,7 +101,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             this.items.create({
               typeId: msg.typeId,
               title: msg.title.trim(),
-              description: msg.description
+              description: msg.description,
+              categoryId: msg.categoryId
             });
           }
           break;
@@ -93,7 +111,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             this.items.update(msg.id, {
               title: msg.title,
               description: msg.description,
-              typeId: msg.typeId
+              typeId: msg.typeId,
+              categoryId: msg.categoryId
             });
           }
           break;
@@ -140,6 +159,36 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             this.items.setArchived(msg.id, msg.archived);
           }
           break;
+        case 'addCategory':
+          if (msg.label?.trim()) {
+            this.categories.add(msg.label.trim());
+          }
+          break;
+        case 'renameCategory':
+          if (msg.id && msg.label?.trim()) {
+            this.categories.rename(msg.id, msg.label.trim());
+          }
+          break;
+        case 'deleteCategory': {
+          if (!msg.id) {
+            break;
+          }
+          const cat = this.categories.get(msg.id);
+          if (!cat) {
+            break;
+          }
+          const count = this.categories.countItems(msg.id);
+          const confirm = await vscode.window.showWarningMessage(
+            `Delete category "${cat.label}"? ${count} note(s) in it will be permanently deleted too.`,
+            { modal: true },
+            'Delete'
+          );
+          if (confirm === 'Delete') {
+            this.items.deleteByCategory(msg.id);
+            this.categories.remove(msg.id);
+          }
+          break;
+        }
       }
       this.refresh();
     } catch (err) {
@@ -155,6 +204,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       type: 'state',
       items: this.items.list(this._archiveVisible),
       types: this.types.list(),
+      categories: this.categories.list().map((c) => ({ ...c, count: this.categories.countItems(c.id) })),
       statusLabels: STATUS_LABEL,
       includeArchived: this._archiveVisible,
       direction: this.getDirection()
@@ -185,6 +235,9 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 </head>
 <body>
   <div id="toolbar" class="toolbar">
+    <select id="category-filter" class="view-mode" title="Filter by category">
+      <option value="all">All Categories</option>
+    </select>
     <select id="view-mode" class="view-mode" title="View mode">
       <option value="auto">Auto Sort</option>
       <option value="fixed">Fixed Order</option>
@@ -192,8 +245,13 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     </select>
     <button id="btn-add" class="btn btn-primary" title="Quick note">+ Note</button>
     <button id="btn-archive-toggle" class="btn btn-ghost" title="Show/hide archive">Archive</button>
-    <button id="btn-insert-test" class="btn btn-ghost" title="Insert 20 sample records for testing">dev-insert-test</button>
-    <button id="btn-delete-test" class="btn btn-ghost" title="Delete all records">dev-delete-test</button>
+    <span class="spacer"></span>
+    <button id="btn-more" class="icon-btn" title="More options"><span class="codicon codicon-kebab-vertical"></span></button>
+  </div>
+  <div id="more-menu" class="more-menu" hidden>
+    <button id="menu-manage-categories" class="more-menu-item"><span class="codicon codicon-folder"></span> Manage Categories</button>
+    <button id="btn-insert-test" class="more-menu-item"><span class="codicon codicon-add"></span> dev-insert-test</button>
+    <button id="btn-delete-test" class="more-menu-item danger"><span class="codicon codicon-trash"></span> dev-delete-test</button>
   </div>
   <div id="list" class="list"></div>
   <div id="empty" class="empty" hidden>No notes yet.<br>Press "+ Note" to add your first idea.</div>
@@ -205,10 +263,24 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       </div>
       <label class="field"><span>Title</span><input id="f-title" type="text" placeholder="Write the idea/task briefly"></label>
       <label class="field"><span>Type</span><select id="f-type"></select></label>
+      <label class="field"><span>Category</span><select id="f-category"></select></label>
       <label class="field"><span>Description (optional)</span><textarea id="f-desc" rows="3" placeholder="Extra details..."></textarea></label>
       <div class="modal-actions">
         <button id="modal-cancel" class="btn btn-ghost">Cancel</button>
         <button id="modal-save" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+  <div id="categories-modal" class="modal" hidden>
+    <div class="modal-card">
+      <div class="modal-header">
+        <span>Manage Categories</span>
+        <button id="categories-close" class="icon-btn" title="Close">✕</button>
+      </div>
+      <div id="categories-list" class="categories-list"></div>
+      <div class="modal-actions">
+        <input id="f-category-name" type="text" placeholder="New category name">
+        <button id="btn-add-category" class="btn btn-primary">Add</button>
       </div>
     </div>
   </div>

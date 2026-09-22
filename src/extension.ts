@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { createWorkspaceStorage } from './workspaceStorage';
 import { ItemsStore } from './itemsStore';
 import { TypesRegistry } from './typesRegistry';
+import { CategoriesRegistry } from './categoriesRegistry';
 import { SidebarProvider, VIEW_TYPE } from './sidebarProvider';
 import { MindStreamTypeDef } from './models';
 
@@ -70,16 +71,20 @@ export function activate(context: vscode.ExtensionContext): void {
   }
   const types = new TypesRegistry(storage);
   const items = new ItemsStore(storage);
+  const categories = new CategoriesRegistry(storage);
 
-  sidebar = new SidebarProvider(context.extensionUri, items, types);
+  sidebar = new SidebarProvider(context.extensionUri, items, types, categories);
 
   context.subscriptions.push(vscode.window.registerWebviewViewProvider(VIEW_TYPE, sidebar));
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('mindstream.addNote', () => addNote(types, items))
+    vscode.commands.registerCommand('mindstream.addNote', () => sidebar?.openAddNote())
   );
   context.subscriptions.push(
     vscode.commands.registerCommand('mindstream.manageTypes', () => manageTypes(types, items))
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand('mindstream.manageCategories', () => sidebar?.openCategories())
   );
   context.subscriptions.push(
     vscode.commands.registerCommand('mindstream.refresh', () => sidebar?.refresh())
@@ -134,27 +139,6 @@ async function pickType(types: TypesRegistry, allowNew: boolean): Promise<MindSt
     return undefined;
   }
   return types.add(label.trim());
-}
-
-async function addNote(types: TypesRegistry, items: ItemsStore): Promise<void> {
-  const typeDef = await pickType(types, true);
-  if (!typeDef) {
-    return;
-  }
-  const title = await vscode.window.showInputBox({
-    prompt: 'Note title',
-    placeHolder: 'Write the idea/task briefly'
-  });
-  if (!title?.trim()) {
-    return;
-  }
-  const description = await vscode.window.showInputBox({
-    prompt: 'Description (optional, press Enter to skip)',
-    placeHolder: 'Extra details...'
-  });
-  items.create({ typeId: typeDef.id, title: title.trim(), description: description ?? undefined });
-  vscode.window.showInformationMessage(`Added "${title.trim()}"`);
-  sidebar?.refresh();
 }
 
 async function manageTypes(types: TypesRegistry, items: ItemsStore): Promise<void> {

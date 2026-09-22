@@ -1,6 +1,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { DATA_VERSION, MindStreamData, MindStreamTypeDef } from './models';
+import {
+  DATA_VERSION,
+  GENERAL_CATEGORY_ID,
+  MindStreamCategoryDef,
+  MindStreamData,
+  MindStreamTypeDef
+} from './models';
 import { newId, nowIso } from './util';
 
 /** Standalone type that makes it easy to test the layer without depending on vscode. */
@@ -26,11 +32,17 @@ export const DEFAULT_TYPES: Omit<MindStreamTypeDef, 'id' | 'createdAt'>[] = [
   { label: 'Resource', icon: 'link' }
 ];
 
+/** The built-in default category. */
+export const DEFAULT_CATEGORIES: Omit<MindStreamCategoryDef, 'createdAt'>[] = [
+  { id: GENERAL_CATEGORY_ID, label: 'General', isDefault: true, order: 0 }
+];
+
 /** Creates the empty default structure with the ready-made default types. */
 export function createEmptyData(): MindStreamData {
   return {
     version: DATA_VERSION,
     types: DEFAULT_TYPES.map((t) => ({ ...t, id: newId(), createdAt: nowIso() })),
+    categories: DEFAULT_CATEGORIES.map((c) => ({ ...c, createdAt: nowIso() })),
     items: []
   };
 }
@@ -42,7 +54,20 @@ export function normalizeData(raw: unknown): MindStreamData {
   }
   const obj = raw as Partial<MindStreamData>;
   const types = Array.isArray(obj.types) ? obj.types : [];
-  const items = Array.isArray(obj.items) ? obj.items : [];
+  let categories = Array.isArray(obj.categories) ? obj.categories : [];
+  const allItems = Array.isArray(obj.items) ? obj.items : [];
+
+  // Ensure the built-in "General" category always exists.
+  if (!categories.some((c) => c.id === GENERAL_CATEGORY_ID)) {
+    categories = [
+      { id: GENERAL_CATEGORY_ID, label: 'General', isDefault: true, order: 0, createdAt: nowIso() },
+      ...categories
+    ];
+  }
+
+  // Ignore any legacy item that has no categoryId (as agreed: no migration).
+  const items = allItems.filter((it) => typeof (it as any).categoryId === 'string');
+
   // Ensures the required history records exist on every item.
   for (const it of items) {
     if (!Array.isArray((it as any).statusHistory)) {
@@ -55,6 +80,7 @@ export function normalizeData(raw: unknown): MindStreamData {
   return {
     version: typeof obj.version === 'number' ? obj.version : DATA_VERSION,
     types,
+    categories,
     items
   };
 }

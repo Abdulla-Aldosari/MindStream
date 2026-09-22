@@ -21,11 +21,13 @@
   const state = {
     items: [],
     types: [],
+    categories: [],
     statusLabels: {},
     includeArchived: false,
     editingId: null,
     viewMode: saved.viewMode || 'auto',
-    collapsed: saved.collapsed || {}
+    collapsed: saved.collapsed || {},
+    categoryFilter: saved.categoryFilter || 'all'
   };
 
   const $ = (id) => document.getElementById(id);
@@ -36,7 +38,11 @@
   let tooltipTimer = null;
 
   function persist() {
-    vscode.setState({ viewMode: state.viewMode, collapsed: state.collapsed });
+    vscode.setState({
+      viewMode: state.viewMode,
+      collapsed: state.collapsed,
+      categoryFilter: state.categoryFilter
+    });
   }
 
   function iconClass(name) {
@@ -58,12 +64,19 @@
 
   // --- Ordering / grouping ---
 
+  function filteredItems() {
+    if (state.categoryFilter === 'all') {
+      return state.items;
+    }
+    return state.items.filter((it) => it.categoryId === state.categoryFilter);
+  }
+
   function byCreatedAsc(a, b) {
     return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
   }
 
   function autoSorted() {
-    return [...state.items].sort((a, b) => {
+    return [...filteredItems()].sort((a, b) => {
       const s = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
       if (s !== 0) {
         return s;
@@ -76,12 +89,12 @@
     if (state.viewMode === 'auto') {
       return autoSorted();
     }
-    return [...state.items].sort(byCreatedAsc); // fixed: stable creation order
+    return [...filteredItems()].sort(byCreatedAsc); // fixed: stable creation order
   }
 
   function groupedByStatus() {
     const groups = { pending: [], 'in-progress': [], done: [] };
-    for (const item of state.items) {
+    for (const item of filteredItems()) {
       (groups[item.status] || groups.pending).push(item);
     }
     for (const key of Object.keys(groups)) {
@@ -385,14 +398,30 @@
     }
   }
 
+  function fillCategorySelect() {
+    const sel = $('f-category');
+    sel.innerHTML = '';
+    for (const c of state.categories) {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.label;
+      sel.appendChild(opt);
+    }
+  }
+
   function openAdd() {
     state.editingId = null;
     $('modal-title').textContent = 'New note';
     $('f-title').value = '';
     $('f-desc').value = '';
     fillTypeSelect();
+    fillCategorySelect();
     if (state.types.length > 0) {
       $('f-type').value = state.types[0].id;
+    }
+    // Default to the currently filtered category when adding a note.
+    if (state.categoryFilter !== 'all') {
+      $('f-category').value = state.categoryFilter;
     }
     modalEl.hidden = false;
     $('f-title').focus();
@@ -404,7 +433,9 @@
     $('f-title').value = item.title;
     $('f-desc').value = item.description || '';
     fillTypeSelect();
+    fillCategorySelect();
     $('f-type').value = item.typeId;
+    $('f-category').value = item.categoryId;
     modalEl.hidden = false;
     $('f-title').focus();
   }
@@ -424,7 +455,8 @@
       type: state.editingId ? 'updateItem' : 'addItem',
       title: title,
       description: $('f-desc').value,
-      typeId: $('f-type').value
+      typeId: $('f-type').value,
+      categoryId: $('f-category').value
     };
     if (state.editingId) {
       payload.id = state.editingId;
@@ -438,11 +470,115 @@
     $('btn-archive-toggle').textContent = visible ? 'Hide archive' : 'Archive';
   }
 
+  // --- Categories management modal ---
+
+  function openCategoriesModal() {
+    renderCategories();
+    $('categories-modal').hidden = false;
+    $('f-category-name').value = '';
+    $('f-category-name').focus();
+  }
+
+  function closeCategoriesModal() {
+    $('categories-modal').hidden = true;
+  }
+
+  function renderCategories() {
+    const listElC = $('categories-list');
+    listElC.innerHTML = '';
+    for (const c of state.categories) {
+      const row = document.createElement('div');
+      row.className = 'category-row';
+
+      const label = document.createElement('span');
+      label.className = 'category-label';
+      label.textContent = c.label;
+      row.appendChild(label);
+
+      const count = document.createElement('span');
+      count.className = 'category-count';
+      count.textContent = '(' + (c.count || 0) + ')';
+      row.appendChild(count);
+
+      const spacer = document.createElement('span');
+      spacer.className = 'spacer';
+      row.appendChild(spacer);
+
+      const editBtn = document.createElement('button');
+      editBtn.className = 'icon-btn';
+      editBtn.title = 'Rename';
+      editBtn.innerHTML = '<span class="codicon codicon-edit"></span>';
+      editBtn.addEventListener('click', () => startRenameCategory(c, label));
+      row.appendChild(editBtn);
+
+      if (!c.isDefault) {
+        const delBtn = document.createElement('button');
+        delBtn.className = 'icon-btn danger';
+        delBtn.title = 'Delete';
+        delBtn.innerHTML = '<span class="codicon codicon-trash"></span>';
+        delBtn.addEventListener('click', () => {
+          vscode.postMessage({ type: 'deleteCategory', id: c.id });
+        });
+        row.appendChild(delBtn);
+      }
+
+      listElC.appendChild(row);
+    }
+  }
+
+  function startRenameCategory(cat, labelEl) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'category-rename-input';
+    input.value = cat.label;
+    labelEl.replaceWith(input);
+    input.focus();
+    input.select();
+
+    const commit = () => {
+      const value = input.value.trim();
+      if (value && value !== cat.label) {
+        vscode.postMessage({ type: 'renameCategory', id: cat.id, label: value });
+      } else {
+        renderCategories();
+      }
+    };
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        commit();
+      } else if (e.key === 'Escape') {
+        renderCategories();
+      }
+    });
+    input.addEventListener('blur', commit);
+  }
+
+  function addCategoryFromInput() {
+    const input = $('f-category-name');
+    const value = input.value.trim();
+    if (!value) {
+      return;
+    }
+    vscode.postMessage({ type: 'addCategory', label: value });
+    input.value = '';
+  }
+
   let prevStatusById = {};
 
   window.addEventListener('message', (event) => {
     const msg = event.data;
-    if (!msg || msg.type !== 'state') {
+    if (!msg) {
+      return;
+    }
+    if (msg.type === 'openAddNote') {
+      openAdd();
+      return;
+    }
+    if (msg.type === 'openCategories') {
+      openCategoriesModal();
+      return;
+    }
+    if (msg.type !== 'state') {
       return;
     }
     const newItems = msg.items || [];
@@ -455,12 +591,14 @@
 
     state.items = newItems;
     state.types = msg.types || [];
+    state.categories = msg.categories || [];
     state.statusLabels = msg.statusLabels || {};
     state.includeArchived = !!msg.includeArchived;
     if (msg.direction === 'rtl' || msg.direction === 'ltr') {
       document.documentElement.setAttribute('dir', msg.direction);
     }
     setArchiveVisible(state.includeArchived);
+    populateCategoryFilter();
     renderList(changedIds);
 
     prevStatusById = {};
@@ -468,6 +606,25 @@
       prevStatusById[it.id] = it.status;
     });
   });
+
+  function populateCategoryFilter() {
+    const sel = $('category-filter');
+    const current = state.categoryFilter;
+    sel.innerHTML = '';
+    const allOpt = document.createElement('option');
+    allOpt.value = 'all';
+    allOpt.textContent = 'All Categories';
+    sel.appendChild(allOpt);
+    for (const c of state.categories) {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.label;
+      sel.appendChild(opt);
+    }
+    // Keep the previous selection if it still exists; otherwise fall back to "all".
+    sel.value = state.categories.some((c) => c.id === current) ? current : 'all';
+    state.categoryFilter = sel.value;
+  }
 
   const viewModeEl = $('view-mode');
   viewModeEl.value = state.viewMode;
@@ -477,23 +634,98 @@
     renderList();
   });
 
+  const categoryFilterEl = $('category-filter');
+  categoryFilterEl.value = state.categoryFilter;
+  categoryFilterEl.addEventListener('change', () => {
+    state.categoryFilter = categoryFilterEl.value;
+    persist();
+    renderList();
+  });
+
   $('btn-add').addEventListener('click', openAdd);
   $('btn-archive-toggle').addEventListener('click', () => {
     vscode.postMessage({ type: 'toggleArchiveView' });
   });
+  $('btn-more').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const menu = $('more-menu');
+    if (menu.hidden) {
+      const rect = $('btn-more').getBoundingClientRect();
+      const margin = 4;
+      const viewportWidth = document.documentElement.clientWidth;
+      const viewportHeight = document.documentElement.clientHeight;
+
+      // Show it off-screen first so we can measure its real size.
+      menu.style.left = '0px';
+      menu.style.top = '0px';
+      menu.hidden = false;
+      const menuWidth = menu.offsetWidth;
+      const menuHeight = menu.offsetHeight;
+
+      // Place the menu below the button, aligned to the button's left edge,
+      // then clamp horizontally within the viewport (works for LTR and RTL).
+      let left = rect.left;
+      if (left + menuWidth > viewportWidth - margin) {
+        left = Math.max(margin, viewportWidth - menuWidth - margin);
+      }
+
+      let top = rect.bottom + margin;
+      // If there is not enough room below, open upward instead.
+      if (top + menuHeight > viewportHeight - margin) {
+        top = rect.top - menuHeight - margin;
+      }
+
+      menu.style.left = left + 'px';
+      menu.style.top = top + 'px';
+      menu.style.right = 'auto';
+    } else {
+      menu.hidden = true;
+    }
+  });
+  $('menu-manage-categories').addEventListener('click', () => {
+    $('more-menu').hidden = true;
+    openCategoriesModal();
+  });
   $('btn-insert-test').addEventListener('click', () => {
+    $('more-menu').hidden = true;
     vscode.postMessage({ type: 'insertTestData' });
   });
   $('btn-delete-test').addEventListener('click', () => {
+    $('more-menu').hidden = true;
     vscode.postMessage({ type: 'clearAll' });
   });
   $('modal-close').addEventListener('click', closeModal);
   $('modal-cancel').addEventListener('click', closeModal);
   $('modal-save').addEventListener('click', saveModal);
 
+  $('categories-close').addEventListener('click', closeCategoriesModal);
+  $('btn-add-category').addEventListener('click', addCategoryFromInput);
+  $('f-category-name').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      addCategoryFromInput();
+    }
+  });
+
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !modalEl.hidden) {
-      closeModal();
+    if (e.key === 'Escape') {
+      if (!modalEl.hidden) {
+        closeModal();
+      } else if (!$('categories-modal').hidden) {
+        closeCategoriesModal();
+      } else if (!$('more-menu').hidden) {
+        $('more-menu').hidden = true;
+      }
+    }
+  });
+
+  // Close the "more" menu when clicking anywhere outside it.
+  document.addEventListener('click', (e) => {
+    const menu = $('more-menu');
+    if (menu.hidden) {
+      return;
+    }
+    if (!menu.contains(e.target) && !$('btn-more').contains(e.target)) {
+      menu.hidden = true;
     }
   });
 

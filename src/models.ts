@@ -17,6 +17,8 @@ export interface MindStreamItem {
   id: string;
   /** References an id in types[] rather than the display label (so renaming stays safe). */
   typeId: string;
+  /** References an id in categories[] (a fixed "general" category is always available). */
+  categoryId: string;
   title: string;
   description?: string;
   status: MindStreamStatus;
@@ -41,11 +43,25 @@ export interface MindStreamTypeDef {
   createdAt: string;
 }
 
+/** A user-defined category (e.g. "Before Release"). */
+export interface MindStreamCategoryDef {
+  id: string;
+  label: string;
+  /** true only for the built-in "General" category. */
+  isDefault?: boolean;
+  order?: number;
+  createdAt: string;
+}
+
 /** The full structure of the persisted file. */
 export interface MindStreamData {
   version: number;
   types: MindStreamTypeDef[];
+  categories: MindStreamCategoryDef[];
   items: MindStreamItem[];
 }
 
 export const DATA_VERSION = 1;
+
+/** Fixed id of the built-in "General" category. */
+export const GENERAL_CATEGORY_ID = 'general';

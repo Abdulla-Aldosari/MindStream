@@ -49,6 +49,12 @@
         "icon": "$(settings-gear)"
       },
       {
+        "command": "mindstream.manageCategories",
+        "title": "Manage Categories",
+        "category": "MindStream",
+        "icon": "$(folder)"
+      },
+      {
         "command": "mindstream.refresh",
         "title": "Refresh",
         "category": "MindStream",

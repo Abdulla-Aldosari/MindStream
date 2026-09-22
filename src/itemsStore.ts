@@ -1,4 +1,4 @@
-import { MindStreamItem, MindStreamStatus } from './models';
+import { GENERAL_CATEGORY_ID, MindStreamItem, MindStreamStatus } from './models';
 import { IStorage } from './storage';
 import { newId, nowIso } from './util';
 
@@ -6,6 +6,7 @@ export interface NewItemInput {
   typeId: string;
   title: string;
   description?: string;
+  categoryId?: string;
   tags?: string[];
   status?: MindStreamStatus;
 }
@@ -14,6 +15,7 @@ export interface UpdateItemInput {
   title?: string;
   description?: string;
   typeId?: string;
+  categoryId?: string;
   tags?: string[];
 }
 
@@ -49,6 +51,7 @@ export class ItemsStore {
     const item: MindStreamItem = {
       id: newId(),
       typeId: input.typeId,
+      categoryId: input.categoryId ?? GENERAL_CATEGORY_ID,
       title: input.title,
       description: input.description,
       status,
@@ -77,6 +80,9 @@ export class ItemsStore {
     }
     if (patch.typeId !== undefined) {
       item.typeId = patch.typeId;
+    }
+    if (patch.categoryId !== undefined) {
+      item.categoryId = patch.categoryId;
     }
     if (patch.tags !== undefined) {
       item.tags = patch.tags;
@@ -115,6 +121,13 @@ export class ItemsStore {
   delete(id: string): void {
     const data = this.storage.getData();
     data.items = data.items.filter((it) => it.id !== id);
+    this.storage.saveData(data);
+  }
+
+  /** Deletes every item belonging to a given category. */
+  deleteByCategory(categoryId: string): void {
+    const data = this.storage.getData();
+    data.items = data.items.filter((it) => it.categoryId !== categoryId);
     this.storage.saveData(data);
   }
 
@@ -181,6 +194,7 @@ export class ItemsStore {
       const item: MindStreamItem = {
         id: newId(),
         typeId,
+        categoryId: GENERAL_CATEGORY_ID,
         title: s.title,
         description: s.description,
         status,
