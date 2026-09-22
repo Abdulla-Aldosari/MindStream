@@ -32,6 +32,8 @@
   const listEl = $('list');
   const emptyEl = $('empty');
   const modalEl = $('modal');
+  let tooltipEl = null;
+  let tooltipTimer = null;
 
   function persist() {
     vscode.setState({ viewMode: state.viewMode, collapsed: state.collapsed });
@@ -206,8 +208,11 @@
     const status = document.createElement('span');
     status.className = 'status ' + item.status;
     status.textContent = state.statusLabels[item.status] || item.status;
-    status.title = 'Change status (Ctrl+Click: toggle None/Done)';
+    const tooltip = statusTooltip(item.status);
+    status.dataset.tooltip = tooltip;
     status.addEventListener('click', (e) => cycleStatus(item, e));
+    status.addEventListener('mouseenter', (e) => showStatusTooltip(status, e));
+    status.addEventListener('mouseleave', hideStatusTooltip);
     footer.appendChild(status);
 
     const spacer = document.createElement('span');
@@ -257,15 +262,107 @@
     return b;
   }
 
+  function statusTooltip(status) {
+    if (status === 'pending') {
+      return "Change status to 'In Progress'\nCtrl+Click: Change to 'Done'";
+    }
+    if (status === 'in-progress') {
+      return "Change status to 'Done'\nCtrl+Click: Change to 'None'";
+    }
+    // done
+    return "Change status to 'None'";
+  }
+
+  function ensureTooltip() {
+    if (tooltipEl) {
+      return tooltipEl;
+    }
+    tooltipEl = document.createElement('div');
+    tooltipEl.className = 'tooltip';
+    tooltipEl.style.visibility = 'hidden';
+    document.body.appendChild(tooltipEl);
+    return tooltipEl;
+  }
+
+  function showStatusTooltip(statusEl) {
+    // Delay before showing, similar to VS Code's own hover behavior.
+    clearTimeout(tooltipTimer);
+    tooltipTimer = setTimeout(() => {
+      positionStatusTooltip(statusEl);
+    }, 500);
+  }
+
+  function positionStatusTooltip(statusEl) {
+    const tip = ensureTooltip();
+    tip.textContent = statusEl.dataset.tooltip || '';
+    tip.classList.remove('below');
+    tip.style.visibility = 'hidden';
+    tip.style.left = '0px';
+    tip.style.top = '0px';
+
+    const target = statusEl.getBoundingClientRect();
+    const tipWidth = tip.offsetWidth;
+    const tipHeight = tip.offsetHeight;
+    const viewportWidth = document.documentElement.clientWidth;
+    const margin = 6;
+
+    // Ideal: centered above the status chip.
+    let left = target.left + target.width / 2 - tipWidth / 2;
+    let top = target.top - tipHeight - margin;
+    let below = false;
+
+    // Clamp horizontally to stay fully within the viewport (works for both
+    // left/right sidebar positions and RTL/LTR without any fixed assumption).
+    if (left < margin) {
+      left = margin;
+    } else if (left + tipWidth > viewportWidth - margin) {
+      left = viewportWidth - tipWidth - margin;
+    }
+
+    // If there is not enough room above, place it below the chip.
+    if (top < margin) {
+      top = target.bottom + margin;
+      below = true;
+    }
+
+    // Arrow x position: center of the chip relative to the tooltip's left edge,
+    // clamped within the tooltip so the arrow never overflows it.
+    const chipCenter = target.left + target.width / 2;
+    const arrowX = Math.min(Math.max(chipCenter - left, 10), tipWidth - 10);
+
+    tip.style.left = left + 'px';
+    tip.style.top = top + 'px';
+    tip.style.setProperty('--arrow-x', arrowX + 'px');
+    if (below) {
+      tip.classList.add('below');
+    }
+    tip.style.visibility = 'visible';
+  }
+
+  function hideStatusTooltip() {
+    clearTimeout(tooltipTimer);
+    if (tooltipEl) {
+      tooltipEl.style.visibility = 'hidden';
+    }
+  }
+
   function cycleStatus(item, event) {
+    const ctrl = !!(event && (event.ctrlKey || event.metaKey));
     let next;
-    if (event && (event.ctrlKey || event.metaKey)) {
-      // Ctrl+Click (or Cmd+Click on macOS): jump directly between None and Done.
-      next = item.status === 'done' ? 'pending' : 'done';
-    } else {
+
+    if (!ctrl) {
+      // Normal click: forward cycle.
       const i = STATUS_CYCLE.indexOf(item.status);
       next = STATUS_CYCLE[(i + 1) % STATUS_CYCLE.length];
+    } else if (item.status === 'pending') {
+      next = 'done';
+    } else if (item.status === 'in-progress') {
+      next = 'pending';
+    } else {
+      // done + Ctrl+Click: no-op
+      return;
     }
+
     vscode.postMessage({ type: 'changeStatus', id: item.id, status: next });
   }
 
