@@ -13,7 +13,9 @@ interface WebviewMessage {
     | 'deleteItem'
     | 'changeStatus'
     | 'toggleArchive'
-    | 'toggleArchiveView';
+    | 'toggleArchiveView'
+    | 'insertTestData'
+    | 'clearAll';
   id?: string;
   title?: string;
   description?: string;
@@ -71,7 +73,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     this._view.badge = inProgress > 0 ? { value: inProgress, tooltip: `${inProgress} in progress` } : undefined;
   }
 
-  private handleMessage(msg: WebviewMessage): void {
+  private async handleMessage(msg: WebviewMessage): Promise<void> {
     try {
       switch (msg.type) {
         case 'refresh':
@@ -97,7 +99,18 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
           break;
         case 'deleteItem':
           if (msg.id) {
-            this.items.delete(msg.id);
+            const item = this.items.get(msg.id);
+            if (!item) {
+              break;
+            }
+            const confirm = await vscode.window.showWarningMessage(
+              `Delete note "${item.title}" permanently?`,
+              { modal: true },
+              'Delete'
+            );
+            if (confirm === 'Delete') {
+              this.items.delete(msg.id);
+            }
           }
           break;
         case 'changeStatus':
@@ -108,6 +121,20 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         case 'toggleArchiveView':
           this._archiveVisible = !this._archiveVisible;
           break;
+        case 'insertTestData':
+          this.items.insertTestData();
+          break;
+        case 'clearAll': {
+          const confirm = await vscode.window.showWarningMessage(
+            'Delete ALL notes? This empties everything.',
+            { modal: true },
+            'Delete All'
+          );
+          if (confirm === 'Delete All') {
+            this.items.clear();
+          }
+          break;
+        }
         case 'toggleArchive':
           if (msg.id && typeof msg.archived === 'boolean') {
             this.items.setArchived(msg.id, msg.archived);
@@ -158,8 +185,15 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 </head>
 <body>
   <div id="toolbar" class="toolbar">
+    <select id="view-mode" class="view-mode" title="View mode">
+      <option value="auto">Auto Sort</option>
+      <option value="fixed">Fixed Order</option>
+      <option value="grouped">Grouped</option>
+    </select>
     <button id="btn-add" class="btn btn-primary" title="Quick note">+ Note</button>
     <button id="btn-archive-toggle" class="btn btn-ghost" title="Show/hide archive">Archive</button>
+    <button id="btn-insert-test" class="btn btn-ghost" title="Insert 20 sample records for testing">dev-insert-test</button>
+    <button id="btn-delete-test" class="btn btn-ghost" title="Delete all records">dev-delete-test</button>
   </div>
   <div id="list" class="list"></div>
   <div id="empty" class="empty" hidden>No notes yet.<br>Press "+ Note" to add your first idea.</div>

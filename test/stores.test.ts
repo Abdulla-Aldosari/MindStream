@@ -136,4 +136,23 @@ describe('ItemsStore', () => {
     assert.strictEqual(items.get(item.id), undefined);
     assert.strictEqual(items.list(true).length, 0);
   });
+
+  it('list() returns a stable creation order independent of status', () => {
+    const { storage, items, typeId } = setup();
+    const a = items.create({ typeId, title: 'A', status: 'done' });
+    const b = items.create({ typeId, title: 'B', status: 'pending' });
+    const c = items.create({ typeId, title: 'C', status: 'in-progress' });
+
+    // Force a deterministic creation order: a < b < c
+    storage.getData().items.find((x) => x.id === a.id)!.createdAt = '2020-01-01T00:00:00.000Z';
+    storage.getData().items.find((x) => x.id === b.id)!.createdAt = '2020-01-02T00:00:00.000Z';
+    storage.getData().items.find((x) => x.id === c.id)!.createdAt = '2020-01-03T00:00:00.000Z';
+
+    const ordered = items.list();
+    assert.deepStrictEqual(
+      ordered.map((x) => x.id),
+      [a.id, b.id, c.id],
+      'must be ordered by createdAt ascending, not by status'
+    );
+  });
 });

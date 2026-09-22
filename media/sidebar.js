@@ -3,6 +3,7 @@
   const vscode = acquireVsCodeApi();
 
   const STATUS_CYCLE = ['pending', 'in-progress', 'done'];
+  const STATUS_ORDER = { pending: 0, 'in-progress': 1, done: 2 };
   const ICONS = {
     wrench: 'codicon-wrench',
     edit: 'codicon-edit',
@@ -15,18 +16,26 @@
     tag: 'codicon-tag'
   };
 
+  const saved = vscode.getState() || {};
+
   const state = {
     items: [],
     types: [],
     statusLabels: {},
     includeArchived: false,
-    editingId: null
+    editingId: null,
+    viewMode: saved.viewMode || 'auto',
+    collapsed: saved.collapsed || {}
   };
 
   const $ = (id) => document.getElementById(id);
   const listEl = $('list');
   const emptyEl = $('empty');
   const modalEl = $('modal');
+
+  function persist() {
+    vscode.setState({ viewMode: state.viewMode, collapsed: state.collapsed });
+  }
 
   function iconClass(name) {
     return 'codicon ' + (ICONS[name] || 'codicon-tag');
@@ -45,59 +54,198 @@
       .replace(/"/g, '&quot;');
   }
 
-  function renderList() {
+  // --- Ordering / grouping ---
+
+  function byCreatedAsc(a, b) {
+    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+  }
+
+  function autoSorted() {
+    return [...state.items].sort((a, b) => {
+      const s = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
+      if (s !== 0) {
+        return s;
+      }
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    });
+  }
+
+  function orderedItems() {
+    if (state.viewMode === 'auto') {
+      return autoSorted();
+    }
+    return [...state.items].sort(byCreatedAsc); // fixed: stable creation order
+  }
+
+  function groupedByStatus() {
+    const groups = { pending: [], 'in-progress': [], done: [] };
+    for (const item of state.items) {
+      (groups[item.status] || groups.pending).push(item);
+    }
+    for (const key of Object.keys(groups)) {
+      groups[key].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    }
+    return groups;
+  }
+
+  function renderList(changedIds) {
+    const prevPositions = capturePositions();
+
     listEl.innerHTML = '';
     emptyEl.hidden = state.items.length > 0;
 
-    for (const item of state.items) {
-      const t = typeOf(item.typeId);
-      const card = document.createElement('div');
-      card.className = 'card' + (item.archived ? ' archived' : '');
-      card.dataset.id = item.id;
+    if (state.viewMode === 'grouped') {
+      const groups = groupedByStatus();
+      const order = ['pending', 'in-progress', 'done'];
+      for (const statusKey of order) {
+        const items = groups[statusKey];
+        const section = document.createElement('div');
+        section.className = 'group';
+        section.appendChild(buildGroupHeader(statusKey, items));
+        if (!state.collapsed[statusKey]) {
+          for (const item of items) {
+            section.appendChild(buildCard(item));
+          }
+        }
+        listEl.appendChild(section);
+      }
+    } else {
+      for (const item of orderedItems()) {
+        listEl.appendChild(buildCard(item));
+      }
+    }
 
-      const head = document.createElement('div');
-      head.className = 'card-head';
+    // FLIP animation (only when order actually changes)
+    if (state.viewMode === 'auto' || state.viewMode === 'grouped') {
+      animateFlip(prevPositions, changedIds);
+    }
+  }
 
-      const title = document.createElement('div');
-      title.className = 'card-title';
-      title.textContent = item.title;
-      head.appendChild(title);
+  function capturePositions() {
+    const map = {};
+    listEl.querySelectorAll('.card[data-id]').forEach((el) => {
+      map[el.dataset.id] = el.getBoundingClientRect();
+    });
+    return map;
+  }
 
-      const typeBadge = document.createElement('span');
-      typeBadge.className = 'card-type';
-      typeBadge.innerHTML = '<span class="' + iconClass(t.icon) + '"></span> ' + esc(t.label);
-      head.appendChild(typeBadge);
-      card.appendChild(head);
+  function animateFlip(prevPositions, changedIds) {
+    const cards = listEl.querySelectorAll('.card[data-id]');
+    const hasMoves = Object.keys(prevPositions).length > 0;
 
-      if (item.description) {
-        const desc = document.createElement('div');
-        desc.className = 'card-desc';
-        desc.textContent = item.description;
-        desc.title = item.description;
-        card.appendChild(desc);
+    cards.forEach((el) => {
+      const id = el.dataset.id;
+      const prev = prevPositions[id];
+
+      if (!prev) {
+        // Newly added card
+        el.animate(
+          [{ opacity: 0 }, { opacity: 1 }],
+          { duration: 250, easing: 'ease' }
+        );
+        return;
       }
 
-      const footer = document.createElement('div');
-      footer.className = 'card-footer';
+      if (hasMoves) {
+        const next = el.getBoundingClientRect();
+        const dy = prev.top - next.top;
+        if (Math.abs(dy) > 1) {
+          el.animate(
+            [
+              { transform: 'translateY(' + dy + 'px)' },
+              { transform: 'translateY(0px)' }
+            ],
+            { duration: 250, easing: 'ease' }
+          );
+        }
+      }
 
-      const status = document.createElement('span');
-      status.className = 'status ' + item.status;
-      status.textContent = state.statusLabels[item.status] || item.status;
-      status.title = 'Change status';
-      status.addEventListener('click', () => cycleStatus(item));
-      footer.appendChild(status);
+      if (changedIds && changedIds[id]) {
+        el.animate(
+          [
+            { backgroundColor: 'var(--vscode-focusBorder)' },
+            { backgroundColor: 'var(--vscode-editor-background, var(--vscode-sideBar-background))' }
+          ],
+          { duration: 500, easing: 'ease' }
+        );
+      }
+    });
+  }
 
-      const spacer = document.createElement('span');
-      spacer.className = 'spacer';
-      footer.appendChild(spacer);
+  function buildCard(item) {
+    const t = typeOf(item.typeId);
+    const card = document.createElement('div');
+    card.className = 'card' + (item.archived ? ' archived' : '');
+    card.dataset.id = item.id;
 
-      footer.appendChild(btnIcon('codicon-edit', 'Edit', () => openEdit(item)));
-      footer.appendChild(btnIcon('codicon-archive', item.archived ? 'Unarchive' : 'Archive', () => toggleArchive(item)));
-      footer.appendChild(btnIcon('codicon-trash', 'Delete permanently', () => deleteItem(item), true));
+    const head = document.createElement('div');
+    head.className = 'card-head';
 
-      card.appendChild(footer);
-      listEl.appendChild(card);
+    const title = document.createElement('div');
+    title.className = 'card-title';
+    title.textContent = item.title;
+    head.appendChild(title);
+
+    const typeBadge = document.createElement('span');
+    typeBadge.className = 'card-type';
+    typeBadge.innerHTML = '<span class="' + iconClass(t.icon) + '"></span> ' + esc(t.label);
+    head.appendChild(typeBadge);
+    card.appendChild(head);
+
+    if (item.description) {
+      const desc = document.createElement('div');
+      desc.className = 'card-desc';
+      desc.textContent = item.description;
+      desc.title = item.description;
+      card.appendChild(desc);
     }
+
+    const footer = document.createElement('div');
+    footer.className = 'card-footer';
+
+    const status = document.createElement('span');
+    status.className = 'status ' + item.status;
+    status.textContent = state.statusLabels[item.status] || item.status;
+    status.title = 'Change status (Ctrl+Click: toggle None/Done)';
+    status.addEventListener('click', (e) => cycleStatus(item, e));
+    footer.appendChild(status);
+
+    const spacer = document.createElement('span');
+    spacer.className = 'spacer';
+    footer.appendChild(spacer);
+
+    footer.appendChild(btnIcon('codicon-edit', 'Edit', () => openEdit(item)));
+    footer.appendChild(btnIcon('codicon-archive', item.archived ? 'Unarchive' : 'Archive', () => toggleArchive(item)));
+    footer.appendChild(btnIcon('codicon-trash', 'Delete permanently', () => deleteItem(item), true));
+
+    card.appendChild(footer);
+    return card;
+  }
+
+  function buildGroupHeader(statusKey, items) {
+    const header = document.createElement('div');
+    header.className = 'group-header' + (state.collapsed[statusKey] ? ' collapsed' : '');
+    header.dataset.group = statusKey;
+
+    const chevron = document.createElement('span');
+    chevron.className = 'chevron codicon codicon-chevron-down';
+    header.appendChild(chevron);
+
+    const label = document.createElement('span');
+    label.textContent = state.statusLabels[statusKey] || statusKey;
+    header.appendChild(label);
+
+    const count = document.createElement('span');
+    count.className = 'group-count';
+    count.textContent = '(' + items.length + ')';
+    header.appendChild(count);
+
+    header.addEventListener('click', () => {
+      state.collapsed[statusKey] = !state.collapsed[statusKey];
+      persist();
+      renderList();
+    });
+    return header;
   }
 
   function btnIcon(codicon, title, onClick, danger) {
@@ -109,9 +257,15 @@
     return b;
   }
 
-  function cycleStatus(item) {
-    const i = STATUS_CYCLE.indexOf(item.status);
-    const next = STATUS_CYCLE[(i + 1) % STATUS_CYCLE.length];
+  function cycleStatus(item, event) {
+    let next;
+    if (event && (event.ctrlKey || event.metaKey)) {
+      // Ctrl+Click (or Cmd+Click on macOS): jump directly between None and Done.
+      next = item.status === 'done' ? 'pending' : 'done';
+    } else {
+      const i = STATUS_CYCLE.indexOf(item.status);
+      next = STATUS_CYCLE[(i + 1) % STATUS_CYCLE.length];
+    }
     vscode.postMessage({ type: 'changeStatus', id: item.id, status: next });
   }
 
@@ -120,9 +274,7 @@
   }
 
   function deleteItem(item) {
-    if (window.confirm('Delete this note permanently?\n"' + item.title + '"')) {
-      vscode.postMessage({ type: 'deleteItem', id: item.id });
-    }
+    vscode.postMessage({ type: 'deleteItem', id: item.id });
   }
 
   function fillTypeSelect() {
@@ -189,12 +341,22 @@
     $('btn-archive-toggle').textContent = visible ? 'Hide archive' : 'Archive';
   }
 
+  let prevStatusById = {};
+
   window.addEventListener('message', (event) => {
     const msg = event.data;
     if (!msg || msg.type !== 'state') {
       return;
     }
-    state.items = msg.items || [];
+    const newItems = msg.items || [];
+    const changedIds = {};
+    newItems.forEach((it) => {
+      if (prevStatusById[it.id] !== undefined && prevStatusById[it.id] !== it.status) {
+        changedIds[it.id] = true;
+      }
+    });
+
+    state.items = newItems;
     state.types = msg.types || [];
     state.statusLabels = msg.statusLabels || {};
     state.includeArchived = !!msg.includeArchived;
@@ -202,12 +364,31 @@
       document.documentElement.setAttribute('dir', msg.direction);
     }
     setArchiveVisible(state.includeArchived);
+    renderList(changedIds);
+
+    prevStatusById = {};
+    newItems.forEach((it) => {
+      prevStatusById[it.id] = it.status;
+    });
+  });
+
+  const viewModeEl = $('view-mode');
+  viewModeEl.value = state.viewMode;
+  viewModeEl.addEventListener('change', () => {
+    state.viewMode = viewModeEl.value;
+    persist();
     renderList();
   });
 
   $('btn-add').addEventListener('click', openAdd);
   $('btn-archive-toggle').addEventListener('click', () => {
     vscode.postMessage({ type: 'toggleArchiveView' });
+  });
+  $('btn-insert-test').addEventListener('click', () => {
+    vscode.postMessage({ type: 'insertTestData' });
+  });
+  $('btn-delete-test').addEventListener('click', () => {
+    vscode.postMessage({ type: 'clearAll' });
   });
   $('modal-close').addEventListener('click', closeModal);
   $('modal-cancel').addEventListener('click', closeModal);

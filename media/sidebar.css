@@ -31,6 +31,21 @@ body {
   border-bottom: 1px solid var(--vscode-panel-border, transparent);
 }
 
+.view-mode {
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border, var(--vscode-widget-border, transparent));
+  border-radius: var(--radius);
+  padding: 4px 6px;
+  cursor: pointer;
+  max-width: 110px;
+}
+.view-mode:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+}
+
 .btn {
   font-family: inherit;
   font-size: inherit;
@@ -103,13 +118,16 @@ body {
 }
 
 .card-type {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--vscode-descriptionForeground);
-  background: var(--vscode-badge-background);
-  color: var(--vscode-badge-foreground);
-  padding: 1px 8px;
-  border-radius: 10px;
+  background: var(--vscode-textBlockQuote-background);
+  padding: 4px 7px 5px 7px;
+  border-radius: 4px;
+  display: flex;
+  gap: 5px;
+  align-items: center;
   white-space: nowrap;
+  user-select: none;
 }
 
 .card-desc {
@@ -132,8 +150,8 @@ body {
 
 .status {
   font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 10px;
+  padding: 2px 8px 3px 8px;
+  border-radius: 6px;
   cursor: pointer;
   border: 1px solid transparent;
   user-select: none;
@@ -161,7 +179,7 @@ body {
   color: var(--vscode-descriptionForeground);
   cursor: pointer;
   border-radius: 4px;
-  padding: 2px 5px;
+  padding: 5px 5px 1px 5px;
   font-size: 12px;
   font-family: inherit;
 }
@@ -231,8 +249,79 @@ body {
   outline: 1px solid var(--vscode-focusBorder);
 }
 
+.field textarea {
+  resize: vertical;
+  height: 128px;
+  min-height: 55px;
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-start;
   gap: 8px;
+}
+
+/* Grouped view: collapsible status sections */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 2px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  border-bottom: 1px solid var(--vscode-panel-border, transparent);
+}
+.group-header:hover {
+  color: var(--vscode-textLink-foreground);
+}
+.group-header .chevron {
+  transition: transform 0.15s ease;
+}
+.group-header.collapsed .chevron {
+  transform: rotate(-90deg);
+}
+.group-count {
+  color: var(--vscode-descriptionForeground);
+  font-weight: 400;
+}
+
+/* FLIP move animation */
+.card.flip {
+  transition: transform 0.25s ease;
+}
+.card.appear {
+  animation: fade-in 0.25s ease;
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Status-change flash highlight */
+.card.flash {
+  animation: flash-bg 0.5s ease;
+}
+@keyframes flash-bg {
+  0% {
+    background: var(--vscode-textBlockQuote-background, var(--vscode-editor-background));
+  }
+  50% {
+    background: var(--vscode-focusBorder);
+  }
+  100% {
+    background: var(--vscode-editor-background, var(--vscode-sideBar-background));
+  }
 }
