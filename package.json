@@ -4,7 +4,7 @@
   "description": "A personal developer roadmap: record notes, ideas, and fixes and track their status within your project.",
   "version": "0.1.0",
   "publisher": "abdulla-aldosari",
-  "icon": "images/mindstream.png", 
+  "icon": "images/mindstream.png",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -188,7 +188,8 @@
     "compile": "node esbuild.js",
     "watch": "node esbuild.js --watch",
     "test": "npm run compile && mocha",
-    "package": "npm run compile && vsce package"
+    "changelog": "git-cliff -o CHANGELOG.md",
+    "package": "npm run compile && npm run changelog && vsce package"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
@@ -197,6 +198,7 @@
     "@vscode/codicons": "^0.0.46-24",
     "@vscode/vsce": "^4.0.0",
     "esbuild": "^0.28.2",
+    "git-cliff": "^2.14.2",
     "mocha": "^10.7.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.5.4"
