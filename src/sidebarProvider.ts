@@ -3,6 +3,7 @@ import { MindStreamStatus } from './models';
 import { ItemsStore } from './itemsStore';
 import { TypesRegistry } from './typesRegistry';
 import { CategoriesRegistry } from './categoriesRegistry';
+import { WeeklyReportData } from './report';
 
 export const VIEW_TYPE = 'mindstream.sidebar';
 
@@ -78,6 +79,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   /** Tells the webview to open the categories management modal. */
   openCategories(): void {
     this._view?.webview.postMessage({ type: 'openCategories' });
+  }
+
+  /** Tells the webview to open the weekly report modal. */
+  openWeeklyReport(report: WeeklyReportData): void {
+    this._view?.webview.postMessage({ type: 'openWeeklyReport', report });
   }
 
   private updateBadge(): void {
@@ -228,7 +234,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     <div class="modal-card">
       <div class="modal-header">
         <span id="modal-title">New note</span>
-        <button id="modal-close" class="icon-btn" title="Close">✕</button>
+        <button id="modal-close" class="icon-btn close-x-btn" title="Close">✕</button>
       </div>
       <label class="field"><span>Title</span><input id="f-title" type="text" placeholder="Write the idea/task briefly"></label>
       <div class="field"><span>Type</span><div id="f-type-container"></div></div>
@@ -243,7 +249,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   <div id="view-modal" class="modal" hidden>
     <div class="modal-card viewer-card">
       <div class="modal-header viewer-header">
-        <button id="view-close" class="icon-btn" title="Close">✕</button>
+        <button id="view-close" class="icon-btn close-x-btn" title="Close">✕</button>
       </div>
       <span id="view-title" class="viewer-title"></span>
       <div id="view-desc" class="viewer-desc">
@@ -268,13 +274,26 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
           <span class="modal-title">Manage Categories</span>
           <span class="modal-subtitle">Create, rename, and delete your note categories</span>
         </div>
-        <button id="categories-close" class="icon-btn" title="Close">✕</button>
+        <button id="categories-close" class="icon-btn close-x-btn" title="Close">✕</button>
       </div>
       <div id="categories-list" class="categories-list"></div>
       <div class="categories-form">
         <input id="f-category-name" type="text" placeholder="New category name" autocomplete="off">
         <button id="btn-add-category" class="btn btn-primary">Add</button>
       </div>
+    </div>
+  </div>
+  <div id="report-modal" class="modal" hidden>
+    <div class="modal-card report-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span id="report-title" class="modal-title">Weekly Report</span>
+          <span class="modal-subtitle">Your activity for this week</span>
+        </div>
+        <button id="report-close" class="icon-btn close-x-btn" title="Close">✕</button>
+      </div>
+      <div id="report-summary" class="report-summary"></div>
+      <div id="report-body" class="report-body"></div>
     </div>
   </div>
   <script nonce="${nonce}" src="${scriptUri}"></script>

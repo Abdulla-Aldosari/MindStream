@@ -119,14 +119,19 @@
           "group": "navigation@3"
         },
         {
-          "command": "mindstream.refresh",
+          "command": "mindstream.weeklyReport",
           "when": "view == mindstream.sidebar",
           "group": "navigation@4"
         },
         {
-          "submenu": "mindstream.more",
+          "command": "mindstream.refresh",
           "when": "view == mindstream.sidebar",
           "group": "navigation@5"
+        },
+        {
+          "submenu": "mindstream.more",
+          "when": "view == mindstream.sidebar",
+          "group": "navigation@6"
         }
       ],
       "mindstream.more": [

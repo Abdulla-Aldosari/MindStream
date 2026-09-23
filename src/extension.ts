@@ -7,6 +7,7 @@ import { TypesRegistry } from './typesRegistry';
 import { CategoriesRegistry } from './categoriesRegistry';
 import { SidebarProvider, VIEW_TYPE } from './sidebarProvider';
 import { MindStreamData, MindStreamStatus, MindStreamTypeDef } from './models';
+import { buildWeeklyReport, formatDate } from './report';
 
 let sidebar: SidebarProvider | undefined;
 
@@ -116,7 +117,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('mindstream.importJson', () => importJson(storage, sidebar))
   );
   context.subscriptions.push(
-    vscode.commands.registerCommand('mindstream.weeklyReport', () => weeklyReport(items))
+    vscode.commands.registerCommand('mindstream.weeklyReport', () => sidebar?.openWeeklyReport(buildWeeklyReport(items)))
   );
   context.subscriptions.push(
     vscode.commands.registerCommand('mindstream.exportWeeklyReport', () => exportWeeklyReport(items))
@@ -250,11 +251,6 @@ const STATUS_LABEL: Record<MindStreamStatus, string> = {
   done: 'Done'
 };
 
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return isNaN(d.getTime()) ? iso : d.toISOString().slice(0, 10);
-}
-
 async function saveDialog(fileName: string, filters: Record<string, string[]>): Promise<vscode.Uri | undefined> {
   const folder = vscode.workspace.workspaceFolders?.[0];
   return vscode.window.showSaveDialog({
@@ -364,65 +360,6 @@ async function importJson(storage: StorageService, sidebar: SidebarProvider | un
   }
 }
 
-interface WeeklyReportData {
-  weekLabel: string;
-  createdCount: number;
-  completedCount: number;
-  inProgressCount: number;
-  archivedCount: number;
-  completedTitles: string[];
-  inProgressTitles: string[];
-}
-
-function startOfWeek(date: Date): Date {
-  const d = new Date(date);
-  const diff = (d.getDay() + 6) % 7;
-  d.setDate(d.getDate() - diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function buildWeeklyReport(items: ItemsStore): WeeklyReportData {
-  const now = new Date();
-  const weekStart = startOfWeek(now).getTime();
-  const all = items.list(true);
-  const created = all.filter((it) => new Date(it.createdAt).getTime() >= weekStart);
-  const completed = all.filter((it) => {
-    const at = items.completedAt(it);
-    return at ? new Date(at).getTime() >= weekStart : false;
-  });
-  const inProgress = all.filter((it) => it.status === 'in-progress');
-  const archived = all.filter((it) => it.archivedAt && new Date(it.archivedAt).getTime() >= weekStart);
-  return {
-    weekLabel: formatDate(now.toISOString()),
-    createdCount: created.length,
-    completedCount: completed.length,
-    inProgressCount: inProgress.length,
-    archivedCount: archived.length,
-    completedTitles: completed.map((it) => it.title),
-    inProgressTitles: inProgress.map((it) => it.title)
-  };
-}
-
-async function weeklyReport(items: ItemsStore): Promise<void> {
-  const report = buildWeeklyReport(items);
-  const qp = vscode.window.createQuickPick();
-  qp.title = `MindStream Weekly Report — Week of ${report.weekLabel}`;
-  const entries: vscode.QuickPickItem[] = [
-    { label: `Created this week: ${report.createdCount} notes` },
-    { label: `Completed this week: ${report.completedCount} notes` },
-    { label: `Currently in progress: ${report.inProgressCount} notes` },
-    { label: `Archived this week: ${report.archivedCount} notes` },
-    { label: 'Completed', kind: vscode.QuickPickItemKind.Separator },
-    ...report.completedTitles.map((t) => ({ label: `• ${t}` })),
-    { label: 'In progress', kind: vscode.QuickPickItemKind.Separator },
-    ...report.inProgressTitles.map((t) => ({ label: `• ${t}` }))
-  ];
-  qp.items = entries;
-  qp.onDidHide(() => qp.dispose());
-  qp.show();
-}
-
 async function exportWeeklyReport(items: ItemsStore): Promise<void> {
   const report = buildWeeklyReport(items);
   const lines: string[] = [
@@ -434,17 +371,17 @@ async function exportWeeklyReport(items: ItemsStore): Promise<void> {
     `Archived this week:  ${report.archivedCount} notes`,
     ''
   ];
-  if (report.completedTitles.length) {
+  if (report.completed.length) {
     lines.push('Completed:');
-    for (const t of report.completedTitles) {
-      lines.push(`- ${t}`);
+    for (const it of report.completed) {
+      lines.push(`- ${it.title}`);
     }
     lines.push('');
   }
-  if (report.inProgressTitles.length) {
+  if (report.inProgress.length) {
     lines.push('In progress:');
-    for (const t of report.inProgressTitles) {
-      lines.push(`- ${t}`);
+    for (const it of report.inProgress) {
+      lines.push(`- ${it.title}`);
     }
     lines.push('');
   }
