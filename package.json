@@ -3,7 +3,8 @@
   "displayName": "MindStream",
   "description": "A personal developer roadmap: record notes, ideas, and fixes and track their status within your project.",
   "version": "0.1.0",
-  "publisher": "mindstream",
+  "publisher": "abdulla-aldosari",
+  "icon": "images/mindstream.png", 
   "license": "MIT",
   "repository": {
     "type": "git",
