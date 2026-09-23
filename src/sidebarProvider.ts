@@ -229,7 +229,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data:; font-src ${webview.cspSource};">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link href="${codiconCssUri}" rel="stylesheet">
-  <link href="${styleUri}" rel="stylesheet">
+  <link href="${styleUri}?v=${Date.now()}" rel="stylesheet">
   <title>MindStream</title>
 </head>
 <body>
@@ -288,12 +288,15 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   <div id="categories-modal" class="modal" hidden>
     <div class="modal-card">
       <div class="modal-header">
-        <span>Manage Categories</span>
+        <div class="modal-title-group">
+          <span class="modal-title">Manage Categories</span>
+          <span class="modal-subtitle">Create, rename, and delete your note categories</span>
+        </div>
         <button id="categories-close" class="icon-btn" title="Close">✕</button>
       </div>
       <div id="categories-list" class="categories-list"></div>
-      <div class="modal-actions">
-        <input id="f-category-name" type="text" placeholder="New category name">
+      <div class="categories-form">
+        <input id="f-category-name" type="text" placeholder="New category name" autocomplete="off">
         <button id="btn-add-category" class="btn btn-primary">Add</button>
       </div>
     </div>

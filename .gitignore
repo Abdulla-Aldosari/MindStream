@@ -1,7 +1,7 @@
-.vsenv
-node_modules
-out
-dist
+.vsenv/
+node_modules/
+dist/
 *.vsix
 .vscode-test
 .vscode/runbox.*
+.vscode/settings.json
