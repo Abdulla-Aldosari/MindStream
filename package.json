@@ -69,6 +69,36 @@
         "title": "Open MindStream Panel",
         "category": "MindStream",
         "icon": "$(list-unordered)"
+      },
+      {
+        "command": "mindstream.exportMarkdown",
+        "title": "Export Markdown",
+        "category": "MindStream",
+        "icon": "$(markdown)"
+      },
+      {
+        "command": "mindstream.exportJson",
+        "title": "Export JSON",
+        "category": "MindStream",
+        "icon": "$(json)"
+      },
+      {
+        "command": "mindstream.importJson",
+        "title": "Import JSON",
+        "category": "MindStream",
+        "icon": "$(json)"
+      },
+      {
+        "command": "mindstream.weeklyReport",
+        "title": "Weekly Report",
+        "category": "MindStream",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "mindstream.exportWeeklyReport",
+        "title": "Export Weekly Report",
+        "category": "MindStream",
+        "icon": "$(graph)"
       }
     ],
     "menus": {
@@ -84,12 +114,47 @@
           "group": "navigation@2"
         },
         {
-          "command": "mindstream.refresh",
+          "command": "mindstream.manageCategories",
           "when": "view == mindstream.sidebar",
           "group": "navigation@3"
+        },
+        {
+          "command": "mindstream.refresh",
+          "when": "view == mindstream.sidebar",
+          "group": "navigation@4"
+        },
+        {
+          "submenu": "mindstream.more",
+          "when": "view == mindstream.sidebar",
+          "group": "navigation@5"
+        }
+      ],
+      "mindstream.more": [
+        {
+          "command": "mindstream.exportMarkdown",
+          "group": "1@1"
+        },
+        {
+          "command": "mindstream.exportJson",
+          "group": "1@2"
+        },
+        {
+          "command": "mindstream.importJson",
+          "group": "1@3"
+        },
+        {
+          "command": "mindstream.exportWeeklyReport",
+          "group": "1@4"
         }
       ]
     },
+    "submenus": [
+      {
+        "id": "mindstream.more",
+        "label": "More",
+        "icon": "$(ellipsis)"
+      }
+    ],
     "keybindings": [
       {
         "command": "mindstream.addNote",

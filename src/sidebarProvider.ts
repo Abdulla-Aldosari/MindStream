@@ -15,8 +15,6 @@ interface WebviewMessage {
     | 'changeStatus'
     | 'toggleArchive'
     | 'toggleArchiveView'
-    | 'insertTestData'
-    | 'clearAll'
     | 'addCategory'
     | 'renameCategory'
     | 'deleteCategory';
@@ -140,20 +138,6 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         case 'toggleArchiveView':
           this._archiveVisible = !this._archiveVisible;
           break;
-        case 'insertTestData':
-          this.items.insertTestData();
-          break;
-        case 'clearAll': {
-          const confirm = await vscode.window.showWarningMessage(
-            'Delete ALL notes? This empties everything.',
-            { modal: true },
-            'Delete All'
-          );
-          if (confirm === 'Delete All') {
-            this.items.clear();
-          }
-          break;
-        }
         case 'toggleArchive':
           if (msg.id && typeof msg.archived === 'boolean') {
             this.items.setArchived(msg.id, msg.archived);
@@ -236,18 +220,10 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   <div id="toolbar" class="toolbar">
     <div id="category-filter-container" title="Filter by category"></div>
     <div id="view-mode-container" title="View mode"></div>
-    <button id="btn-add" class="btn btn-primary" title="Quick note">+ Note</button>
     <button id="btn-archive-toggle" class="btn btn-ghost" title="Show/hide archive">Archive</button>
-    <span class="spacer"></span>
-    <button id="btn-more" class="icon-btn" title="More options"><span class="codicon codicon-kebab-vertical"></span></button>
-  </div>
-  <div id="more-menu" class="more-menu" hidden>
-    <button id="menu-manage-categories" class="more-menu-item"><span class="codicon codicon-folder"></span> Manage Categories</button>
-    <button id="btn-insert-test" class="more-menu-item"><span class="codicon codicon-add"></span> dev-insert-test</button>
-    <button id="btn-delete-test" class="more-menu-item danger"><span class="codicon codicon-trash"></span> dev-delete-test</button>
   </div>
   <div id="list" class="list"></div>
-  <div id="empty" class="empty" hidden>No notes yet.<br>Press "+ Note" to add your first idea.</div>
+  <div id="empty" class="empty" hidden>No notes yet.<br>Press "Quick Note" (Ctrl+Alt+M) to add your first idea.</div>
   <div id="modal" class="modal" hidden>
     <div class="modal-card">
       <div class="modal-header">
