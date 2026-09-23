@@ -6,7 +6,7 @@ import { ItemsStore } from './itemsStore';
 import { TypesRegistry } from './typesRegistry';
 import { CategoriesRegistry } from './categoriesRegistry';
 import { SidebarProvider, VIEW_TYPE } from './sidebarProvider';
-import { MindStreamData, MindStreamStatus, MindStreamTypeDef } from './models';
+import { MindStreamData, MindStreamStatus } from './models';
 import { buildWeeklyReport, formatDate } from './report';
 
 let sidebar: SidebarProvider | undefined;
@@ -102,7 +102,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('mindstream.addNote', () => sidebar?.openAddNote())
   );
   context.subscriptions.push(
-    vscode.commands.registerCommand('mindstream.manageTypes', () => manageTypes(types, items))
+    vscode.commands.registerCommand('mindstream.manageTypes', () => sidebar?.openTypes())
   );
   context.subscriptions.push(
     vscode.commands.registerCommand('mindstream.manageCategories', () => sidebar?.openCategories())
@@ -144,105 +144,6 @@ async function requireWorkspace(): Promise<void> {
 
 export function deactivate(): void {
   /* nothing to do */
-}
-
-interface QuickPickTypeItem extends vscode.QuickPickItem {
-  typeDef?: MindStreamTypeDef;
-}
-
-async function pickType(types: TypesRegistry, allowNew: boolean): Promise<MindStreamTypeDef | undefined> {
-  const defs = types.list();
-  const items: QuickPickTypeItem[] = defs.map((t) => ({
-    label: `$(${t.icon ?? 'tag'}) ${t.label}`,
-    typeDef: t
-  }));
-  if (allowNew) {
-    items.push({ label: '$(add) Create new type...' });
-  }
-  const picked = await vscode.window.showQuickPick(items, { placeHolder: 'Choose a type' });
-  if (!picked) {
-    return undefined;
-  }
-  if (picked.typeDef) {
-    return picked.typeDef;
-  }
-  // Create a new type
-  const label = await vscode.window.showInputBox({
-    prompt: 'New type name',
-    placeHolder: 'e.g. Check, Think'
-  });
-  if (!label?.trim()) {
-    return undefined;
-  }
-  return types.add(label.trim());
-}
-
-async function manageTypes(types: TypesRegistry, items: ItemsStore): Promise<void> {
-  // Initial list: add a type or pick an existing one to manage it
-  const defs = types.list();
-  const entries: QuickPickTypeItem[] = [
-    { label: '$(add) Add new type' },
-    ...defs.map((t) => ({ label: `$(${t.icon ?? 'tag'}) ${t.label}`, description: t.label, typeDef: t }))
-  ];
-  const picked = await vscode.window.showQuickPick(entries, {
-    placeHolder: 'Manage types: add one or pick a type to edit/delete'
-  });
-  if (!picked) {
-    return;
-  }
-  if (!picked.typeDef) {
-    const label = await vscode.window.showInputBox({ prompt: 'New type name', placeHolder: 'e.g. Check, Think' });
-    if (!label?.trim()) {
-      return;
-    }
-    types.add(label.trim());
-    vscode.window.showInformationMessage(`Added type "${label.trim()}"`);
-    return;
-  }
-  const def = picked.typeDef;
-  const action = await vscode.window.showQuickPick(
-    [
-      { label: '$(edit) Rename', action: 'rename' as const },
-      { label: '$(trash) Delete', action: 'delete' as const }
-    ],
-    { placeHolder: `Action on "${def.label}"` }
-  );
-  if (!action) {
-    return;
-  }
-  if (action.action === 'rename') {
-    const label = await vscode.window.showInputBox({ value: def.label, prompt: 'New name' });
-    if (!label?.trim()) {
-      return;
-    }
-    types.rename(def.id, label.trim());
-    vscode.window.showInformationMessage(`Renamed to "${label.trim()}"`);
-  } else {
-    const affected = items.list(true).filter((it) => it.typeId === def.id).length;
-    const confirm = await vscode.window.showWarningMessage(
-      `Delete type "${def.label}"? ${affected > 0 ? `${affected} note(s) are linked to it.` : ''}`,
-      { modal: true },
-      'Delete'
-    );
-    if (confirm !== 'Delete') {
-      return;
-    }
-    types.remove(def.id);
-    if (affected > 0) {
-      const other = types.list().filter((t) => t.id !== def.id);
-      if (other.length > 0) {
-        const target = await vscode.window.showQuickPick(
-          other.map((t) => ({ label: t.label, id: t.id })),
-          { placeHolder: 'Reassign the linked notes to a type...' }
-        );
-        if (target) {
-          types.reassign(def.id, target.id);
-        }
-      }
-    }
-    vscode.window.showInformationMessage(`Deleted type "${def.label}"`);
-  }
-  sidebar?.refresh();
 }
 
 const STATUS_LABEL: Record<MindStreamStatus, string> = {
