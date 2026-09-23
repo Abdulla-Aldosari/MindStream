@@ -887,9 +887,13 @@
 
   function populateCategoryFilter() {
     const current = state.categoryFilter;
-    const options = [{ value: 'all', label: 'All Categories' }].concat(
+    const totalCount = state.items.length;
+    const options = [{ value: 'all', label: 'All Categories', badge: '(' + totalCount + ')' }].concat(
       state.categories.map(function (c) {
-        return { value: c.id, label: c.label };
+        const count = state.items.filter(function (it) {
+          return it.categoryId === c.id;
+        }).length;
+        return { value: c.id, label: c.label, badge: '(' + count + ')' };
       })
     );
     state.categoryFilter = state.categories.some((c) => c.id === current) ? current : 'all';
@@ -1030,6 +1034,12 @@
       menu.hidden = true;
     }
   });
+
+  // Hide the status tooltip when the user scrolls. Scroll events do not bubble,
+  // so listen in the capture phase to catch the list and any nested scroller;
+  // otherwise a `position: fixed` tooltip stays stuck in place while content
+  // scrolls beneath a stationary mouse cursor.
+  window.addEventListener('scroll', hideStatusTooltip, true);
 
   // Initialize the custom dropdowns (view mode is static; category filter is
   // re-rendered whenever new state arrives, so render an initial empty set).
