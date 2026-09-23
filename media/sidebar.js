@@ -937,57 +937,8 @@
     });
   }
 
-  $('btn-add').addEventListener('click', openAdd);
   $('btn-archive-toggle').addEventListener('click', () => {
     vscode.postMessage({ type: 'toggleArchiveView' });
-  });
-  $('btn-more').addEventListener('click', (e) => {
-    e.stopPropagation();
-    const menu = $('more-menu');
-    if (menu.hidden) {
-      const rect = $('btn-more').getBoundingClientRect();
-      const margin = 4;
-      const viewportWidth = document.documentElement.clientWidth;
-      const viewportHeight = document.documentElement.clientHeight;
-
-      // Show it off-screen first so we can measure its real size.
-      menu.style.left = '0px';
-      menu.style.top = '0px';
-      menu.hidden = false;
-      const menuWidth = menu.offsetWidth;
-      const menuHeight = menu.offsetHeight;
-
-      // Place the menu below the button, aligned to the button's left edge,
-      // then clamp horizontally within the viewport (works for LTR and RTL).
-      let left = rect.left;
-      if (left + menuWidth > viewportWidth - margin) {
-        left = Math.max(margin, viewportWidth - menuWidth - margin);
-      }
-
-      let top = rect.bottom + margin;
-      // If there is not enough room below, open upward instead.
-      if (top + menuHeight > viewportHeight - margin) {
-        top = rect.top - menuHeight - margin;
-      }
-
-      menu.style.left = left + 'px';
-      menu.style.top = top + 'px';
-      menu.style.right = 'auto';
-    } else {
-      menu.hidden = true;
-    }
-  });
-  $('menu-manage-categories').addEventListener('click', () => {
-    $('more-menu').hidden = true;
-    openCategoriesModal();
-  });
-  $('btn-insert-test').addEventListener('click', () => {
-    $('more-menu').hidden = true;
-    vscode.postMessage({ type: 'insertTestData' });
-  });
-  $('btn-delete-test').addEventListener('click', () => {
-    $('more-menu').hidden = true;
-    vscode.postMessage({ type: 'clearAll' });
   });
   $('modal-close').addEventListener('click', closeModal);
   $('modal-cancel').addEventListener('click', closeModal);
@@ -1018,20 +969,7 @@
         closeView();
       } else if (!$('categories-modal').hidden) {
         closeCategoriesModal();
-      } else if (!$('more-menu').hidden) {
-        $('more-menu').hidden = true;
       }
-    }
-  });
-
-  // Close the "more" menu when clicking anywhere outside it.
-  document.addEventListener('click', (e) => {
-    const menu = $('more-menu');
-    if (menu.hidden) {
-      return;
-    }
-    if (!menu.contains(e.target) && !$('btn-more').contains(e.target)) {
-      menu.hidden = true;
     }
   });
 
