@@ -711,9 +711,12 @@
     $('categories-modal').hidden = true;
   }
 
-  function renderCategories() {
+  function renderCategories(highlightId) {
     const listElC = $('categories-list');
     listElC.innerHTML = '';
+    let highlightRow = null;
+    let highlightBadge = null;
+
     for (const c of state.categories) {
       const row = document.createElement('div');
       row.className = 'category-row';
@@ -725,8 +728,23 @@
 
       const count = document.createElement('span');
       count.className = 'category-count';
-      count.textContent = '(' + (c.count || 0) + ')';
+      count.textContent = String(c.count || 0);
       row.appendChild(count);
+
+      if (c.id === highlightId) {
+        highlightRow = row;
+        highlightBadge = document.createElement('span');
+        highlightBadge.className = 'category-new-badge';
+        highlightBadge.textContent = 'New';
+        row.appendChild(highlightBadge);
+      }
+
+      if (c.isDefault) {
+        const badge = document.createElement('span');
+        badge.className = 'category-default-badge';
+        badge.textContent = 'Default';
+        row.appendChild(badge);
+      }
 
       const spacer = document.createElement('span');
       spacer.className = 'spacer';
@@ -752,6 +770,19 @@
 
       listElC.appendChild(row);
     }
+
+    if (highlightRow) {
+      highlightRow.classList.add('just-added');
+      requestAnimationFrame(() => {
+        highlightRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+      setTimeout(() => {
+        highlightRow.classList.remove('just-added');
+        if (highlightBadge && highlightBadge.parentNode) {
+          highlightBadge.remove();
+        }
+      }, 1700);
+    }
   }
 
   function startRenameCategory(cat, labelEl) {
@@ -763,9 +794,14 @@
     input.focus();
     input.select();
 
-    const commit = () => {
+    let done = false;
+    const finish = (rename) => {
+      if (done) {
+        return;
+      }
+      done = true;
       const value = input.value.trim();
-      if (value && value !== cat.label) {
+      if (rename && value && value !== cat.label) {
         vscode.postMessage({ type: 'renameCategory', id: cat.id, label: value });
       } else {
         renderCategories();
@@ -773,12 +809,14 @@
     };
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
-        commit();
+        e.stopPropagation();
+        finish(true);
       } else if (e.key === 'Escape') {
-        renderCategories();
+        e.stopPropagation();
+        finish(false);
       }
     });
-    input.addEventListener('blur', commit);
+    input.addEventListener('blur', () => finish(true));
   }
 
   function addCategoryFromInput() {
@@ -817,6 +855,7 @@
       }
     });
 
+    const prevCategories = state.categories || [];
     state.items = newItems;
     state.types = msg.types || [];
     state.categories = msg.categories || [];
@@ -825,6 +864,19 @@
     state.direction = msg.direction === 'rtl' ? 'rtl' : 'ltr';
     setArchiveVisible(state.includeArchived);
     populateCategoryFilter();
+    if (!$('categories-modal').hidden) {
+      let addedCategoryId = null;
+      if (prevCategories.length) {
+        const prevIds = new Set(prevCategories.map((p) => p.id));
+        for (const c of state.categories) {
+          if (!prevIds.has(c.id)) {
+            addedCategoryId = c.id;
+            break;
+          }
+        }
+      }
+      renderCategories(addedCategoryId);
+    }
     renderList(changedIds);
 
     prevStatusById = {};

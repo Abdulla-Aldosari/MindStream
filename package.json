@@ -5,6 +5,10 @@
   "version": "0.1.0",
   "publisher": "mindstream",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Abdulla-Aldosari/MindStream.git"
+  },
   "private": true,
   "engines": {
     "vscode": "^1.85.0"
@@ -120,8 +124,8 @@
     "@types/node": "^20.14.0",
     "@types/vscode": "^1.85.0",
     "@vscode/codicons": "^0.0.46-24",
-    "@vscode/vsce": "^3.2.0",
-    "esbuild": "^0.24.0",
+    "@vscode/vsce": "^4.0.0",
+    "esbuild": "^0.28.2",
     "mocha": "^10.7.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.5.4"

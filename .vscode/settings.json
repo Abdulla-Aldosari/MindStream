@@ -1,3 +1,32 @@
 {
-    "runBox.workspaceID": "7a43cf11-16e0-485d-84f3-ea7e8bf635cf"
+    "runBox.workspaceID": "7a43cf11-16e0-485d-84f3-ea7e8bf635cf",
+    "actionButtons": {
+    "defaultColor": "#ff0034",
+    "reloadButton": "🔄",
+    "commands": [
+      {
+        "name": "🏗️ Build",
+        "color": "#98c379",
+        "singleInstance": true,
+        "command": "npm run compile"
+      },
+      {
+        "name": "🧪 Run Tests",
+        "color": "#61afef",
+        "singleInstance": true,
+        "command": "npm run test"
+      },
+      {
+        "name": "📦 Run VSIX Packaging",
+        "color": "#f0db4f",
+        "singleInstance": true,
+        "command": "npm run package"
+      },
+      {
+        "name": "💾 Backup To Drive",
+        "color": "#00ff00",
+        "command": "powershell -ExecutionPolicy Bypass -File '.vsenv\\scripts\\Fullbackup.ps1'"
+      }
+    ]
+  }
 }
