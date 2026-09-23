@@ -1,3 +1,7 @@
+
+<a href="https://github.com/Abdulla-Aldosari/MindStream">
+        <img src="images/mindstream.png" width="128"></a><!-- </a> being on the same line as the <img> tag is intentional! -->
+
 # MindStream
 
 A VS Code extension for a personal developer roadmap. Capture your notes, ideas, and upcoming tasks — such as fixes, refactors, code checks, or tests — and organize them into categories and types. Everything stays local to your workspace as a plain `.mindstream/data.json` file.
