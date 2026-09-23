@@ -336,7 +336,7 @@
     });
   }
 
-  function buildCard(item) {
+  function buildCardBase(item) {
     const t = typeOf(item.typeId);
     const card = document.createElement('div');
     card.className = 'card' + (item.archived ? ' archived' : '');
@@ -370,12 +370,23 @@
     const status = document.createElement('span');
     status.className = 'status ' + item.status;
     status.textContent = state.statusLabels[item.status] || item.status;
-    const tooltip = statusTooltip(item.status);
-    status.dataset.tooltip = tooltip;
+    footer.appendChild(status);
+
+    card.appendChild(footer);
+
+    return card;
+  }
+
+  function buildCard(item) {
+    const card = buildCardBase(item);
+
+    const status = card.querySelector('.card-footer .status');
+    status.dataset.tooltip = statusTooltip(item.status);
     status.addEventListener('click', (e) => cycleStatus(item, e));
     status.addEventListener('mouseenter', (e) => showStatusTooltip(status, e));
     status.addEventListener('mouseleave', hideStatusTooltip);
-    footer.appendChild(status);
+
+    const footer = card.querySelector('.card-footer');
 
     const spacer = document.createElement('span');
     spacer.className = 'spacer';
@@ -388,8 +399,6 @@
     footer.appendChild(btnIcon('codicon-archive', item.archived ? 'Unarchive' : 'Archive', () => toggleArchive(item)));
     footer.appendChild(btnIcon('codicon-trash', 'Delete permanently', () => deleteItem(item), true));
 
-    card.appendChild(footer);
-
     card.addEventListener('dblclick', (e) => {
       if (e.target.closest('button, .status')) {
         return;
@@ -398,6 +407,10 @@
     });
 
     return card;
+  }
+
+  function buildReportCard(item) {
+    return buildCardBase(item);
   }
 
   function markTruncatedCards() {
@@ -602,6 +615,7 @@
   }
 
   function openAdd() {
+    closeAllModals();
     state.editingId = null;
     $('modal-title').textContent = 'New note';
     $('f-title').value = '';
@@ -614,6 +628,7 @@
   }
 
   function openEdit(item) {
+    closeAllModals();
     state.editingId = item.id;
     $('modal-title').textContent = 'Edit note';
     $('f-title').value = item.title;
@@ -657,6 +672,7 @@
   }
 
   function openView(item) {
+    closeAllModals();
     viewingItem = item;
 
     const t = typeOf(item.typeId);
@@ -693,6 +709,14 @@
     viewingItem = null;
   }
 
+  // Ensures only one modal is visible at a time within the sidebar.
+  function closeAllModals() {
+    modalEl.hidden = true;
+    viewModalEl.hidden = true;
+    $('categories-modal').hidden = true;
+    $('report-modal').hidden = true;
+  }
+
   function setArchiveVisible(visible) {
     state.includeArchived = visible;
     $('btn-archive-toggle').textContent = visible ? 'Hide archive' : 'Archive';
@@ -701,6 +725,7 @@
   // --- Categories management modal ---
 
   function openCategoriesModal() {
+    closeAllModals();
     renderCategories();
     $('categories-modal').hidden = false;
     $('f-category-name').value = '';
@@ -709,6 +734,69 @@
 
   function closeCategoriesModal() {
     $('categories-modal').hidden = true;
+  }
+
+  // --- Weekly report modal ---
+
+  function openWeeklyReportModal(report) {
+    closeAllModals();
+    renderWeeklyReport(report);
+    $('report-modal').hidden = false;
+  }
+
+  function closeWeeklyReport() {
+    $('report-modal').hidden = true;
+  }
+
+  function renderWeeklyReport(report) {
+    $('report-title').textContent = 'Weekly Report — Week of ' + report.weekLabel;
+
+    const summary = $('report-summary');
+    summary.innerHTML = '';
+    summary.appendChild(reportStat('Created this week', report.createdCount + ' notes'));
+    summary.appendChild(reportStat('Completed this week', report.completedCount + ' notes'));
+    summary.appendChild(reportStat('Currently in progress', report.inProgressCount + ' notes'));
+    summary.appendChild(reportStat('Archived this week', report.archivedCount + ' notes'));
+
+    const body = $('report-body');
+    body.innerHTML = '';
+    const completed = report.completed || [];
+    const inProgress = report.inProgress || [];
+    if (inProgress.length) {
+      body.appendChild(reportSectionHeader('In progress', inProgress.length));
+      inProgress.forEach((it) => body.appendChild(buildReportCard(it)));
+    }
+    if (completed.length) {
+      body.appendChild(reportSectionHeader('Completed', completed.length));
+      completed.forEach((it) => body.appendChild(buildReportCard(it)));
+    }
+    if (!completed.length && !inProgress.length) {
+      const empty = document.createElement('div');
+      empty.className = 'report-empty';
+      empty.textContent = 'No completed or in-progress notes this week.';
+      body.appendChild(empty);
+    }
+  }
+
+  function reportStat(label, value) {
+    const row = document.createElement('div');
+    row.className = 'report-stat';
+    const l = document.createElement('span');
+    l.className = 'report-stat-label';
+    l.textContent = label;
+    const v = document.createElement('span');
+    v.className = 'report-stat-value';
+    v.textContent = value;
+    row.appendChild(l);
+    row.appendChild(v);
+    return row;
+  }
+
+  function reportSectionHeader(label, count) {
+    const h = document.createElement('div');
+    h.className = 'report-section-header';
+    h.textContent = label + ' (' + count + ')';
+    return h;
   }
 
   function renderCategories(highlightId) {
@@ -844,6 +932,10 @@
       openCategoriesModal();
       return;
     }
+    if (msg.type === 'openWeeklyReport') {
+      openWeeklyReportModal(msg.report);
+      return;
+    }
     if (msg.type !== 'state') {
       return;
     }
@@ -954,6 +1046,7 @@
   });
 
   $('categories-close').addEventListener('click', closeCategoriesModal);
+  $('report-close').addEventListener('click', closeWeeklyReport);
   $('btn-add-category').addEventListener('click', addCategoryFromInput);
   $('f-category-name').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
@@ -969,6 +1062,8 @@
         closeView();
       } else if (!$('categories-modal').hidden) {
         closeCategoriesModal();
+      } else if (!$('report-modal').hidden) {
+        closeWeeklyReport();
       }
     }
   });
