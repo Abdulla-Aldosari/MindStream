@@ -47,6 +47,16 @@ export class TypesRegistry {
     this.storage.saveData(data);
   }
 
+  setIcon(id: string, icon: string): void {
+    const data = this.storage.getData();
+    const def = data.types.find((t) => t.id === id);
+    if (!def) {
+      return;
+    }
+    def.icon = icon;
+    this.storage.saveData(data);
+  }
+
   /** Removes a type and returns how many items referenced it (they stay intact as "Deleted type"). */
   remove(id: string): number {
     const data = this.storage.getData();
@@ -69,5 +79,10 @@ export class TypesRegistry {
     }
     this.storage.saveData(data);
     return count;
+  }
+
+  /** Number of items (including archived) that reference a type. */
+  countItems(typeId: string): number {
+    return this.storage.getData().items.filter((it) => it.typeId === typeId).length;
   }
 }

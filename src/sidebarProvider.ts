@@ -18,13 +18,18 @@ interface WebviewMessage {
     | 'toggleArchiveView'
     | 'addCategory'
     | 'renameCategory'
-    | 'deleteCategory';
+    | 'deleteCategory'
+    | 'addType'
+    | 'renameType'
+    | 'setTypeIcon'
+    | 'deleteType';
   id?: string;
   title?: string;
   description?: string;
   typeId?: string;
   categoryId?: string;
   label?: string;
+  icon?: string;
   status?: MindStreamStatus;
   archived?: boolean;
 }
@@ -79,6 +84,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   /** Tells the webview to open the categories management modal. */
   openCategories(): void {
     this._view?.webview.postMessage({ type: 'openCategories' });
+  }
+
+  /** Tells the webview to open the types management modal. */
+  openTypes(): void {
+    this._view?.webview.postMessage({ type: 'openTypes' });
   }
 
   /** Tells the webview to open the weekly report modal. */
@@ -179,6 +189,46 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
           }
           break;
         }
+        case 'addType':
+          if (msg.label?.trim()) {
+            this.types.add(msg.label.trim(), msg.icon);
+          }
+          break;
+        case 'renameType':
+          if (msg.id && msg.label?.trim()) {
+            this.types.rename(msg.id, msg.label.trim());
+          }
+          break;
+        case 'setTypeIcon':
+          if (msg.id && msg.icon) {
+            this.types.setIcon(msg.id, msg.icon);
+          }
+          break;
+        case 'deleteType': {
+          if (!msg.id) {
+            break;
+          }
+          const typeDef = this.types.get(msg.id);
+          if (!typeDef) {
+            break;
+          }
+          const linked = this.types.countItems(msg.id);
+          if (linked > 0) {
+            void vscode.window.showInformationMessage(
+              `Type "${typeDef.label}" is used by ${linked} note(s). Change those notes to a different type before deleting it.`
+            );
+            break;
+          }
+          const confirm = await vscode.window.showWarningMessage(
+            `Delete type "${typeDef.label}"?`,
+            { modal: true },
+            'Delete'
+          );
+          if (confirm === 'Delete') {
+            this.types.remove(msg.id);
+          }
+          break;
+        }
       }
       this.refresh();
     } catch (err) {
@@ -193,7 +243,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     void this._view.webview.postMessage({
       type: 'state',
       items: this.items.list(this._archiveVisible),
-      types: this.types.list(),
+      types: this.types.list().map((t) => ({ ...t, count: this.types.countItems(t.id) })),
       categories: this.categories.list().map((c) => ({ ...c, count: this.categories.countItems(c.id) })),
       statusLabels: STATUS_LABEL,
       includeArchived: this._archiveVisible,
@@ -209,6 +259,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
   private getHtml(webview: vscode.Webview): string {
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'media', 'sidebar.js'));
+    const codiconNamesUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'media', 'codicon-names.js'));
     const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'media', 'sidebar.css'));
     const codiconCssUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'media', 'codicon.css'));
     const nonce = getNonce();
@@ -283,6 +334,29 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       </div>
     </div>
   </div>
+  <div id="types-modal" class="modal" hidden>
+    <div class="modal-card types-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-title">Manage Types</span>
+          <span class="modal-subtitle">Create, rename, and delete your note types</span>
+        </div>
+        <button id="types-close" class="icon-btn close-x-btn" title="Close">✕</button>
+      </div>
+      <div id="types-list" class="types-list"></div>
+      <div class="types-form">
+        <button id="btn-type-icon" class="icon-btn type-icon-btn choose-icon" title="Choose icon">
+          <span id="btn-type-icon-glyph" class="codicon codicon-tag"></span>
+        </button>
+        <input id="f-type-name" type="text" placeholder="New type name" autocomplete="off">
+        <button id="btn-add-type" class="btn btn-primary">Add</button>
+      </div>
+      <div id="icons-modal" class="icons-modal" hidden>
+        <div id="icons-grid" class="icons-grid"></div>
+        <input id="f-icon-filter" type="text" placeholder="Filter icons..." autocomplete="off">
+      </div>
+    </div>
+  </div>
   <div id="report-modal" class="modal" hidden>
     <div class="modal-card report-card">
       <div class="modal-header">
@@ -296,6 +370,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       <div id="report-body" class="report-body"></div>
     </div>
   </div>
+  <script nonce="${nonce}" src="${codiconNamesUri}"></script>
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;

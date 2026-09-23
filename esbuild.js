@@ -33,6 +33,19 @@ function copyMedia() {
   const codicons = path.join(__dirname, 'node_modules', '@vscode', 'codicons', 'dist');
   fs.copyFileSync(path.join(codicons, 'codicon.css'), path.join(dest, 'codicon.css'));
   fs.copyFileSync(path.join(codicons, 'codicon.ttf'), path.join(dest, 'codicon.ttf'));
+
+  // Generate the full list of available codicon names from the single source of
+  // truth (codicon.csv) so the icons picker can use every icon the font ships.
+  const csv = fs.readFileSync(path.join(codicons, 'codicon.csv'), 'utf8');
+  const names = csv
+    .split(/\r?\n/)
+    .slice(1)
+    .map((line) => line.split(',')[0].trim())
+    .filter(Boolean);
+  fs.writeFileSync(
+    path.join(dest, 'codicon-names.js'),
+    'window.CODICON_NAMES = ' + JSON.stringify(names) + ';\n'
+  );
 }
 
 async function main() {
