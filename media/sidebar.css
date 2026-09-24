@@ -35,6 +35,12 @@ body {
   border-bottom: 1px solid var(--vscode-panel-border, transparent);
 }
 
+/* Visual marker shown only when running from the source tree (Extension
+   Development Host), so it is never confused with a VSIX-installed build. */
+body.dev-mode #toolbar {
+  border-bottom: 2px solid #6a08a4;
+}
+
 /* ===== Custom Select Component (replaces native <select>) ===== */
 
 .cs-wrap {
