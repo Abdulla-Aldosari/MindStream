@@ -1,2 +1,5 @@
 npm run lint && npm run typecheck && npm test
 
+if git diff --cached --name-only | grep -qx "commitlint\.config\.js"; then
+  node .vsenv/scripts/sync-commit-scopes.js --suppressErrors
+fi
