@@ -1,13 +1,18 @@
-import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { createWorkspaceStorage } from './workspaceStorage';
-import { normalizeData, StorageService } from './storage';
 import { ItemsStore } from './itemsStore';
 import { TypesRegistry } from './typesRegistry';
 import { CategoriesRegistry } from './categoriesRegistry';
 import { SidebarProvider, VIEW_TYPE } from './sidebarProvider';
-import { buildMarkdownExport, buildWeeklyReportText, mergeData } from './export';
 import { buildWeeklyReport } from './report';
+import {
+  CommandsDeps,
+  exportJson,
+  exportMarkdown,
+  exportWeeklyReport,
+  importJson,
+  requireWorkspace
+} from './commands';
 
 let sidebar: SidebarProvider | undefined;
 
@@ -50,6 +55,8 @@ export function activate(context: vscode.ExtensionContext): void {
   const outputChannel = vscode.window.createOutputChannel('MindStream');
   context.subscriptions.push(outputChannel);
 
+  const deps = createCommandsDeps();
+
   const folder = vscode.workspace.workspaceFolders?.[0];  
 
   if (!folder) {
@@ -58,31 +65,31 @@ export function activate(context: vscode.ExtensionContext): void {
       vscode.window.registerWebviewViewProvider(VIEW_TYPE, new NoWorkspaceProvider())
     );
     context.subscriptions.push(
-      vscode.commands.registerCommand('mindstream.addNote', () => requireWorkspace())
+      vscode.commands.registerCommand('mindstream.addNote', () => requireWorkspace(deps))
     );
     context.subscriptions.push(
-      vscode.commands.registerCommand('mindstream.manageTypes', () => requireWorkspace())
+      vscode.commands.registerCommand('mindstream.manageTypes', () => requireWorkspace(deps))
     );
     context.subscriptions.push(
-      vscode.commands.registerCommand('mindstream.manageCategories', () => requireWorkspace())
+      vscode.commands.registerCommand('mindstream.manageCategories', () => requireWorkspace(deps))
     );
     context.subscriptions.push(
-      vscode.commands.registerCommand('mindstream.exportMarkdown', () => requireWorkspace())
+      vscode.commands.registerCommand('mindstream.exportMarkdown', () => requireWorkspace(deps))
     );
     context.subscriptions.push(
-      vscode.commands.registerCommand('mindstream.exportJson', () => requireWorkspace())
+      vscode.commands.registerCommand('mindstream.exportJson', () => requireWorkspace(deps))
     );
     context.subscriptions.push(
-      vscode.commands.registerCommand('mindstream.importJson', () => requireWorkspace())
+      vscode.commands.registerCommand('mindstream.importJson', () => requireWorkspace(deps))
     );
     context.subscriptions.push(
-      vscode.commands.registerCommand('mindstream.weeklyReport', () => requireWorkspace())
+      vscode.commands.registerCommand('mindstream.weeklyReport', () => requireWorkspace(deps))
     );
     context.subscriptions.push(
-      vscode.commands.registerCommand('mindstream.exportWeeklyReport', () => requireWorkspace())
+      vscode.commands.registerCommand('mindstream.exportWeeklyReport', () => requireWorkspace(deps))
     );
     context.subscriptions.push(
-      vscode.commands.registerCommand('mindstream.refresh', () => requireWorkspace())
+      vscode.commands.registerCommand('mindstream.refresh', () => requireWorkspace(deps))
     );
     context.subscriptions.push(
       vscode.commands.registerCommand('mindstream.showSidebar', async () => {
@@ -100,7 +107,8 @@ export function activate(context: vscode.ExtensionContext): void {
   const items = new ItemsStore(storage);
   const categories = new CategoriesRegistry(storage);
 
-  sidebar = new SidebarProvider(context.extensionUri, items, types, categories);
+  const isDevMode = context.extensionMode === vscode.ExtensionMode.Development;
+  sidebar = new SidebarProvider(context.extensionUri, items, types, categories, isDevMode);
 
   context.subscriptions.push(vscode.window.registerWebviewViewProvider(VIEW_TYPE, sidebar));
 
@@ -114,19 +122,19 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('mindstream.manageCategories', () => sidebar?.openCategories())
   );
   context.subscriptions.push(
-    vscode.commands.registerCommand('mindstream.exportMarkdown', () => exportMarkdown(items, types, categories))
+    vscode.commands.registerCommand('mindstream.exportMarkdown', () => exportMarkdown(deps, items, types, categories))
   );
   context.subscriptions.push(
-    vscode.commands.registerCommand('mindstream.exportJson', () => exportJson(storage))
+    vscode.commands.registerCommand('mindstream.exportJson', () => exportJson(deps, storage))
   );
   context.subscriptions.push(
-    vscode.commands.registerCommand('mindstream.importJson', () => importJson(storage, sidebar))
+    vscode.commands.registerCommand('mindstream.importJson', () => importJson(deps, storage, () => sidebar?.refresh()))
   );
   context.subscriptions.push(
     vscode.commands.registerCommand('mindstream.weeklyReport', () => sidebar?.openWeeklyReport(buildWeeklyReport(items)))
   );
   context.subscriptions.push(
-    vscode.commands.registerCommand('mindstream.exportWeeklyReport', () => exportWeeklyReport(items))
+    vscode.commands.registerCommand('mindstream.exportWeeklyReport', () => exportWeeklyReport(deps, items))
   );
   context.subscriptions.push(
     vscode.commands.registerCommand('mindstream.refresh', () => sidebar?.refresh())
@@ -138,92 +146,38 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 }
 
-async function requireWorkspace(): Promise<void> {
-  const pick = await vscode.window.showWarningMessage(
-    'MindStream: Open a folder (project) first to start recording notes.',
-    'Open Folder'
-  );
-  if (pick === 'Open Folder') {
-    void vscode.commands.executeCommand('vscode.openFolder');
-  }
-}
-
 export function deactivate(): void {
   /* nothing to do */
 }
 
-async function saveDialog(fileName: string, filters: Record<string, string[]>): Promise<vscode.Uri | undefined> {
-  const folder = vscode.workspace.workspaceFolders?.[0];
-  return vscode.window.showSaveDialog({
-    defaultUri: folder ? vscode.Uri.joinPath(folder.uri, fileName) : undefined,
-    filters
-  });
-}
-
-async function exportMarkdown(items: ItemsStore, types: TypesRegistry, categories: CategoriesRegistry): Promise<void> {
-  const all = items.list(true);
-  if (all.length === 0) {
-    void vscode.window.showInformationMessage('MindStream: There are no notes to export.');
-    return;
-  }
-  const lines = buildMarkdownExport(items, types, categories);
-  const uri = await saveDialog('mindstream-notes.md', { Markdown: ['md'] });
-  if (!uri) {
-    return;
-  }
-  fs.writeFileSync(uri.fsPath, lines.join('\n'), 'utf8');
-  void vscode.window.showInformationMessage(`MindStream: Exported ${all.length} note(s) to Markdown.`);
-}
-
-async function exportJson(storage: StorageService): Promise<void> {
-  const uri = await saveDialog('mindstream-data.json', { JSON: ['json'] });
-  if (!uri) {
-    return;
-  }
-  fs.writeFileSync(uri.fsPath, JSON.stringify(storage.getData(), null, 2), 'utf8');
-  void vscode.window.showInformationMessage('MindStream: Exported data to JSON.');
-}
-
-async function importJson(storage: StorageService, sidebar: SidebarProvider | undefined): Promise<void> {
-  const uris = await vscode.window.showOpenDialog({ canSelectMany: false, openLabel: 'Import', filters: { JSON: ['json'] } });
-  if (!uris || uris.length === 0) {
-    return;
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(fs.readFileSync(uris[0].fsPath, 'utf8'));
-  } catch (err) {
-    void vscode.window.showErrorMessage(`MindStream: Could not read the selected file: ${err instanceof Error ? err.message : String(err)}`);
-    return;
-  }
-  const incoming = normalizeData(parsed);
-  const current = storage.getData();
-  const report = [
-    'MindStream — Import JSON',
-    '',
-    `Current: ${current.items.length} notes, ${current.types.length} types, ${current.categories.length} categories`,
-    `Imported: ${incoming.items.length} notes, ${incoming.types.length} types, ${incoming.categories.length} categories`
-  ].join('\n');
-  const choice = await vscode.window.showWarningMessage(report, { modal: true }, 'Merge', 'Replace');
-  if (choice === 'Merge') {
-    mergeData(current, incoming);
-    storage.saveData(current);
-    sidebar?.refresh();
-    void vscode.window.showInformationMessage('MindStream: Imported and merged data.');
-  } else if (choice === 'Replace') {
-    storage.saveData(incoming);
-    sidebar?.refresh();
-    void vscode.window.showInformationMessage('MindStream: Replaced data with the imported file.');
-  }
-}
-
-async function exportWeeklyReport(items: ItemsStore): Promise<void> {
-  const report = buildWeeklyReport(items);
-  const lines = buildWeeklyReportText(report);
-  const uri = await saveDialog(`weekly-report-${report.weekLabel}.md`, { Markdown: ['md'] });
-  if (!uri) {
-    return;
-  }
-  fs.writeFileSync(uri.fsPath, lines.join('\n'), 'utf8');
-  void vscode.window.showInformationMessage('MindStream: Exported weekly report.');
+function createCommandsDeps(): CommandsDeps {
+  return {
+    get workspacePath(): string | undefined {
+      return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    },
+    joinPath(basePath, fileName) {
+      return vscode.Uri.joinPath(vscode.Uri.file(basePath), fileName);
+    },
+    async showSaveDialog(defaultUri, filters) {
+      return vscode.window.showSaveDialog({
+        defaultUri: defaultUri ? vscode.Uri.file(defaultUri.fsPath) : undefined,
+        filters
+      });
+    },
+    async showOpenDialog() {
+      return vscode.window.showOpenDialog({ canSelectMany: false, openLabel: 'Import', filters: { JSON: ['json'] } });
+    },
+    async showWarningMessage(message, options, ...items) {
+      return vscode.window.showWarningMessage(message, options ?? {}, ...items);
+    },
+    async showInformationMessage(message) {
+      return vscode.window.showInformationMessage(message);
+    },
+    async showErrorMessage(message) {
+      return vscode.window.showErrorMessage(message);
+    },
+    async executeCommand(command) {
+      return vscode.commands.executeCommand(command);
+    }
+  };
 }
