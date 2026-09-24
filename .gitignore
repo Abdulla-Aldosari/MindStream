@@ -1,4 +1,5 @@
 .vsenv/
+.mindstream/
 node_modules/
 dist/
 *.vsix
