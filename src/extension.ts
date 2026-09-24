@@ -45,6 +45,11 @@ class NoWorkspaceProvider implements vscode.WebviewViewProvider {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
+  // Created once per extension lifetime. Pass it as a
+  // constructor argument (dependency injection) to any class that needs to log.
+  const outputChannel = vscode.window.createOutputChannel('MindStream');
+  context.subscriptions.push(outputChannel);
+
   const folder = vscode.workspace.workspaceFolders?.[0];  
 
   if (!folder) {
