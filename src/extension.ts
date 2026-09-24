@@ -22,6 +22,7 @@ class NoWorkspaceProvider implements vscode.WebviewViewProvider {
 <html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body { margin: 0; padding: 24px 16px; font-family: var(--vscode-font-family); color: var(--vscode-foreground); }
@@ -44,7 +45,7 @@ class NoWorkspaceProvider implements vscode.WebviewViewProvider {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
-  const folder = vscode.workspace.workspaceFolders?.[0];
+  const folder = vscode.workspace.workspaceFolders?.[0];  
 
   if (!folder) {
     // No folder is open: show an explanatory message only, commands show an alert.

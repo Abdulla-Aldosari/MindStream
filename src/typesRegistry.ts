@@ -1,4 +1,4 @@
-import { MindStreamItem, MindStreamTypeDef } from './models';
+import { MindStreamTypeDef } from './models';
 import { IStorage } from './storage';
 import { newId, nowIso } from './util';
 
