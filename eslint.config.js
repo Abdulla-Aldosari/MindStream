@@ -4,7 +4,7 @@ const globals = require('globals');
 
 module.exports = [
   {
-    ignores: ['dist/**', 'out/**', 'node_modules/**', 'media/**', '*.vsix'],
+    ignores: ['dist/**', 'out/**', 'node_modules/**', '*.vsix'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -24,6 +24,7 @@ module.exports = [
     },
   },
   {
+    ignores: ['media/**'],
     languageOptions: {
       ecmaVersion: 2022,
       globals: globals.node,
@@ -33,6 +34,19 @@ module.exports = [
     files: ['test/**/*.ts'],
     languageOptions: {
       globals: globals.mocha,
+    },
+  },
+  {
+    // Webview scripts run in the browser context injected by VS Code, not Node.js.
+    files: ['media/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'script',
+      globals: {
+        ...globals.browser,
+        // Injected by the VS Code webview runtime before this script loads.
+        acquireVsCodeApi: 'readonly',
+      },
     },
   },
 ];
