@@ -46,6 +46,7 @@ module.exports = {
         "config",
         "eslint",
         "tsconfig",
+        "changelog",
       ],
     ],
   },
