@@ -1,8 +1,8 @@
 {
   "name": "mindstream",
   "displayName": "MindStream",
-  "description": "A personal developer roadmap: record notes, ideas, and fixes and track their status within your project.",
-  "version": "0.1.0",
+  "description": "A local notes tracker for developers: capture notes and ideas, organize them into custom types and categories, and track their status and archive.",
+  "version": "1.0.0",
   "publisher": "abdulla-aldosari",
   "icon": "images/mindstream.png",
   "license": "MIT",

@@ -4,7 +4,7 @@
 
 # MindStream
 
-A VS Code extension for a personal developer roadmap. Capture your notes, ideas, and upcoming tasks — such as fixes, refactors, code checks, or tests — and organize them into categories and types. Everything stays local to your workspace as a plain `.mindstream/data.json` file.
+A VS Code extension for capturing and organizing your project notes. Record notes and ideas, split them into custom types you define — such as features, fixes, procedures, tests, ideas, information, or sources — and group them into custom categories. Track each note's status (None / In Progress / Done) and archive it when finished. Everything stays local to your workspace as a plain `.mindstream/data.json` file.
 
 ## Requirements
 - VS Code `1.85.0` or newer.
