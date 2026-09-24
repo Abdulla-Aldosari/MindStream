@@ -28,6 +28,7 @@ module.exports = {
       "always",
       [
         "extension",
+        "commands",
         "sidebar",
         "storage",
         "types",
@@ -43,6 +44,8 @@ module.exports = {
         "docs",
         "ci",
         "config",
+        "eslint",
+        "tsconfig",
       ],
     ],
   },
