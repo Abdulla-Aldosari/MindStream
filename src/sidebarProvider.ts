@@ -4,35 +4,10 @@ import { ItemsStore } from './itemsStore';
 import { TypesRegistry } from './typesRegistry';
 import { CategoriesRegistry } from './categoriesRegistry';
 import { WeeklyReportData } from './report';
+import { SidebarController, SidebarUi, WebviewMessage } from './sidebarController';
+import { getBodyClass } from './util';
 
 export const VIEW_TYPE = 'mindstream.sidebar';
-
-interface WebviewMessage {
-  type:
-    | 'refresh'
-    | 'addItem'
-    | 'updateItem'
-    | 'deleteItem'
-    | 'changeStatus'
-    | 'toggleArchive'
-    | 'toggleArchiveView'
-    | 'addCategory'
-    | 'renameCategory'
-    | 'deleteCategory'
-    | 'addType'
-    | 'renameType'
-    | 'setTypeIcon'
-    | 'deleteType';
-  id?: string;
-  title?: string;
-  description?: string;
-  typeId?: string;
-  categoryId?: string;
-  label?: string;
-  icon?: string;
-  status?: MindStreamStatus;
-  archived?: boolean;
-}
 
 const STATUS_LABEL: Record<MindStreamStatus, string> = {
   pending: 'None',
@@ -44,16 +19,21 @@ const STATUS_LABEL: Record<MindStreamStatus, string> = {
  * Sidebar view provider (WebviewView).
  * Renders note cards with full flexibility in the sidebar using custom HTML/CSS.
  */
-export class SidebarProvider implements vscode.WebviewViewProvider {
+export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
   private _view?: vscode.WebviewView;
   private _archiveVisible = false;
+
+  private readonly controller: SidebarController;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly items: ItemsStore,
     private readonly types: TypesRegistry,
-    private readonly categories: CategoriesRegistry
-  ) {}
+    private readonly categories: CategoriesRegistry,
+    private readonly isDevMode: boolean = false
+  ) {
+    this.controller = new SidebarController(items, types, categories, this);
+  }
 
   resolveWebviewView(
     webviewView: vscode.WebviewView,
@@ -106,134 +86,51 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
   private async handleMessage(msg: WebviewMessage): Promise<void> {
     try {
-      switch (msg.type) {
-        case 'refresh':
-          this.postState();
-          return;
-        case 'addItem':
-          if (msg.title?.trim() && msg.typeId) {
-            this.items.create({
-              typeId: msg.typeId,
-              title: msg.title.trim(),
-              description: msg.description,
-              categoryId: msg.categoryId
-            });
-          }
-          break;
-        case 'updateItem':
-          if (msg.id) {
-            this.items.update(msg.id, {
-              title: msg.title,
-              description: msg.description,
-              typeId: msg.typeId,
-              categoryId: msg.categoryId
-            });
-          }
-          break;
-        case 'deleteItem':
-          if (msg.id) {
-            const item = this.items.get(msg.id);
-            if (!item) {
-              break;
-            }
-            const confirm = await vscode.window.showWarningMessage(
-              `Delete note "${item.title}" permanently?`,
-              { modal: true },
-              'Delete'
-            );
-            if (confirm === 'Delete') {
-              this.items.delete(msg.id);
-            }
-          }
-          break;
-        case 'changeStatus':
-          if (msg.id && msg.status) {
-            this.items.changeStatus(msg.id, msg.status);
-          }
-          break;
-        case 'toggleArchiveView':
-          this._archiveVisible = !this._archiveVisible;
-          break;
-        case 'toggleArchive':
-          if (msg.id && typeof msg.archived === 'boolean') {
-            this.items.setArchived(msg.id, msg.archived);
-          }
-          break;
-        case 'addCategory':
-          if (msg.label?.trim()) {
-            this.categories.add(msg.label.trim());
-          }
-          break;
-        case 'renameCategory':
-          if (msg.id && msg.label?.trim()) {
-            this.categories.rename(msg.id, msg.label.trim());
-          }
-          break;
-        case 'deleteCategory': {
-          if (!msg.id) {
-            break;
-          }
-          const cat = this.categories.get(msg.id);
-          if (!cat) {
-            break;
-          }
-          const count = this.categories.countItems(msg.id);
-          const confirm = await vscode.window.showWarningMessage(
-            `Delete category "${cat.label}"? ${count} note(s) in it will be permanently deleted too.`,
-            { modal: true },
-            'Delete'
-          );
-          if (confirm === 'Delete') {
-            this.items.deleteByCategory(msg.id);
-            this.categories.remove(msg.id);
-          }
-          break;
-        }
-        case 'addType':
-          if (msg.label?.trim()) {
-            this.types.add(msg.label.trim(), msg.icon);
-          }
-          break;
-        case 'renameType':
-          if (msg.id && msg.label?.trim()) {
-            this.types.rename(msg.id, msg.label.trim());
-          }
-          break;
-        case 'setTypeIcon':
-          if (msg.id && msg.icon) {
-            this.types.setIcon(msg.id, msg.icon);
-          }
-          break;
-        case 'deleteType': {
-          if (!msg.id) {
-            break;
-          }
-          const typeDef = this.types.get(msg.id);
-          if (!typeDef) {
-            break;
-          }
-          const linked = this.types.countItems(msg.id);
-          if (linked > 0) {
-            void vscode.window.showInformationMessage(
-              `Type "${typeDef.label}" is used by ${linked} note(s). Change those notes to a different type before deleting it.`
-            );
-            break;
-          }
-          const confirm = await vscode.window.showWarningMessage(
-            `Delete type "${typeDef.label}"?`,
-            { modal: true },
-            'Delete'
-          );
-          if (confirm === 'Delete') {
-            this.types.remove(msg.id);
-          }
-          break;
-        }
+      if (msg.type === 'refresh') {
+        this.postState();
+        return;
       }
+      if (msg.type === 'toggleArchiveView') {
+        this._archiveVisible = !this._archiveVisible;
+        this.refresh();
+        return;
+      }
+      await this.controller.handleMessage(msg);
       this.refresh();
     } catch (err) {
       void vscode.window.showErrorMessage(`MindStream: ${err instanceof Error ? err.message : String(err)}`);
     }
+  }
+
+  async confirmDeleteNote(title: string): Promise<boolean> {
+    const pick = await vscode.window.showWarningMessage(
+      `Delete note "${title}" permanently?`,
+      { modal: true },
+      'Delete'
+    );
+    return pick === 'Delete';
+  }
+
+  async confirmDeleteCategory(label: string, count: number): Promise<boolean> {
+    const pick = await vscode.window.showWarningMessage(
+      `Delete category "${label}"? ${count} note(s) in it will be permanently deleted too.`,
+      { modal: true },
+      'Delete'
+    );
+    return pick === 'Delete';
+  }
+
+  async confirmDeleteType(label: string): Promise<boolean> {
+    const pick = await vscode.window.showWarningMessage(
+      `Delete type "${label}"?`,
+      { modal: true },
+      'Delete'
+    );
+    return pick === 'Delete';
+  }
+
+  showInfo(message: string): void {
+    void vscode.window.showInformationMessage(message);
   }
 
   private postState(): void {
@@ -273,7 +170,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   <link href="${styleUri}?v=${Date.now()}" rel="stylesheet">
   <title>MindStream</title>
 </head>
-<body>
+<body class="${getBodyClass(this.isDevMode)}">
   <div id="toolbar" class="toolbar">
     <div id="category-filter-container" title="Filter by category"></div>
     <div id="view-mode-container" title="View mode"></div>
