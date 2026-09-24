@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { newId, nowIso } from '../src/util';
+import { newId, nowIso, getBodyClass } from '../src/util';
 
 describe('util', () => {
   it('newId returns a non-empty unique string', () => {
@@ -15,5 +15,13 @@ describe('util', () => {
     assert.strictEqual(typeof iso, 'string');
     assert.ok(!isNaN(new Date(iso).getTime()));
     assert.match(iso, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+  });
+
+  it('getBodyClass returns "dev-mode" when running from the source tree', () => {
+    assert.strictEqual(getBodyClass(true), 'dev-mode');
+  });
+
+  it('getBodyClass returns an empty string for a production/VSIX-installed build', () => {
+    assert.strictEqual(getBodyClass(false), '');
   });
 });
