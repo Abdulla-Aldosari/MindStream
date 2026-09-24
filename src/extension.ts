@@ -6,8 +6,8 @@ import { ItemsStore } from './itemsStore';
 import { TypesRegistry } from './typesRegistry';
 import { CategoriesRegistry } from './categoriesRegistry';
 import { SidebarProvider, VIEW_TYPE } from './sidebarProvider';
-import { MindStreamData, MindStreamStatus } from './models';
-import { buildWeeklyReport, formatDate } from './report';
+import { buildMarkdownExport, buildWeeklyReportText, mergeData } from './export';
+import { buildWeeklyReport } from './report';
 
 let sidebar: SidebarProvider | undefined;
 
@@ -146,12 +146,6 @@ export function deactivate(): void {
   /* nothing to do */
 }
 
-const STATUS_LABEL: Record<MindStreamStatus, string> = {
-  pending: 'None',
-  'in-progress': 'In Progress',
-  done: 'Done'
-};
-
 async function saveDialog(fileName: string, filters: Record<string, string[]>): Promise<vscode.Uri | undefined> {
   const folder = vscode.workspace.workspaceFolders?.[0];
   return vscode.window.showSaveDialog({
@@ -166,27 +160,7 @@ async function exportMarkdown(items: ItemsStore, types: TypesRegistry, categorie
     void vscode.window.showInformationMessage('MindStream: There are no notes to export.');
     return;
   }
-  const lines: string[] = ['# MindStream Notes', ''];
-  for (const it of all) {
-    lines.push(`## [${types.label(it.typeId)}] ${it.title}`);
-    lines.push(`- Status: ${STATUS_LABEL[it.status]}`);
-    lines.push(`- Category: ${categories.label(it.categoryId)}`);
-    lines.push(`- Created: ${formatDate(it.createdAt)}`);
-    const done = items.completedAt(it);
-    if (done) {
-      lines.push(`- Completed: ${formatDate(done)}`);
-    }
-    if (it.archived) {
-      lines.push('- Archived');
-    }
-    if (it.description) {
-      lines.push('');
-      lines.push(it.description);
-    }
-    lines.push('');
-    lines.push('---');
-    lines.push('');
-  }
+  const lines = buildMarkdownExport(items, types, categories);
   const uri = await saveDialog('mindstream-notes.md', { Markdown: ['md'] });
   if (!uri) {
     return;
@@ -202,30 +176,6 @@ async function exportJson(storage: StorageService): Promise<void> {
   }
   fs.writeFileSync(uri.fsPath, JSON.stringify(storage.getData(), null, 2), 'utf8');
   void vscode.window.showInformationMessage('MindStream: Exported data to JSON.');
-}
-
-function mergeData(target: MindStreamData, incoming: MindStreamData): void {
-  const typeIds = new Set(target.types.map((t) => t.id));
-  for (const t of incoming.types) {
-    if (!typeIds.has(t.id)) {
-      target.types.push(t);
-      typeIds.add(t.id);
-    }
-  }
-  const categoryIds = new Set(target.categories.map((c) => c.id));
-  for (const c of incoming.categories) {
-    if (!categoryIds.has(c.id)) {
-      target.categories.push(c);
-      categoryIds.add(c.id);
-    }
-  }
-  const itemIds = new Set(target.items.map((i) => i.id));
-  for (const i of incoming.items) {
-    if (!itemIds.has(i.id)) {
-      target.items.push(i);
-      itemIds.add(i.id);
-    }
-  }
 }
 
 async function importJson(storage: StorageService, sidebar: SidebarProvider | undefined): Promise<void> {
@@ -263,29 +213,7 @@ async function importJson(storage: StorageService, sidebar: SidebarProvider | un
 
 async function exportWeeklyReport(items: ItemsStore): Promise<void> {
   const report = buildWeeklyReport(items);
-  const lines: string[] = [
-    `MindStream Weekly Report — Week of ${report.weekLabel}`,
-    '',
-    `Created this week:   ${report.createdCount} notes`,
-    `Completed this week: ${report.completedCount} notes`,
-    `Currently in progress: ${report.inProgressCount} notes`,
-    `Archived this week:  ${report.archivedCount} notes`,
-    ''
-  ];
-  if (report.completed.length) {
-    lines.push('Completed:');
-    for (const it of report.completed) {
-      lines.push(`- ${it.title}`);
-    }
-    lines.push('');
-  }
-  if (report.inProgress.length) {
-    lines.push('In progress:');
-    for (const it of report.inProgress) {
-      lines.push(`- ${it.title}`);
-    }
-    lines.push('');
-  }
+  const lines = buildWeeklyReportText(report);
   const uri = await saveDialog(`weekly-report-${report.weekLabel}.md`, { Markdown: ['md'] });
   if (!uri) {
     return;
