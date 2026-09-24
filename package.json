@@ -189,9 +189,12 @@
     "watch": "node esbuild.js --watch",
     "test": "npm run compile && mocha",
     "changelog": "git-cliff -o CHANGELOG.md",
-    "package": "npm run compile && npm run changelog && vsce package"
+    "package": "npm run compile && npm run changelog && vsce package",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3",
     "@types/mocha": "^10.0.10",
     "@types/node": "^20.14.0",
     "@types/vscode": "^1.85.0",
@@ -199,6 +202,7 @@
     "@vscode/vsce": "^4.0.0",
     "esbuild": "^0.28.2",
     "git-cliff": "^2.14.2",
+    "husky": "^9.1.7",
     "mocha": "^10.7.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.5.4"
