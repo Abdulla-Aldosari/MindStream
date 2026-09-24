@@ -66,15 +66,15 @@ export function normalizeData(raw: unknown): MindStreamData {
   }
 
   // Ignore any legacy item that has no categoryId (as agreed: no migration).
-  const items = allItems.filter((it) => typeof (it as any).categoryId === 'string');
+  const items = allItems.filter((it) => typeof it.categoryId === 'string');
 
   // Ensures the required history records exist on every item.
   for (const it of items) {
-    if (!Array.isArray((it as any).statusHistory)) {
-      (it as any).statusHistory = [{ status: (it as any).status ?? 'pending', at: (it as any).createdAt ?? nowIso() }];
+    if (!Array.isArray(it.statusHistory)) {
+      it.statusHistory = [{ status: it.status ?? 'pending', at: it.createdAt ?? nowIso() }];
     }
-    if (typeof (it as any).archived !== 'boolean') {
-      (it as any).archived = false;
+    if (typeof it.archived !== 'boolean') {
+      it.archived = false;
     }
   }
   return {

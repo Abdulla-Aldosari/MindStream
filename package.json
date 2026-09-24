@@ -188,6 +188,8 @@
     "compile": "node esbuild.js",
     "watch": "node esbuild.js --watch",
     "test": "npm run compile && mocha",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "changelog": "git-cliff -o CHANGELOG.md",
     "package": "npm run compile && npm run changelog && vsce package",
     "prepare": "husky"
@@ -195,16 +197,20 @@
   "devDependencies": {
     "@commitlint/cli": "^21.2.3",
     "@commitlint/config-conventional": "^21.2.3",
+    "@eslint/js": "^10.0.1",
     "@types/mocha": "^10.0.10",
     "@types/node": "^20.14.0",
     "@types/vscode": "^1.85.0",
     "@vscode/codicons": "^0.0.46-24",
     "@vscode/vsce": "^4.0.0",
     "esbuild": "^0.28.2",
+    "eslint": "^10.11.0",
     "git-cliff": "^2.14.2",
+    "globals": "^17.12.0",
     "husky": "^9.1.7",
-    "mocha": "^10.7.3",
+    "mocha": "^12.0.2",
     "ts-node": "^10.9.2",
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "typescript-eslint": "^8.70.1"
   }
 }
