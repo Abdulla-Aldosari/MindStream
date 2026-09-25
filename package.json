@@ -191,7 +191,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "changelog": "git-cliff -o CHANGELOG.md",
-    "package": "npm run compile && npm run changelog && vsce package",
+    "package": "npm run compile && vsce package",
     "prepare": "husky"
   },
   "devDependencies": {
