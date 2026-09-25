@@ -33,8 +33,8 @@ describe('createEmptyData', () => {
 });
 
 describe('DEFAULT_TYPES / DEFAULT_CATEGORIES', () => {
-  it('ships 8 default types', () => {
-    assert.strictEqual(DEFAULT_TYPES.length, 8);
+  it('ships 11 default types', () => {
+    assert.strictEqual(DEFAULT_TYPES.length, 11);
   });
 
   it('ships the General default category', () => {

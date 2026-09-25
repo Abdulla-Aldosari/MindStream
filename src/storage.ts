@@ -22,14 +22,17 @@ export interface IStorage {
 }
 
 export const DEFAULT_TYPES: Omit<MindStreamTypeDef, 'id' | 'createdAt'>[] = [
+  { label: 'General', icon: 'note' },
+  { label: 'Idea', icon: 'lightbulb' },
+  { label: 'Task', icon: 'tasklist' },
+  { label: 'Feature', icon: 'star' },
   { label: 'Fix', icon: 'wrench' },
-  { label: 'Change', icon: 'edit' },
-  { label: 'New Feature', icon: 'star' },
   { label: 'Refactor', icon: 'sync' },
-  { label: 'Code Note', icon: 'code' },
   { label: 'Test', icon: 'beaker' },
-  { label: 'General Note', icon: 'note' },
-  { label: 'Resource', icon: 'link' }
+  { label: 'Docs', icon: 'book' },
+  { label: 'Chore', icon: 'gear' },
+  { label: 'Code', icon: 'code' },
+  { label: 'Resource', icon: 'link' },
 ];
 
 /** The built-in default category. */
