@@ -29,6 +29,9 @@ A VS Code extension for capturing and organizing your project notes. Record note
 ## Storage
 A single JSON file inside the workspace: `.mindstream/data.json`. Because it's a normal project file, you can commit it to Git to sync or back it up — or add it to `.gitignore` to keep it private to you. Writes are atomic (temp file + rename) to avoid corruption.
 
+> [!NOTE]
+> 📁**Multi-root workspaces:** MindStream uses the first folder of the workspace by default. All notes are read from and written to `.mindstream/data.json` inside that first folder.
+
 ## Commands
 - `MindStream: Quick Note`
 - `MindStream: Manage Types`
