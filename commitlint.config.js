@@ -61,6 +61,7 @@ module.exports = {
         "readme", // changes to the text/content of README.md itself
         "license", // changes to the LICENSE file
         "changelog", // CHANGELOG.md content or cliff.toml changelog-generation configuration
+        "package", // package.json metadata, scripts, or dependencies
       ],
     ],
   },
