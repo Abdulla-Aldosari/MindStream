@@ -588,7 +588,7 @@ body.dev-mode #toolbar {
 }
 
 .modal-card {
-  background: var(--vscode-editor-background, var(--vscode-sideBar-background));
+  background: var(--vscode-sideBar-background, var(--vscode-activeSessionView-background));
   border: 1px solid var(--vscode-widget-border, #444);
   border-radius: 8px;
   width: 100%;
