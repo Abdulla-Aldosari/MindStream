@@ -1230,7 +1230,9 @@
         return { value: c.id, label: c.label, badge: '(' + count + ')' };
       })
     );
-    state.categoryFilter = state.categories.some((c) => c.id === current) ? current : 'all';
+    if (state.categories.length && !state.categories.some((c) => c.id === current)) {
+      state.categoryFilter = 'all';
+    }
     $('category-filter-container').innerHTML = renderCustomSelect(
       'category-filter-wrap',
       'category-filter-btn',

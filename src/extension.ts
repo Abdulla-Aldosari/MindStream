@@ -110,7 +110,11 @@ export function activate(context: vscode.ExtensionContext): void {
   const isDevMode = context.extensionMode === vscode.ExtensionMode.Development;
   sidebar = new SidebarProvider(context.extensionUri, items, types, categories, isDevMode);
 
-  context.subscriptions.push(vscode.window.registerWebviewViewProvider(VIEW_TYPE, sidebar));
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(VIEW_TYPE, sidebar, {
+      webviewOptions: { retainContextWhenHidden: true }
+    })
+  );
 
   context.subscriptions.push(
     vscode.commands.registerCommand('mindstream.addNote', () => sidebar?.openAddNote())
