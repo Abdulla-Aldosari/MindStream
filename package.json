@@ -1,7 +1,7 @@
 {
   "name": "mindstream",
   "displayName": "MindStream",
-  "description": "A local notes tracker for developers: capture notes and ideas, organize them into custom types and categories, and track their status and archive.",
+  "description": "Capture notes and ideas as they happen, organize them into custom types and categories, and track their status.",
   "version": "1.0.0",
   "publisher": "abdulla-aldosari",
   "icon": "icons/mindstream.png",
@@ -10,7 +10,7 @@
     "type": "git",
     "url": "https://github.com/Abdulla-Aldosari/MindStream.git"
   },
-  "private": true,
+  "private": false,
   "engines": {
     "vscode": "^1.85.0"
   },
