@@ -1,6 +1,9 @@
 (function () {
   const vscode = acquireVsCodeApi();
 
+  // iconClass() is defined in media/iconClass.js, loaded as a global before
+  // this script (see sidebarProvider.ts's getHtml()).
+
   const STATUS_CYCLE = ['pending', 'in-progress', 'done'];
   const STATUS_ORDER = { pending: 0, 'in-progress': 1, done: 2 };
   // Full list of available codicon names, generated at build time from the
@@ -43,11 +46,6 @@
       collapsed: state.collapsed,
       categoryFilter: state.categoryFilter
     });
-  }
-
-  function iconClass(name) {
-    const safe = typeof name === 'string' && /^[a-zA-Z0-9-]+$/.test(name) ? name : null;
-    return 'codicon ' + (safe ? 'codicon-' + safe : 'codicon-tag');
   }
 
   function typeOf(typeId) {

@@ -156,6 +156,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
 
   private getHtml(webview: vscode.Webview): string {
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'media', 'sidebar.js'));
+    const iconClassUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'media', 'iconClass.js'));
     const codiconNamesUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'media', 'codicon-names.js'));
     const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'media', 'sidebar.css'));
     const codiconCssUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'media', 'codicon.css'));
@@ -268,6 +269,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     </div>
   </div>
   <script nonce="${nonce}" src="${codiconNamesUri}"></script>
+  <script nonce="${nonce}" src="${iconClassUri}"></script>
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;
