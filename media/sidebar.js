@@ -46,7 +46,8 @@
   }
 
   function iconClass(name) {
-    return 'codicon ' + (name ? 'codicon-' + name : 'codicon-tag');
+    const safe = typeof name === 'string' && /^[a-zA-Z0-9-]+$/.test(name) ? name : null;
+    return 'codicon ' + (safe ? 'codicon-' + safe : 'codicon-tag');
   }
 
   function typeOf(typeId) {
