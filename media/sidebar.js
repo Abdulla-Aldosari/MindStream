@@ -2,7 +2,8 @@
   const vscode = acquireVsCodeApi();
 
   // iconClass() is defined in media/iconClass.js, loaded as a global before
-  // this script (see sidebarProvider.ts's getHtml()).
+  // this script (see sidebarProvider.ts's getHtml()). The data-tooltip
+  // system (media/tooltip.js) is loaded the same way.
 
   const STATUS_CYCLE = ['pending', 'in-progress', 'done'];
   const STATUS_ORDER = { pending: 0, 'in-progress': 1, done: 2 };
@@ -37,8 +38,6 @@
   const modalEl = $('modal');
   const viewModalEl = $('view-modal');
   let viewingItem = null;
-  let tooltipEl = null;
-  let tooltipTimer = null;
 
   function persist() {
     vscode.setState({
@@ -377,8 +376,6 @@
     const status = card.querySelector('.card-footer .status');
     status.dataset.tooltip = statusTooltip(item.status);
     status.addEventListener('click', (e) => cycleStatus(item, e));
-    status.addEventListener('mouseenter', (e) => showStatusTooltip(status, e));
-    status.addEventListener('mouseleave', hideStatusTooltip);
 
     const footer = card.querySelector('.card-footer');
 
@@ -447,7 +444,7 @@
   function btnIcon(codicon, title, onClick, danger) {
     const b = document.createElement('button');
     b.className = 'icon-btn' + (danger ? ' danger' : '');
-    b.title = title;
+    b.dataset.tooltip = title;
     b.innerHTML = '<span class="codicon ' + codicon + '"></span>';
     b.addEventListener('click', onClick);
     return b;
@@ -462,79 +459,6 @@
     }
     // done
     return "Change status to 'None'";
-  }
-
-  function ensureTooltip() {
-    if (tooltipEl) {
-      return tooltipEl;
-    }
-    tooltipEl = document.createElement('div');
-    tooltipEl.className = 'tooltip';
-    tooltipEl.style.visibility = 'hidden';
-    document.body.appendChild(tooltipEl);
-    return tooltipEl;
-  }
-
-  function showStatusTooltip(statusEl) {
-    // Delay before showing, similar to VS Code's own hover behavior.
-    clearTimeout(tooltipTimer);
-    tooltipTimer = setTimeout(() => {
-      positionStatusTooltip(statusEl);
-    }, 500);
-  }
-
-  function positionStatusTooltip(statusEl) {
-    const tip = ensureTooltip();
-    tip.textContent = statusEl.dataset.tooltip || '';
-    tip.classList.remove('below');
-    tip.style.visibility = 'hidden';
-    tip.style.left = '0px';
-    tip.style.top = '0px';
-
-    const target = statusEl.getBoundingClientRect();
-    const tipWidth = tip.offsetWidth;
-    const tipHeight = tip.offsetHeight;
-    const viewportWidth = document.documentElement.clientWidth;
-    const margin = 6;
-
-    // Ideal: centered above the status chip.
-    let left = target.left + target.width / 2 - tipWidth / 2;
-    let top = target.top - tipHeight - margin;
-    let below = false;
-
-    // Clamp horizontally to stay fully within the viewport (works for both
-    // left/right sidebar positions and RTL/LTR without any fixed assumption).
-    if (left < margin) {
-      left = margin;
-    } else if (left + tipWidth > viewportWidth - margin) {
-      left = viewportWidth - tipWidth - margin;
-    }
-
-    // If there is not enough room above, place it below the chip.
-    if (top < margin) {
-      top = target.bottom + margin;
-      below = true;
-    }
-
-    // Arrow x position: center of the chip relative to the tooltip's left edge,
-    // clamped within the tooltip so the arrow never overflows it.
-    const chipCenter = target.left + target.width / 2;
-    const arrowX = Math.min(Math.max(chipCenter - left, 10), tipWidth - 10);
-
-    tip.style.left = left + 'px';
-    tip.style.top = top + 'px';
-    tip.style.setProperty('--arrow-x', arrowX + 'px');
-    if (below) {
-      tip.classList.add('below');
-    }
-    tip.style.visibility = 'visible';
-  }
-
-  function hideStatusTooltip() {
-    clearTimeout(tooltipTimer);
-    if (tooltipEl) {
-      tooltipEl.style.visibility = 'hidden';
-    }
   }
 
   function cycleStatus(item, event) {
@@ -834,7 +758,7 @@
 
       const editBtn = document.createElement('button');
       editBtn.className = 'icon-btn';
-      editBtn.title = 'Rename';
+      editBtn.dataset.tooltip = 'Rename';
       editBtn.innerHTML = '<span class="codicon codicon-edit"></span>';
       editBtn.addEventListener('click', () => startRenameCategory(c, label));
       row.appendChild(editBtn);
@@ -842,7 +766,7 @@
       if (!c.isDefault) {
         const delBtn = document.createElement('button');
         delBtn.className = 'icon-btn danger';
-        delBtn.title = 'Delete';
+        delBtn.dataset.tooltip = 'Delete';
         delBtn.innerHTML = '<span class="codicon codicon-trash"></span>';
         delBtn.addEventListener('click', () => {
           vscode.postMessage({ type: 'deleteCategory', id: c.id });
@@ -947,7 +871,7 @@
 
       const iconBtn = document.createElement('button');
       iconBtn.className = 'icon-btn type-icon-btn';
-      iconBtn.title = 'Change icon';
+      iconBtn.dataset.tooltip = 'Change icon';
       iconBtn.innerHTML = '<span class="' + iconClass(t.icon) + '" data-type-icon="' + esc(t.id) + '"></span>';
       iconBtn.addEventListener('click', () => {
         if (
@@ -987,14 +911,14 @@
 
       const editBtn = document.createElement('button');
       editBtn.className = 'icon-btn';
-      editBtn.title = 'Rename';
+      editBtn.dataset.tooltip = 'Rename';
       editBtn.innerHTML = '<span class="codicon codicon-edit"></span>';
       editBtn.addEventListener('click', () => startRenameType(t, label));
       row.appendChild(editBtn);
 
       const delBtn = document.createElement('button');
       delBtn.className = 'icon-btn danger';
-      delBtn.title = 'Delete';
+      delBtn.dataset.tooltip = 'Delete';
       delBtn.innerHTML = '<span class="codicon codicon-trash"></span>';
       delBtn.addEventListener('click', () => {
         vscode.postMessage({ type: 'deleteType', id: t.id });
@@ -1096,7 +1020,7 @@
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'icon-pick';
-      btn.title = name;
+      btn.dataset.tooltip = name;
       btn.dataset.icon = name;
       btn.innerHTML = '<span class="codicon codicon-' + name + '"></span>';
       btn.addEventListener('click', () => commitIcon(name));
@@ -1242,6 +1166,11 @@
       false,
       ''
     );
+    // Tooltip goes on the button itself, not the outer container: the
+    // container also holds the dropdown menu, and a tooltip attribute on an
+    // ancestor of .cs-item would be picked up by closest() while hovering
+    // menu items, showing the wrong tooltip.
+    $('category-filter-btn').dataset.tooltip = 'Filter by category';
     bindCustomSelect('category-filter-wrap', 'category-filter-btn', 'category-filter-menu', function (value) {
       state.categoryFilter = value;
       persist();
@@ -1265,6 +1194,9 @@
       false,
       ''
     );
+    // See the comment in populateCategoryFilter() above: the tooltip must go
+    // on the button, not the container that also holds the dropdown menu.
+    $('view-mode-btn').dataset.tooltip = 'View mode';
     bindCustomSelect('view-mode-wrap', 'view-mode-btn', 'view-mode-menu', function (value) {
       state.viewMode = value;
       persist();
@@ -1349,11 +1281,9 @@
     }
   });
 
-  // Hide the status tooltip when the user scrolls. Scroll events do not bubble,
-  // so listen in the capture phase to catch the list and any nested scroller;
-  // otherwise a `position: fixed` tooltip stays stuck in place while content
-  // scrolls beneath a stationary mouse cursor.
-  window.addEventListener('scroll', hideStatusTooltip, true);
+  // The data-tooltip system itself (show/hide, positioning, scroll/escape/
+  // focus handling) lives in media/tooltip.js, loaded as a global before
+  // this script; see sidebarProvider.ts's getHtml().
 
   // Initialize the custom dropdowns (view mode is static; category filter is
   // re-rendered whenever new state arrives, so render an initial empty set).

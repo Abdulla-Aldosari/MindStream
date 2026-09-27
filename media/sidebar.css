@@ -313,20 +313,43 @@ body.dev-mode #toolbar {
   user-select: none;
 }
 
-/* Shared status tooltip (positioned and clamped via JS) */
+/* Shared data-tooltip system (media/tooltip.js): positioned and clamped via
+   JS, shown/hidden purely through the .visible class (no inline styles). */
 .tooltip {
   position: fixed;
   z-index: 1000;
+  visibility: hidden;
   background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
   color: var(--vscode-foreground);
   border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, #444));
   border-radius: 4px;
   padding: 4px 8px;
+  max-width: 260px;
   font-size: 11px;
   white-space: pre-line;
   line-height: 1.4;
   pointer-events: none;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.tooltip.visible {
+  visibility: visible;
+}
+
+.tooltip-header,
+.tooltip-footer {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.tooltip-body {
+  font-weight: 600;
+}
+
+.tooltip-divider {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--vscode-widget-border, var(--vscode-panel-border, #444));
 }
 
 /* Categories management modal */
@@ -496,28 +519,51 @@ body.dev-mode #toolbar {
   outline: 1px solid var(--vscode-focusBorder);
 }
 
-/* Arrow pointing down toward the chip (default: tooltip above the chip) */
+/* Tooltip arrow: shared base, then one rule per resolved position
+   (media/tooltip.js sets .pos-top/.pos-bottom/.pos-left/.pos-right and the
+   --arrow-x/--arrow-y custom properties, which are computed at runtime and
+   cannot be known at CSS-write-time). */
 .tooltip::after {
   content: "";
   position: absolute;
-  top: 100%;
-  left: var(--arrow-x, 50%);
-  transform: translate(-50%, -50%) rotate(45deg);
   width: 8px;
   height: 8px;
   background: inherit;
+}
+
+/* Tooltip above the target: arrow points down */
+.tooltip.pos-top::after {
+  top: 100%;
+  left: var(--arrow-x, 50%);
+  transform: translate(-50%, -50%) rotate(45deg);
   border-right: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, #444));
   border-bottom: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, #444));
 }
 
-/* Arrow pointing up toward the chip when the tooltip is below it */
-.tooltip.below::after {
-  top: auto;
+/* Tooltip below the target: arrow points up */
+.tooltip.pos-bottom::after {
   bottom: 100%;
+  left: var(--arrow-x, 50%);
   transform: translate(-50%, 50%) rotate(45deg);
-  border-right: none;
-  border-bottom: none;
   border-left: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, #444));
+  border-top: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, #444));
+}
+
+/* Tooltip to the right of the target: arrow points left */
+.tooltip.pos-right::after {
+  left: 0;
+  top: var(--arrow-y, 50%);
+  transform: translate(-50%, -50%) rotate(45deg);
+  border-left: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, #444));
+  border-bottom: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, #444));
+}
+
+/* Tooltip to the left of the target: arrow points right */
+.tooltip.pos-left::after {
+  right: 0;
+  top: var(--arrow-y, 50%);
+  transform: translate(50%, -50%) rotate(45deg);
+  border-right: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, #444));
   border-top: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, #444));
 }
 .status.pending {
