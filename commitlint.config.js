@@ -62,6 +62,7 @@ module.exports = {
         "license", // changes to the LICENSE file
         "changelog", // CHANGELOG.md content or cliff.toml changelog-generation configuration
         "package", // package.json metadata, scripts, or dependencies
+        "iconClass", // media/iconClass.js: generates a safe, valid Codicon CSS class for an icon name.
       ],
     ],
   },
