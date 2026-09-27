@@ -1,5 +1,5 @@
 
-<a href="https://github.com/Abdulla-Aldosari/MindStream"><img src="icons/mindstream.png" width="128"></a>
+<a href="https://github.com/Abdulla-Aldosari/MindStream"><img src="icons/mindstream.png" width="128" alt="MindStream logo"></a>
 
 # MindStream for Visual Studio Code
 
