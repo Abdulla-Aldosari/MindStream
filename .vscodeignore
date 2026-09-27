@@ -1,4 +1,7 @@
 .clinerules/
+.github/
+.husky/
+.mindstream/
 .vsenv/
 .vscode/
 src/
@@ -11,3 +14,6 @@ esbuild.js
 tsconfig.json
 .gitignore
 .mocharc.json
+cliff.toml
+commitlint.config.js
+eslint.config.js
