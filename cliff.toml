@@ -9,7 +9,7 @@ repo = "MindStream"
 header = """
 # Changelog
 
-All notable changes to **MindStream** are documented here.<br>
+All notable changes to **[MindStream](https://github.com/Abdulla-Aldosari/MindStream)** are documented here.<br>
 Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
