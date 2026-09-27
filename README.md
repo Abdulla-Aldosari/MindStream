@@ -1,6 +1,5 @@
 
-<a href="https://github.com/Abdulla-Aldosari/MindStream">
-        <img src="icons/mindstream.png" width="128"></a><!-- </a> being on the same line as the <img> tag is intentional! -->
+<a href="https://github.com/Abdulla-Aldosari/MindStream"><img src="icons/mindstream.png" width="128"></a>
 
 # MindStream for Visual Studio Code
 
