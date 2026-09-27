@@ -157,6 +157,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
   private getHtml(webview: vscode.Webview): string {
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'media', 'sidebar.js'));
     const iconClassUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'media', 'iconClass.js'));
+    const tooltipUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'media', 'tooltip.js'));
     const codiconNamesUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'media', 'codicon-names.js'));
     const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'media', 'sidebar.css'));
     const codiconCssUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'media', 'codicon.css'));
@@ -173,9 +174,9 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
 </head>
 <body class="${getBodyClass(this.isDevMode)}">
   <div id="toolbar" class="toolbar">
-    <div id="category-filter-container" title="Filter by category"></div>
-    <div id="view-mode-container" title="View mode"></div>
-    <button id="btn-archive-toggle" class="btn btn-ghost" title="Show/hide archive">Archive</button>
+    <div id="category-filter-container"></div>
+    <div id="view-mode-container"></div>
+    <button id="btn-archive-toggle" class="btn btn-ghost" data-tooltip="Show/hide archive">Archive</button>
   </div>
   <div id="list" class="list"></div>
   <div id="empty" class="empty" hidden>No notes yet.<br>Press "Quick Note" (Ctrl+Alt+M) to add your first idea.</div>
@@ -183,7 +184,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     <div class="modal-card">
       <div class="modal-header">
         <span id="modal-title">New note</span>
-        <button id="modal-close" class="icon-btn close-x-btn" title="Close">✕</button>
+        <button id="modal-close" class="icon-btn close-x-btn" data-tooltip="Close">✕</button>
       </div>
       <label class="field"><span>Title</span><input id="f-title" type="text" placeholder="Write the idea/task briefly"></label>
       <div class="field"><span>Type</span><div id="f-type-container"></div></div>
@@ -198,7 +199,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
   <div id="view-modal" class="modal" hidden>
     <div class="modal-card viewer-card">
       <div class="modal-header viewer-header">
-        <button id="view-close" class="icon-btn close-x-btn" title="Close">✕</button>
+        <button id="view-close" class="icon-btn close-x-btn" data-tooltip="Close">✕</button>
       </div>
       <span id="view-title" class="viewer-title"></span>
       <div id="view-desc" class="viewer-desc">
@@ -223,7 +224,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
           <span class="modal-title">Manage Categories</span>
           <span class="modal-subtitle">Create, rename, and delete your note categories</span>
         </div>
-        <button id="categories-close" class="icon-btn close-x-btn" title="Close">✕</button>
+        <button id="categories-close" class="icon-btn close-x-btn" data-tooltip="Close">✕</button>
       </div>
       <div id="categories-list" class="categories-list"></div>
       <div class="categories-form">
@@ -239,11 +240,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
           <span class="modal-title">Manage Types</span>
           <span class="modal-subtitle">Create, rename, and delete your note types</span>
         </div>
-        <button id="types-close" class="icon-btn close-x-btn" title="Close">✕</button>
+        <button id="types-close" class="icon-btn close-x-btn" data-tooltip="Close">✕</button>
       </div>
       <div id="types-list" class="types-list"></div>
       <div class="types-form">
-        <button id="btn-type-icon" class="icon-btn type-icon-btn choose-icon" title="Choose icon">
+        <button id="btn-type-icon" class="icon-btn type-icon-btn choose-icon" data-tooltip="Choose icon">
           <span id="btn-type-icon-glyph" class="codicon codicon-tag"></span>
         </button>
         <input id="f-type-name" type="text" placeholder="New type name" autocomplete="off">
@@ -262,7 +263,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
           <span id="report-title" class="modal-title">Weekly Report</span>
           <span class="modal-subtitle">Your activity for this week</span>
         </div>
-        <button id="report-close" class="icon-btn close-x-btn" title="Close">✕</button>
+        <button id="report-close" class="icon-btn close-x-btn" data-tooltip="Close">✕</button>
       </div>
       <div id="report-summary" class="report-summary"></div>
       <div id="report-body" class="report-body"></div>
@@ -270,6 +271,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
   </div>
   <script nonce="${nonce}" src="${codiconNamesUri}"></script>
   <script nonce="${nonce}" src="${iconClassUri}"></script>
+  <script nonce="${nonce}" src="${tooltipUri}"></script>
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;
