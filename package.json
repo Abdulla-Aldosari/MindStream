@@ -4,7 +4,7 @@
   "description": "A local notes tracker for developers: capture notes and ideas, organize them into custom types and categories, and track their status and archive.",
   "version": "1.0.0",
   "publisher": "abdulla-aldosari",
-  "icon": "images/mindstream.png",
+  "icon": "icons/mindstream.png",
   "license": "MIT",
   "repository": {
     "type": "git",
