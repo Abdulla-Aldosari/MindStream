@@ -39,6 +39,7 @@
   const modalEl = $('modal');
   const viewModalEl = $('view-modal');
   let viewingItem = null;
+  let pendingFlashId = null;
 
   function persist() {
     vscode.setState({
@@ -624,9 +625,26 @@
     $('f-title').focus();
   }
 
-  function closeModal() {
+  function closeModal(options) {
+    const deferFlash = !!(options && options.deferFlash);
+    const itemId = state.editingId;
     modalEl.hidden = true;
     state.editingId = null;
+
+    // Highlight the note whose editor just closed. When saving, the list is
+    // rebuilt from an incoming state message right after, so defer the flash
+    // (it is applied to the freshly rebuilt card via changedIds); otherwise
+    // (cancel / close / escape) flash the existing card immediately.
+    if (itemId) {
+      if (deferFlash) {
+        pendingFlashId = itemId;
+      } else {
+        const card = listEl.querySelector('.card[data-id="' + itemId + '"]');
+        if (card) {
+          flashCard(card);
+        }
+      }
+    }
   }
 
   function saveModal() {
@@ -635,18 +653,19 @@
       $('f-title').focus();
       return;
     }
+    const isEditing = !!state.editingId;
     const payload = {
-      type: state.editingId ? 'updateItem' : 'addItem',
+      type: isEditing ? 'updateItem' : 'addItem',
       title: title,
       description: $('f-desc').value,
       typeId: state.formTypeId,
       categoryId: state.formCategoryId
     };
-    if (state.editingId) {
+    if (isEditing) {
       payload.id = state.editingId;
     }
     vscode.postMessage(payload);
-    closeModal();
+    closeModal(isEditing ? { deferFlash: true } : undefined);
   }
 
   function formatDate(value) {
@@ -689,15 +708,18 @@
     viewModalEl.hidden = false;
   }
 
-  function closeView() {
+  function closeView(options) {
+    const skipFlash = !!(options && options.skipFlash);
     const itemId = viewingItem ? viewingItem.id : null;
     viewModalEl.hidden = true;
     viewingItem = null;
 
     // Flash the card that was being viewed so the user can spot it after the
     // modal closes. The card may no longer exist (deleted or filtered out
-    // while viewing), in which case this is a harmless no-op.
-    if (itemId) {
+    // while viewing), in which case this is a harmless no-op. Skipped when
+    // transitioning straight into another modal (e.g. Edit), where the card is
+    // immediately covered and the flash would only be distracting.
+    if (itemId && !skipFlash) {
       const card = listEl.querySelector('.card[data-id="' + itemId + '"]');
       if (card) {
         flashCard(card);
@@ -1206,6 +1228,10 @@
         changedIds[it.id] = true;
       }
     });
+    if (pendingFlashId) {
+      changedIds[pendingFlashId] = true;
+      pendingFlashId = null;
+    }
 
     const prevCategories = state.categories || [];
     const prevTypes = state.types || [];
@@ -1371,7 +1397,7 @@
   $('view-close-btn').addEventListener('click', closeView);
   $('view-edit').addEventListener('click', () => {
     const item = viewingItem;
-    closeView();
+    closeView({ skipFlash: true });
     if (item) {
       openEdit(item);
     }
