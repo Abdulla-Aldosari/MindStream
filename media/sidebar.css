@@ -241,6 +241,20 @@ body.vscode-dark[data-vscode-theme-id="Dark 2026"] .cs-item[data-highlighted] .c
   gap: var(--gap);
 }
 
+/* While any full-screen modal is open, make the note-list scrollbar invisible
+   but keep the space it occupies. The list stays overflow-y: auto, so space
+   is reserved only when the list actually overflows, and it updates live if
+   the window is resized while the modal is open - no layout shift on close. */
+body:has(.modal:not([hidden])) .list {
+  scrollbar-color: transparent transparent;
+}
+
+body:has(.modal:not([hidden])) .list::-webkit-scrollbar,
+body:has(.modal:not([hidden])) .list::-webkit-scrollbar-thumb,
+body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 .empty {
   padding: 24px 12px;
   text-align: center;
@@ -726,7 +740,6 @@ body.vscode-dark[data-vscode-theme-id="Dark 2026"] .cs-item[data-highlighted] .c
 
 /* Weekly report modal (full-screen page, not a dialog) */
 #report-modal {
-  background: var(--vscode-editor-background, var(--vscode-sideBar-background));
   align-items: stretch;
 }
 
@@ -831,18 +844,24 @@ body.vscode-dark[data-vscode-theme-id="Dark 2026"] .cs-item[data-highlighted] .c
   background-color: var(--vscode-sideBar-background);
   border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, #333));
   border-radius: var(--radius);
-  padding: 7px;
   overflow: hidden;
 }
 
 .viewer-desc-scroll {
-  font-size: 14px;
-  color: var(--vscode-foreground);
+  overflow-y: auto;
+  max-height: calc(60vh - 50px);
+  min-height: 85px;
+  background: var(--vscode-editor-background);
+}
+
+.viewer-desc-content {
+  padding: 14px;
+  font-size: 13px;
+  color: var(--vscode-foreground);  
   line-height: 1.6;
   word-break: break-word;
   white-space: pre-wrap;
   max-height: 60vh;
-  overflow-y: auto;
 }
 
 .viewer-timestamps {
@@ -898,22 +917,6 @@ body.vscode-dark[data-vscode-theme-id="Dark 2026"] .cs-item[data-highlighted] .c
   }
   to {
     opacity: 1;
-  }
-}
-
-/* Status-change flash highlight */
-.card.flash {
-  animation: flash-bg 0.5s ease;
-}
-@keyframes flash-bg {
-  0% {
-    background: var(--vscode-textBlockQuote-background, var(--vscode-editor-background));
-  }
-  50% {
-    background: var(--vscode-focusBorder);
-  }
-  100% {
-    background: var(--vscode-editor-background, var(--vscode-sideBar-background));
   }
 }
 

@@ -17,13 +17,13 @@
 //                          optional.
 //   data-tooltip-pos     - 'top' | 'bottom' (default) | 'left' | 'right'.
 //
-// computeTooltipPosition() and buildTooltipHtml() are pure, side-effect-free
-// functions kept at the top level (same pattern as media/iconClass.js) so
-// they can be exercised directly from Node-based unit tests without any
-// DOM/vscode stubbing. The rest of this file wires them to real DOM events
-// and only runs inside a real webview (guarded by `typeof document !==
-// 'undefined'`), so it has no effect when this file is `require()`-d from a
-// Mocha test.
+// computeTooltipPosition(), buildTooltipHtml(), and isLayoutInducedHover()
+// are pure, side-effect-free functions kept at the top level (same pattern
+// as media/iconClass.js) so they can be exercised directly from Node-based
+// unit tests without any DOM/vscode stubbing. The rest of this file wires
+// them to real DOM events and only runs inside a real webview (guarded by
+// `typeof document !== 'undefined'`), so it has no effect when this file is
+// `require()`-d from a Mocha test.
 
 /**
  * Computes where a tooltip box should be placed relative to a target
@@ -131,6 +131,39 @@ function buildTooltipHtml(header, body, footer) {
   return parts.join('');
 }
 
+/**
+ * Decides whether a `mouseover` event should be ignored because the pointer
+ * has not actually moved. Browsers re-dispatch `mouseover` when a layout
+ * change (e.g. the VS Code window being resized) slides a different element
+ * under a stationary pointer, which would otherwise show tooltips without
+ * any real hover. A hover is treated as genuine only when the event's
+ * coordinates differ from the last known pointer position, or when a
+ * `mousemove` with the same coordinates happened within `threshold` ms -
+ * the normal case where the user moves the pointer across an element
+ * boundary, since the final `mousemove` and the crossing `mouseover` share
+ * the same coordinates.
+ *
+ * @param {object} opts
+ * @param {number} opts.timeStamp - `e.timeStamp` of the mouseover event.
+ * @param {number} opts.clientX - `e.clientX` of the mouseover event.
+ * @param {number} opts.clientY - `e.clientY` of the mouseover event.
+ * @param {number|null} opts.lastMoveX - `clientX` of the last mousemove, or null if none seen yet.
+ * @param {number|null} opts.lastMoveY - `clientY` of the last mousemove, or null if none seen yet.
+ * @param {number} opts.lastMoveTimeStamp - `timeStamp` of the last mousemove, or 0 if none seen yet.
+ * @param {number} [opts.threshold] - max age in ms for the last mousemove to still count as recent.
+ * @returns {boolean} true when the hover is layout-induced and should be ignored.
+ */
+function isLayoutInducedHover(opts) {
+  const threshold = opts.threshold != null ? opts.threshold : 150;
+  if (opts.lastMoveX == null || opts.lastMoveY == null) {
+    return false;
+  }
+  if (opts.clientX !== opts.lastMoveX || opts.clientY !== opts.lastMoveY) {
+    return false;
+  }
+  return opts.timeStamp - opts.lastMoveTimeStamp > threshold;
+}
+
 // This branch only runs inside the real webview. It never executes when
 // this file is `require()`-d from a Node-based unit test, where `document`
 // is undefined.
@@ -144,6 +177,9 @@ if (typeof document !== 'undefined') {
     let currentTarget = null;
     let rafId = null;
     let lastAppliedPos = null;
+    let lastMoveX = null;
+    let lastMoveY = null;
+    let lastMoveTimeStamp = 0;
 
     function ensureTooltip() {
       if (tooltipEl) {
@@ -298,9 +334,32 @@ if (typeof document !== 'undefined') {
       return !!(relatedTarget && target.contains && target.contains(relatedTarget));
     }
 
+    // Records the last known pointer position and its timestamp so the
+    // mouseover handler can tell a real hover (mouse actually moved) apart
+    // from a layout-induced one (an element slid under a stationary pointer,
+    // e.g. when the VS Code window is resized). Only numeric writes, no DOM
+    // reads or allocations, so it costs nothing even though mousemove fires
+    // frequently. `e.timeStamp` is reused instead of Date.now() to avoid
+    // even the clock read.
+    document.addEventListener('mousemove', function (e) {
+      lastMoveX = e.clientX;
+      lastMoveY = e.clientY;
+      lastMoveTimeStamp = e.timeStamp;
+    });
+
     document.addEventListener('mouseover', function (e) {
       const target = findTooltipTarget(e.target);
       if (!target || isMovingWithin(target, e.relatedTarget)) {
+        return;
+      }
+      if (isLayoutInducedHover({
+        timeStamp: e.timeStamp,
+        clientX: e.clientX,
+        clientY: e.clientY,
+        lastMoveX: lastMoveX,
+        lastMoveY: lastMoveY,
+        lastMoveTimeStamp: lastMoveTimeStamp
+      })) {
         return;
       }
       activateTooltip(target);
@@ -348,5 +407,5 @@ if (typeof document !== 'undefined') {
 // executes inside the real webview, where `module` is undefined, so it has
 // no effect on production behavior.
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { computeTooltipPosition: computeTooltipPosition, buildTooltipHtml: buildTooltipHtml };
+  module.exports = { computeTooltipPosition: computeTooltipPosition, buildTooltipHtml: buildTooltipHtml, isLayoutInducedHover: isLayoutInducedHover };
 }

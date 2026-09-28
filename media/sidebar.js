@@ -700,7 +700,7 @@
     const descEl = $('view-desc');
     descEl.setAttribute('dir', state.direction);
     descEl.hidden = !item.description;
-    $('view-desc-scroll').textContent = item.description || '';
+    $('view-desc-content').textContent = item.description || '';
 
     $('view-timestamps').textContent =
       'Created: ' + formatDate(item.createdAt) + '\u2003\u00b7\u2003Updated: ' + formatDate(item.updatedAt);
