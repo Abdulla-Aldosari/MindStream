@@ -7,12 +7,13 @@
 import * as assert from 'assert';
 
 // media/tooltip.js is mostly a side-effect-free browser script (no `vscode`
-// or DOM usage in its exported functions) that exports computeTooltipPosition
-// and buildTooltipHtml for Node-based unit tests; see the guarded
-// `module.exports` block at the bottom of that file. The interactive part of
-// the file (event wiring) is guarded behind `typeof document !== 'undefined'`
-// and never runs here, since Node has no `document` global.
-const { computeTooltipPosition, buildTooltipHtml } = require('../media/tooltip.js') as {
+// or DOM usage in its exported functions) that exports computeTooltipPosition,
+// buildTooltipHtml, and isLayoutInducedHover for Node-based unit tests; see
+// the guarded `module.exports` block at the bottom of that file. The
+// interactive part of the file (event wiring) is guarded behind
+// `typeof document !== 'undefined'` and never runs here, since Node has no
+// `document` global.
+const { computeTooltipPosition, buildTooltipHtml, isLayoutInducedHover } = require('../media/tooltip.js') as {
   computeTooltipPosition: (opts: {
     target: { left: number; top: number; right: number; bottom: number; width: number; height: number };
     tipWidth: number;
@@ -23,6 +24,15 @@ const { computeTooltipPosition, buildTooltipHtml } = require('../media/tooltip.j
     margin?: number;
   }) => { left: number; top: number; resolvedPos: string; arrowX: number; arrowY: number };
   buildTooltipHtml: (header?: string, body?: string, footer?: string) => string;
+  isLayoutInducedHover: (opts: {
+    timeStamp: number;
+    clientX: number;
+    clientY: number;
+    lastMoveX: number | null;
+    lastMoveY: number | null;
+    lastMoveTimeStamp: number;
+    threshold?: number;
+  }) => boolean;
 };
 
 function target(left: number, top: number, width: number, height: number) {
@@ -187,5 +197,81 @@ describe('buildTooltipHtml', () => {
 
   it('returns an empty string when nothing is provided', () => {
     assert.strictEqual(buildTooltipHtml(undefined, undefined, undefined), '');
+  });
+});
+
+describe('isLayoutInducedHover', () => {
+  it('accepts a hover when a mousemove with the same coordinates happened within the threshold', () => {
+    const result = isLayoutInducedHover({
+      timeStamp: 500,
+      clientX: 10,
+      clientY: 20,
+      lastMoveX: 10,
+      lastMoveY: 20,
+      lastMoveTimeStamp: 450
+    });
+    assert.strictEqual(result, false);
+  });
+
+  it('rejects a hover when the pointer is stationary (same coordinates, stale mousemove)', () => {
+    const result = isLayoutInducedHover({
+      timeStamp: 500,
+      clientX: 10,
+      clientY: 20,
+      lastMoveX: 10,
+      lastMoveY: 20,
+      lastMoveTimeStamp: 100
+    });
+    assert.strictEqual(result, true);
+  });
+
+  it('accepts a hover when the coordinates changed even with a stale mousemove', () => {
+    const result = isLayoutInducedHover({
+      timeStamp: 500,
+      clientX: 11,
+      clientY: 20,
+      lastMoveX: 10,
+      lastMoveY: 20,
+      lastMoveTimeStamp: 100
+    });
+    assert.strictEqual(result, false);
+  });
+
+  it('accepts a hover when no mousemove has been tracked yet', () => {
+    const result = isLayoutInducedHover({
+      timeStamp: 500,
+      clientX: 10,
+      clientY: 20,
+      lastMoveX: null,
+      lastMoveY: null,
+      lastMoveTimeStamp: 0
+    });
+    assert.strictEqual(result, false);
+  });
+
+  it('uses a custom threshold when provided', () => {
+    const opts = {
+      timeStamp: 200,
+      clientX: 10,
+      clientY: 20,
+      lastMoveX: 10,
+      lastMoveY: 20,
+      lastMoveTimeStamp: 100
+    };
+    assert.strictEqual(isLayoutInducedHover({ ...opts, threshold: 50 }), true);
+    assert.strictEqual(isLayoutInducedHover({ ...opts, threshold: 150 }), false);
+  });
+
+  it('treats a mousemove exactly at the threshold as recent (strict comparison)', () => {
+    const result = isLayoutInducedHover({
+      timeStamp: 250,
+      clientX: 10,
+      clientY: 20,
+      lastMoveX: 10,
+      lastMoveY: 20,
+      lastMoveTimeStamp: 100,
+      threshold: 150
+    });
+    assert.strictEqual(result, false);
   });
 });

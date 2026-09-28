@@ -204,7 +204,9 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
       </div>
       <span id="view-title" class="viewer-title"></span>
       <div id="view-desc" class="viewer-desc">
-        <div id="view-desc-scroll" class="viewer-desc-scroll"></div>
+        <div id="view-desc-scroll" class="viewer-desc-scroll">
+          <div id="view-desc-content" class="viewer-desc-content"></div>
+        </div>
       </div>
       <div id="view-timestamps" class="viewer-timestamps"></div>
       <div class="modal-actions">
