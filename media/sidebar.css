@@ -165,7 +165,7 @@ body.dev-mode #toolbar {
   min-width: unset;
 }
 .cs-wrap-full .cs-menu {
-  width: 100%;
+  width: calc(100% - 2px);
   min-width: unset;
 }
 
@@ -952,6 +952,11 @@ body.dev-mode #toolbar {
 
 .type-icon-btn.choose-icon {
   padding: 8px 6px 2px 6px;
+}
+
+.type-icon-btn.active {
+  border-color: var(--vscode-focusBorder);
+  box-shadow: 0 0 0 1px var(--vscode-focusBorder);
 }
 
 

@@ -852,6 +852,7 @@
     $('types-modal').hidden = true;
     $('icons-modal').hidden = true;
     state.iconsModalMode = null;
+    clearTypeIconActive();
   }
 
   function renderTypeIconButton() {
@@ -871,6 +872,7 @@
 
       const iconBtn = document.createElement('button');
       iconBtn.className = 'icon-btn type-icon-btn';
+      iconBtn.dataset.typeId = t.id;
       iconBtn.dataset.tooltip = 'Change icon';
       iconBtn.innerHTML = '<span class="' + iconClass(t.icon) + '" data-type-icon="' + esc(t.id) + '"></span>';
       iconBtn.addEventListener('click', () => {
@@ -940,6 +942,7 @@
         }
       }, 1700);
     }
+    setTypeIconActive();
   }
 
   function startRenameType(type, labelEl) {
@@ -994,17 +997,35 @@
     return !$('icons-modal').hidden;
   }
 
+  function clearTypeIconActive() {
+    document.querySelectorAll('.type-icon-btn.active').forEach((el) => el.classList.remove('active'));
+  }
+
+  function setTypeIconActive() {
+    clearTypeIconActive();
+    const mode = state.iconsModalMode;
+    if (!mode) return;
+    if (mode.mode === 'new') {
+      $('btn-type-icon').classList.add('active');
+    } else if (mode.mode === 'edit') {
+      const btn = document.querySelector('.type-icon-btn[data-type-id="' + mode.typeId + '"]');
+      if (btn) btn.classList.add('active');
+    }
+  }
+
   function openIconsModal(mode) {
     state.iconsModalMode = mode;
     $('icons-modal').hidden = false;
     $('f-icon-filter').value = '';
     renderIcons('');
     $('f-icon-filter').focus();
+    setTypeIconActive();
   }
 
   function closeIconsModal() {
     $('icons-modal').hidden = true;
     state.iconsModalMode = null;
+    clearTypeIconActive();
   }
 
   function renderIcons(filter) {
