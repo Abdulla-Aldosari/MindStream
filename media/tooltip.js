@@ -143,6 +143,7 @@ if (typeof document !== 'undefined') {
     let showTimer = null;
     let currentTarget = null;
     let rafId = null;
+    let lastAppliedPos = null;
 
     function ensureTooltip() {
       if (tooltipEl) {
@@ -197,6 +198,7 @@ if (typeof document !== 'undefined') {
       clearShowTimer();
       stopTracking();
       currentTarget = null;
+      lastAppliedPos = null;
       if (tooltipEl) {
         tooltipEl.classList.remove('visible');
       }
@@ -214,12 +216,39 @@ if (typeof document !== 'undefined') {
         viewportHeight: document.documentElement.clientHeight,
         pos: requestedPos
       });
+
+      // Skip the DOM writes entirely when nothing moved since the last
+      // frame. The rAF loop still runs (it must keep detecting target
+      // removal / FLIP movement), but rewriting style and pos-* classes
+      // ~60 times per second while the target is stationary made DevTools
+      // flash the class attribute aggressively and forced needless style
+      // recalculation. Comparing against the last applied values keeps
+      // every frame's read cheap and only touches the DOM on real change.
+      if (
+        lastAppliedPos &&
+        lastAppliedPos.left === result.left &&
+        lastAppliedPos.top === result.top &&
+        lastAppliedPos.arrowX === result.arrowX &&
+        lastAppliedPos.arrowY === result.arrowY &&
+        lastAppliedPos.resolvedPos === result.resolvedPos
+      ) {
+        return;
+      }
+
       tip.style.left = result.left + 'px';
       tip.style.top = result.top + 'px';
       tip.style.setProperty('--arrow-x', result.arrowX + 'px');
       tip.style.setProperty('--arrow-y', result.arrowY + 'px');
       tip.classList.remove('pos-top', 'pos-bottom', 'pos-left', 'pos-right');
       tip.classList.add('pos-' + result.resolvedPos);
+
+      lastAppliedPos = {
+        left: result.left,
+        top: result.top,
+        arrowX: result.arrowX,
+        arrowY: result.arrowY,
+        resolvedPos: result.resolvedPos
+      };
     }
 
     // Recomputes the tooltip's position on every frame while it is visible,
