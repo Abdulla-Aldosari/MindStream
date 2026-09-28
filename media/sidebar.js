@@ -348,6 +348,19 @@
     return map;
   }
 
+  // Brief color-only flash used to draw attention to a card (status change,
+  // or the note whose view modal was just closed). Background-only so it never
+  // affects size, shape, or position.
+  function flashCard(el) {
+    el.animate(
+      [
+        { backgroundColor: 'var(--vscode-focusBorder)' },
+        { backgroundColor: 'var(--vscode-editor-background, var(--vscode-sideBar-background))' }
+      ],
+      { duration: 500, easing: 'ease' }
+    );
+  }
+
   function animateFlip(prevPositions, changedIds) {
     const cards = listEl.querySelectorAll('.card[data-id]');
     const hasMoves = Object.keys(prevPositions).length > 0;
@@ -380,13 +393,7 @@
       }
 
       if (changedIds && changedIds[id]) {
-        el.animate(
-          [
-            { backgroundColor: 'var(--vscode-focusBorder)' },
-            { backgroundColor: 'var(--vscode-editor-background, var(--vscode-sideBar-background))' }
-          ],
-          { duration: 500, easing: 'ease' }
-        );
+        flashCard(el);
       }
     });
   }
@@ -683,8 +690,19 @@
   }
 
   function closeView() {
+    const itemId = viewingItem ? viewingItem.id : null;
     viewModalEl.hidden = true;
     viewingItem = null;
+
+    // Flash the card that was being viewed so the user can spot it after the
+    // modal closes. The card may no longer exist (deleted or filtered out
+    // while viewing), in which case this is a harmless no-op.
+    if (itemId) {
+      const card = listEl.querySelector('.card[data-id="' + itemId + '"]');
+      if (card) {
+        flashCard(card);
+      }
+    }
   }
 
   // Closes every open custom-select dropdown at once by invoking each bound
