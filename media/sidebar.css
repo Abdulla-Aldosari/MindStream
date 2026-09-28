@@ -728,6 +728,12 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 .modal-card .btn.btn-ghost
 {
   min-width: 65px;
+  height: 27px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
 }
 
 .modal-header.viewer-header {
@@ -830,6 +836,44 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   cursor: default;
 }
 
+/* Viewer action bar: one fixed-height row that never wraps or overlaps.
+   Chip heights match the modal buttons (27px, see .modal-card .btn rules). */
+.viewer-card .modal-actions {
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.viewer-card .modal-actions .btn {
+  flex-shrink: 0;
+}
+
+.viewer-card .modal-actions .viewer-meta {
+  flex-wrap: nowrap;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.viewer-card .modal-actions .viewer-meta > span {
+  box-sizing: border-box;
+  height: 27px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.viewer-card .modal-actions .viewer-meta .chip-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.viewer-card .modal-actions .viewer-meta .card-type .codicon {
+  flex-shrink: 0;
+}
+
 .viewer-category {
   font-size: 12px;
   color: var(--vscode-descriptionForeground);
@@ -861,7 +905,6 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   line-height: 1.6;
   word-break: break-word;
   white-space: pre-wrap;
-  max-height: 60vh;
 }
 
 .viewer-timestamps {
