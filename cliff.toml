@@ -68,9 +68,16 @@ commit_preprocessors = [
 commit_parsers = [
   # Breaking changes: matches type(optional-scope)!: regardless of type
   { message = "^[a-z]+(\\([^)]*\\))?!:", group = "<!-- 0 -->⚠️ Important Changes" },
+
+  # Exception: Ignore any fix that has a scope beginning with a hyphen (-)
+  # Used for small commits to be outside the changelog
+  { message = "^fix\\(-.*\\)", skip = true },
+
   { message = "^feat",    group = "<!-- 1 -->🚀 What's New" },
-  { message = "^fix",     group = "<!-- 2 -->🐛 Bug Fixes" },
+  { message = "^fix",     group = "<!-- 2 -->🐛 Fixes" },
   { message = "^perf",    group = "<!-- 3 -->⚡ Performance" },
+
+
   # Everything else is internal — hidden from the user-facing changelog
   { message = ".*",       skip = true },
 ]
