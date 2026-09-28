@@ -687,15 +687,18 @@
     titleEl.setAttribute('dir', state.direction);
 
     const typeEl = $('view-type');
-    typeEl.innerHTML = '<span class="' + iconClass(t.icon) + '"></span> ' + esc(t.label);
+    typeEl.innerHTML =
+      '<span class="' + iconClass(t.icon) + '"></span>' +
+      '<span class="chip-label">' + esc(t.label) + '</span>';
 
     const catEl = $('view-category');
-    catEl.textContent = cat ? cat.label : '';
+    catEl.innerHTML = cat ? '<span class="chip-label">' + esc(cat.label) + '</span>' : '';
     catEl.hidden = !cat;
 
     const statusEl = $('view-status');
     statusEl.className = 'status ' + item.status;
-    statusEl.textContent = state.statusLabels[item.status] || item.status;
+    statusEl.innerHTML =
+      '<span class="chip-label">' + esc(state.statusLabels[item.status] || item.status) + '</span>';
 
     const descEl = $('view-desc');
     descEl.setAttribute('dir', state.direction);
