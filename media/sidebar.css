@@ -33,6 +33,7 @@ body {
   gap: var(--gap);
   padding: var(--gap);
   border-bottom: 1px solid var(--vscode-panel-border, transparent);
+  user-select: none;
 }
 
 /* Visual marker shown only when running from the source tree (Extension
@@ -104,7 +105,7 @@ body.dev-mode #toolbar {
 
 .cs-menu-items-wrapper {
   overflow-y: auto;
-  max-height: 300px;
+  max-height: min(450px, calc(80vh - 20px));
   padding: 4px;
 }
 
@@ -120,10 +121,7 @@ body.dev-mode #toolbar {
 }
 
 .cs-item[data-highlighted] {
-  background: var(
-    --vscode-quickInputList-focusBackground,
-    color-mix(in srgb, var(--vscode-editor-background) 80%, var(--vscode-foreground))
-  );
+  background: var(--vscode-quickInputList-focusBackground, color-mix(in srgb, var(--vscode-editor-background) 80%, var(--vscode-foreground)));
   color: var(--vscode-quickInputList-focusForeground, var(--vscode-editor-foreground));
 }
 
@@ -149,6 +147,17 @@ body.dev-mode #toolbar {
   color: var(--vscode-descriptionForeground);
   opacity: 0.85;
 }
+
+/* Fix badge visibility on hover for themes whose focus background is
+   dark while descriptionForeground stays dark.*/
+body.vscode-light[data-vscode-theme-id="Visual Studio Light"] .cs-item[data-highlighted] .cs-item-badge,
+body.vscode-light[data-vscode-theme-id="Light 2026"] .cs-item[data-highlighted] .cs-item-badge,
+body.vscode-light[data-vscode-theme-id="Light+"] .cs-item[data-highlighted] .cs-item-badge,
+body.vscode-dark[data-vscode-theme-id="Dark 2026"] .cs-item[data-highlighted] .cs-item-badge {
+  color: inherit;
+  opacity: 0.65;
+}
+ 
 
 .cs-check {
   flex-shrink: 0;
@@ -237,6 +246,15 @@ body.dev-mode #toolbar {
   text-align: center;
   color: var(--vscode-descriptionForeground);
   line-height: 1.8;
+  user-select: none;
+}
+
+.empty-text {
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 3px;
 }
 
 .card {
