@@ -25,6 +25,7 @@
     viewMode: saved.viewMode || 'auto',
     collapsed: saved.collapsed || {},
     categoryFilter: saved.categoryFilter || 'all',
+    typeFilter: saved.typeFilter || 'all',
     formTypeId: null,
     formCategoryId: null,
     pendingTypeIcon: 'tag',
@@ -43,7 +44,8 @@
     vscode.setState({
       viewMode: state.viewMode,
       collapsed: state.collapsed,
-      categoryFilter: state.categoryFilter
+      categoryFilter: state.categoryFilter,
+      typeFilter: state.typeFilter
     });
   }
 
@@ -80,6 +82,12 @@
     checkmark: '<svg width="17" height="17" viewBox="0 0 24 24" class="cs-check" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 6L9 17l-5-5"></path></svg>'
   };
 
+  // Registry of bound dropdown close functions, keyed by menuId. Populated by
+  // bindCustomSelect() and consumed by closeAllDropdowns() so that every open
+  // menu can be dismissed atomically (hidden + its document/window listeners
+  // removed) from a single choke point, e.g. when opening any modal.
+  const menuCloseHandlers = {};
+
   function renderCustomSelect(wrapperId, btnId, menuId, options, selectedValue, btnExtraClass, menuUp, wrapExtraClass) {
     const selectedOption = options.find(function (o) {
       return o.value === selectedValue;
@@ -89,15 +97,15 @@
     const items = options
       .map(function (opt) {
         const isSelected = opt.value === selectedValue;
-        const badgeHtml = opt.badge ? '<span class="cs-item-badge">' + opt.badge + '</span>' : '';
-        const isStart = opt.badgePosition === 'start';
+        const badgeStartHtml = opt.badgeStart ? '<span class="cs-item-badge">' + opt.badgeStart + '</span>' : '';
+        const badgeEndHtml = opt.badgeEnd ? '<span class="cs-item-badge">' + opt.badgeEnd + '</span>' : '';
         const itemClass = opt.itemClass ? ' ' + opt.itemClass : '';
         return (
           '<div class="cs-item' + itemClass + '" role="menuitem" tabindex="-1" data-value="' + escapeAttr(opt.value) + '">' +
           '<span class="cs-item-label-group">' +
-          (isStart ? badgeHtml : '') +
+          badgeStartHtml +
           '<span class="cs-item-label">' + escapeHtml(opt.label) + '</span>' +
-          (!isStart ? badgeHtml : '') +
+          badgeEndHtml +
           '</span>' +
           (isSelected ? csIcons.checkmark : '') +
           '</div>'
@@ -139,6 +147,11 @@
       document.removeEventListener('pointerdown', onPointerDown, true);
       window.removeEventListener('blur', onWindowBlur);
     }
+
+    // Expose this dropdown's close function so closeAllDropdowns() can dismiss
+    // it (and clean up its listeners) from outside the closure. Re-binding the
+    // same menuId after a re-render simply overwrites the stale entry.
+    menuCloseHandlers[menuId] = closeMenu;
 
     function onPointerDown(e) {
       if (wrap && !wrap.contains(e.target)) {
@@ -203,11 +216,19 @@
 
   // --- Ordering / grouping ---
 
-  function filteredItems() {
+  function itemsInCategory() {
     if (state.categoryFilter === 'all') {
       return state.items;
     }
     return state.items.filter((it) => it.categoryId === state.categoryFilter);
+  }
+
+  function filteredItems() {
+    const items = itemsInCategory();
+    if (state.typeFilter === 'all') {
+      return items;
+    }
+    return items.filter((it) => it.typeId === state.typeFilter);
   }
 
   function byCreatedAsc(a, b) {
@@ -242,11 +263,52 @@
     return groups;
   }
 
+  function renderEmptyState() {
+    function createButton(label) {
+      return '<button type="button" class="btn btn-primary empty-create-btn">' + label + '</button>';
+    }
+
+    if (state.items.length === 0) {
+      emptyEl.innerHTML =
+        '<div class="empty-text">Looks like there are no notes yet.</div>' +
+        createButton('Create your first note');
+      emptyEl.hidden = false;
+      return;
+    }
+
+    if (itemsInCategory().length === 0) {
+      emptyEl.innerHTML =
+        '<div class="empty-text">No notes in this category.</div>' +
+        createButton('Create one');
+      emptyEl.hidden = false;
+      return;
+    }
+
+    if (filteredItems().length === 0) {
+      const t = typeOf(state.typeFilter);
+      emptyEl.innerHTML =
+        '<div class="empty-text">Looks like there are no <span class="' +
+        iconClass(t.icon) +
+        '"></span> ' +
+        esc(t.label) +
+        ' notes yet.</div>' +
+        createButton('Create one');
+      emptyEl.hidden = false;
+      return;
+    }
+
+    emptyEl.hidden = true;
+  }
+
   function renderList(changedIds) {
     const prevPositions = capturePositions();
 
     listEl.innerHTML = '';
-    emptyEl.hidden = state.items.length > 0;
+    renderEmptyState();
+
+    if (filteredItems().length === 0) {
+      return;
+    }
 
     if (state.viewMode === 'grouped') {
       const groups = groupedByStatus();
@@ -491,8 +553,8 @@
 
   function fillTypeSelect(selectedTypeId) {
     const options = state.types.map(function (t) {
-      const badge = t.icon ? '<span class="' + iconClass(t.icon) + '"></span>' : '';
-      return { value: t.id, label: t.label, badge: badge, badgePosition: 'start' };
+      const badgeStart = t.icon ? '<span class="' + iconClass(t.icon) + '"></span>' : '';
+      return { value: t.id, label: t.label, badgeStart: badgeStart };
     });
     state.formTypeId = selectedTypeId != null ? selectedTypeId : (state.types[0] && state.types[0].id) || null;
     $('f-type-container').innerHTML = renderCustomSelect(
@@ -536,7 +598,7 @@
     $('modal-title').textContent = 'New note';
     $('f-title').value = '';
     $('f-desc').value = '';
-    fillTypeSelect(state.types[0] && state.types[0].id);
+    fillTypeSelect(state.typeFilter !== 'all' ? state.typeFilter : (state.types[0] && state.types[0].id));
     // Default to the currently filtered category when adding a note.
     fillCategorySelect(state.categoryFilter !== 'all' ? state.categoryFilter : null);
     modalEl.hidden = false;
@@ -625,8 +687,19 @@
     viewingItem = null;
   }
 
-  // Ensures only one modal is visible at a time within the sidebar.
+  // Closes every open custom-select dropdown at once by invoking each bound
+  // menu's own close function, which hides the menu and removes its
+  // document/window listeners immediately (atomic cleanup).
+  function closeAllDropdowns() {
+    Object.keys(menuCloseHandlers).forEach(function (menuId) {
+      menuCloseHandlers[menuId]();
+    });
+  }
+
+  // Ensures only one overlay (modal or dropdown) is visible at a time within
+  // the sidebar.
   function closeAllModals() {
+    closeAllDropdowns();
     modalEl.hidden = true;
     viewModalEl.hidden = true;
     $('categories-modal').hidden = true;
@@ -1126,6 +1199,7 @@
     state.direction = msg.direction === 'rtl' ? 'rtl' : 'ltr';
     setArchiveVisible(state.includeArchived);
     populateCategoryFilter();
+    populateTypeFilter();
     if (!$('categories-modal').hidden) {
       let addedCategoryId = null;
       if (prevCategories.length) {
@@ -1166,12 +1240,12 @@
   function populateCategoryFilter() {
     const current = state.categoryFilter;
     const totalCount = state.items.length;
-    const options = [{ value: 'all', label: 'All Categories', badge: '(' + totalCount + ')' }].concat(
+    const options = [{ value: 'all', label: 'All Categories', badgeEnd: '(' + totalCount + ')' }].concat(
       state.categories.map(function (c) {
         const count = state.items.filter(function (it) {
           return it.categoryId === c.id;
         }).length;
-        return { value: c.id, label: c.label, badge: '(' + count + ')' };
+        return { value: c.id, label: c.label, badgeEnd: '(' + count + ')' };
       })
     );
     if (state.categories.length && !state.categories.some((c) => c.id === current)) {
@@ -1194,6 +1268,45 @@
     $('category-filter-btn').dataset.tooltip = 'Filter by category';
     bindCustomSelect('category-filter-wrap', 'category-filter-btn', 'category-filter-menu', function (value) {
       state.categoryFilter = value;
+      persist();
+      populateTypeFilter();
+      renderList();
+    });
+  }
+
+  function populateTypeFilter() {
+    const current = state.typeFilter;
+    const inCategory = itemsInCategory();
+    const options = [{ value: 'all', label: 'All Types', badgeEnd: '(' + inCategory.length + ')' }].concat(
+      state.types.map(function (t) {
+        const count = inCategory.filter(function (it) {
+          return it.typeId === t.id;
+        }).length;
+        return {
+          value: t.id,
+          label: t.label,
+          badgeStart: t.icon ? '<span class="' + iconClass(t.icon) + '"></span>' : '',
+          badgeEnd: '(' + count + ')'
+        };
+      })
+    );
+    if (state.types.length && !state.types.some((t) => t.id === current)) {
+      state.typeFilter = 'all';
+    }
+    $('type-filter-container').innerHTML = renderCustomSelect(
+      'type-filter-wrap',
+      'type-filter-btn',
+      'type-filter-menu',
+      options,
+      state.typeFilter,
+      'cs-btn-toolbar',
+      false,
+      ''
+    );
+    // Tooltip on the button (not the container), matching the other filters.
+    $('type-filter-btn').dataset.tooltip = 'Filter by type';
+    bindCustomSelect('type-filter-wrap', 'type-filter-btn', 'type-filter-menu', function (value) {
+      state.typeFilter = value;
       persist();
       renderList();
     });
@@ -1227,6 +1340,11 @@
 
   $('btn-archive-toggle').addEventListener('click', () => {
     vscode.postMessage({ type: 'toggleArchiveView' });
+  });
+  emptyEl.addEventListener('click', (e) => {
+    if (e.target.closest('.empty-create-btn')) {
+      openAdd();
+    }
   });
   $('modal-close').addEventListener('click', closeModal);
   $('modal-cancel').addEventListener('click', closeModal);
@@ -1310,6 +1428,7 @@
   // re-rendered whenever new state arrives, so render an initial empty set).
   initViewModeSelect();
   populateCategoryFilter();
+  populateTypeFilter();
 
   // Request the initial state on startup
   vscode.postMessage({ type: 'refresh' });
