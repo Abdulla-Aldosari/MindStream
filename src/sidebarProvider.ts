@@ -175,11 +175,12 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
 <body class="${getBodyClass(this.isDevMode)}">
   <div id="toolbar" class="toolbar">
     <div id="category-filter-container"></div>
+    <div id="type-filter-container"></div>
     <div id="view-mode-container"></div>
     <button id="btn-archive-toggle" class="btn btn-ghost" data-tooltip="Show/hide archive">Archive</button>
   </div>
+  <div id="empty" class="empty" hidden></div>
   <div id="list" class="list"></div>
-  <div id="empty" class="empty" hidden>No notes yet.<br>Press "Quick Note" (Ctrl+Alt+M) to add your first idea.</div>
   <div id="modal" class="modal" hidden>
     <div class="modal-card">
       <div class="modal-header">
