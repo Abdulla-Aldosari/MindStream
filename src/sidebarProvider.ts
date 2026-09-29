@@ -230,7 +230,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
         <button id="categories-close" class="icon-btn close-x-btn" data-tooltip="Close">✕</button>
       </div>
       <div id="categories-list" class="categories-list"></div>
-      <div class="categories-form">
+      <div class="mgmt-form">
         <input id="f-category-name" type="text" placeholder="New category name" autocomplete="off">
         <button id="btn-add-category" class="btn btn-primary">Add</button>
       </div>
@@ -246,7 +246,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
         <button id="types-close" class="icon-btn close-x-btn" data-tooltip="Close">✕</button>
       </div>
       <div id="types-list" class="types-list"></div>
-      <div class="types-form">
+      <div class="mgmt-form">
         <button id="btn-type-icon" class="icon-btn type-icon-btn choose-icon" data-tooltip="Choose icon">
           <span id="btn-type-icon-glyph" class="codicon codicon-tag"></span>
         </button>
@@ -255,7 +255,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
       </div>
       <div id="icons-modal" class="icons-modal" hidden>
         <div id="icons-grid" class="icons-grid"></div>
-        <input id="f-icon-filter" type="text" placeholder="Filter icons..." autocomplete="off">
+        <input id="f-icon-filter" class="icon-filter-input" type="text" placeholder="Filter icons..." autocomplete="off">
       </div>
     </div>
   </div>

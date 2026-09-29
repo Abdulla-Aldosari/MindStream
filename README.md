@@ -20,11 +20,9 @@ and categories, and track their status.
 - Archiving fully independent of status (never changes a "Done" status), with a show/hide archive toggle.
 - View modes: Auto Sort / Fixed Order / Grouped (collapsible status sections with per-status counters).
 - Smooth reorder animations and a flash highlight on status change.
-- Delayed, arrowed, viewport-clamped status tooltips.
 - Export Markdown and Export JSON.
 - Import JSON with merge/replace options.
 - Weekly Report modal, plus Export Weekly Report (Markdown).
-- A clear "open a folder" message when no workspace is open.
 
 ## Organize & Customize
 

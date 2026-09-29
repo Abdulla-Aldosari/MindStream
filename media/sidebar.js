@@ -841,22 +841,22 @@
 
     for (const c of state.categories) {
       const row = document.createElement('div');
-      row.className = 'category-row';
+      row.className = 'mgmt-row';
 
       const label = document.createElement('span');
-      label.className = 'category-label';
+      label.className = 'mgmt-label';
       label.textContent = c.label;
       row.appendChild(label);
 
       const count = document.createElement('span');
-      count.className = 'category-count';
+      count.className = 'mgmt-count';
       count.textContent = String(c.count || 0);
       row.appendChild(count);
 
       if (c.id === highlightId) {
         highlightRow = row;
         highlightBadge = document.createElement('span');
-        highlightBadge.className = 'category-new-badge';
+        highlightBadge.className = 'mgmt-new-badge';
         highlightBadge.textContent = 'New';
         row.appendChild(highlightBadge);
       }
@@ -910,7 +910,7 @@
   function startRenameCategory(cat, labelEl) {
     const input = document.createElement('input');
     input.type = 'text';
-    input.className = 'category-rename-input';
+    input.className = 'mgmt-rename-input';
     input.value = cat.label;
     labelEl.replaceWith(input);
     input.focus();
@@ -984,7 +984,7 @@
 
     for (const t of state.types) {
       const row = document.createElement('div');
-      row.className = 'type-row';
+      row.className = 'mgmt-row';
 
       const iconBtn = document.createElement('button');
       iconBtn.className = 'icon-btn type-icon-btn';
@@ -1006,19 +1006,19 @@
       row.appendChild(iconBtn);
 
       const label = document.createElement('span');
-      label.className = 'type-label';
+      label.className = 'mgmt-label';
       label.textContent = t.label;
       row.appendChild(label);
 
       const count = document.createElement('span');
-      count.className = 'type-count';
+      count.className = 'mgmt-count';
       count.textContent = String(t.count || 0);
       row.appendChild(count);
 
       if (t.id === highlightId) {
         highlightRow = row;
         highlightBadge = document.createElement('span');
-        highlightBadge.className = 'type-new-badge';
+        highlightBadge.className = 'mgmt-new-badge';
         highlightBadge.textContent = 'New';
         row.appendChild(highlightBadge);
       }
@@ -1064,7 +1064,7 @@
   function startRenameType(type, labelEl) {
     const input = document.createElement('input');
     input.type = 'text';
-    input.className = 'type-rename-input';
+    input.className = 'mgmt-rename-input';
     input.value = type.label;
     labelEl.replaceWith(input);
     input.focus();
