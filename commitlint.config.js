@@ -42,18 +42,40 @@ const baseScopes = [
   "iconClass", // media/iconClass.js: generates a safe, valid Codicon CSS class for an icon name.
 ];
 
-// 2. Merge the baseScopes ranges with a version preceded by a "-" to allow for negative scopes (e.g., "-sidebar").
-// This allows for commit messages to be exclouded from auto generated CHANGELOG by "git-cliff".
-// The configiration that excludes the commit is in the file "cliff.toml" in the root of the project.
+// 2. Append a negative variant of every base scope prefixed with "-" (e.g. "-sidebar").
+// Negative scopes are reserved for small internal feat/fix/perf commits that must be
+// excluded from the auto-generated CHANGELOG by git-cliff. The skip rule that performs
+// the exclusion lives in "cliff.toml" -> commit_parsers, in the project root.
 const allowedScopes = [
   ...baseScopes,
   ...baseScopes.map(scope => `-${scope}`)
 ];
 
+// 3. Custom rule: a negative scope (e.g. "-sidebar") is reserved for small
+// internal commits and may only be used with feat, fix, or perf.
+/** @type {import('@commitlint/types').Plugin} */
+const negativeScopeTypesPlugin = {
+  rules: {
+    "negative-scope-types": (parsed) => {
+      const type = parsed && parsed.type ? parsed.type : "";
+      const scope = parsed && parsed.scope ? parsed.scope : "";
+
+      if (scope.startsWith("-") && !["feat", "fix", "perf"].includes(type)) {
+        return [
+          false,
+          `negative scope "${scope}" is only allowed with types feat, fix, or perf`,
+        ];
+      }
+
+      return [true];
+    },
+  },
+};
 
 /** @type {import('@commitlint/types').UserConfig} */
 module.exports = {
   extends: ["@commitlint/config-conventional"],
+  plugins: [negativeScopeTypesPlugin],
   rules: {
     // `2` means "error" (refuse to commit).
     // `never` means the scope is never allowed to be empty (required).
@@ -78,5 +100,8 @@ module.exports = {
       "always",
       allowedScopes,
     ],
+
+    // Negative scopes are reserved for small internal feat/fix/perf commits.
+    "negative-scope-types": [2, "always"],
   },
 };
