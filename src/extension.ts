@@ -5,6 +5,8 @@ import { TypesRegistry } from './typesRegistry';
 import { CategoriesRegistry } from './categoriesRegistry';
 import { SidebarProvider, VIEW_TYPE } from './sidebarProvider';
 import { buildWeeklyReport } from './report';
+import { IStorage } from './storage';
+import { debounce } from './util';
 import {
   CommandsDeps,
   exportJson,
@@ -13,6 +15,37 @@ import {
   importJson,
   requireWorkspace
 } from './commands';
+
+/** Milliseconds to coalesce bursts of filesystem-watcher events (e.g. the
+ *  temp-file-then-rename write in `StorageService`) into a single reload. */
+const WATCHER_DEBOUNCE_MS = 200;
+
+/**
+ * Watches `.mindstream/data.json` for changes made outside this extension
+ * instance (manual edits, `git checkout`/`pull`, dev scripts, another VS
+ * Code window, etc.) and refreshes the sidebar when a genuine external
+ * change is detected. `storage.reloadIfExternal()` ignores events that are
+ * just an echo of this instance's own write.
+ */
+function watchDataFile(
+  context: vscode.ExtensionContext,
+  folder: vscode.WorkspaceFolder,
+  storage: IStorage,
+  onExternalChange: () => void
+): void {
+  const pattern = new vscode.RelativePattern(folder, '.mindstream/data.json');
+  const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+  context.subscriptions.push(watcher);
+
+  const handle = debounce(() => {
+    if (storage.reloadIfExternal()) {
+      onExternalChange();
+    }
+  }, WATCHER_DEBOUNCE_MS);
+
+  context.subscriptions.push(watcher.onDidChange(handle));
+  context.subscriptions.push(watcher.onDidCreate(handle));
+}
 
 let sidebar: SidebarProvider | undefined;
 
@@ -116,6 +149,8 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
+  watchDataFile(context, folder, storage, () => sidebar?.refresh());
+
   context.subscriptions.push(
     vscode.commands.registerCommand('mindstream.addNote', () => sidebar?.openAddNote())
   );
@@ -141,7 +176,10 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('mindstream.exportWeeklyReport', () => exportWeeklyReport(deps, items))
   );
   context.subscriptions.push(
-    vscode.commands.registerCommand('mindstream.refresh', () => sidebar?.refresh())
+    vscode.commands.registerCommand('mindstream.refresh', () => {
+      storage.reloadIfExternal();
+      sidebar?.refresh();
+    })
   );
   context.subscriptions.push(
     vscode.commands.registerCommand('mindstream.showSidebar', async () => {

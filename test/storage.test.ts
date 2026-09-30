@@ -151,3 +151,71 @@ describe('StorageService', () => {
     }
   });
 });
+
+describe('StorageService.reloadIfExternal', () => {
+  it('returns false and keeps the in-memory data when the backend is unchanged', () => {
+    const s = StorageService.fromText(JSON.stringify(createEmptyData()));
+    const before = s.getData();
+
+    assert.strictEqual(s.reloadIfExternal(), false);
+    assert.strictEqual(s.getData(), before);
+  });
+
+  it('returns false for an event that just echoes this instance\'s own saveData()', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindstream-reload-test-'));
+    try {
+      const s = StorageService.forDir(dir);
+      const data = s.getData();
+      s.saveData(data);
+
+      assert.strictEqual(s.reloadIfExternal(), false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('returns true and reloads when the backend file changed externally', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindstream-reload-test-'));
+    try {
+      const s = StorageService.forDir(dir);
+      assert.strictEqual(s.getData().items.length, 0);
+
+      const file = path.join(dir, '.mindstream', 'data.json');
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      const externalData = createEmptyData();
+      externalData.items.push({
+        id: 'ext-1',
+        typeId: 't1',
+        categoryId: GENERAL_CATEGORY_ID,
+        title: 'External edit',
+        status: 'pending',
+        statusHistory: [{ status: 'pending', at: '2020-01-01T00:00:00.000Z' }],
+        archived: false,
+        createdAt: '2020-01-01T00:00:00.000Z',
+        updatedAt: '2020-01-01T00:00:00.000Z'
+      });
+      fs.writeFileSync(file, JSON.stringify(externalData, null, 2), 'utf8');
+
+      assert.strictEqual(s.reloadIfExternal(), true);
+      assert.strictEqual(s.getData().items.length, 1);
+      assert.strictEqual(s.getData().items[0].title, 'External edit');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('a second call right after a detected external change returns false (no-op)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindstream-reload-test-'));
+    try {
+      const s = StorageService.forDir(dir);
+      const file = path.join(dir, '.mindstream', 'data.json');
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, JSON.stringify(createEmptyData(), null, 2), 'utf8');
+
+      assert.strictEqual(s.reloadIfExternal(), true);
+      assert.strictEqual(s.reloadIfExternal(), false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

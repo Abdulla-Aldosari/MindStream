@@ -17,3 +17,20 @@ export function nowIso(): string {
 export function getBodyClass(isDevMode: boolean): string {
   return isDevMode ? 'dev-mode' : '';
 }
+
+/**
+ * Returns a debounced wrapper around `fn`: repeated calls made within
+ * `delayMs` of each other collapse into a single trailing call with the
+ * arguments of the last invocation. Used to coalesce bursts of filesystem
+ * events (e.g. a temp-file-then-rename write producing multiple watcher
+ * events for one logical save) into one handler run.
+ */
+export function debounce<A extends unknown[]>(fn: (...args: A) => void, delayMs: number): (...args: A) => void {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return (...args: A) => {
+    if (timer !== undefined) {
+      clearTimeout(timer);
+    }
+    timer = setTimeout(() => fn(...args), delayMs);
+  };
+}
