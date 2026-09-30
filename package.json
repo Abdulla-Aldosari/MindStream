@@ -10,6 +10,33 @@
     "type": "git",
     "url": "https://github.com/Abdulla-Aldosari/MindStream.git"
   },
+  "homepage": "https://github.com/Abdulla-Aldosari/MindStream#readme",
+  "bugs": {
+    "url": "https://github.com/Abdulla-Aldosari/MindStream/issues"
+  },
+  "keywords": [
+    "notes",
+    "note-taking",
+    "notes-app",
+    "note-manager",
+    "quick-notes",
+    "idea-capture",
+    "productivity",
+    "productivity-tools",
+    "developer-tools",
+    "markdown",
+    "json",
+    "weekly-report",
+    "categories",
+    "sidebar",
+    "todo",
+    "todo-app",
+    "todo-list",
+    "task-list",
+    "task-management",
+    "task-queue",
+    "vscode-extension"
+  ],
   "private": false,
   "engines": {
     "vscode": "^1.85.0"
