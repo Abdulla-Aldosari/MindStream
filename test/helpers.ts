@@ -18,4 +18,9 @@ export class InMemoryStorage implements IStorage {
     this.data = data;
     this.saved.push(JSON.parse(JSON.stringify(data)));
   }
+
+  /** No real external backend to diff against in-memory; never reports an external change. */
+  reloadIfExternal(): boolean {
+    return false;
+  }
 }

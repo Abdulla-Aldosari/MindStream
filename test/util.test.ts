@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { newId, nowIso, getBodyClass } from '../src/util';
+import { newId, nowIso, getBodyClass, debounce } from '../src/util';
 
 describe('util', () => {
   it('newId returns a non-empty unique string', () => {
@@ -23,5 +23,57 @@ describe('util', () => {
 
   it('getBodyClass returns an empty string for a production/VSIX-installed build', () => {
     assert.strictEqual(getBodyClass(false), '');
+  });
+});
+
+describe('debounce', () => {
+  it('collapses rapid repeated calls into a single trailing call', (done) => {
+    let calls = 0;
+    const debounced = debounce(() => {
+      calls++;
+    }, 20);
+
+    debounced();
+    debounced();
+    debounced();
+
+    setTimeout(() => {
+      assert.strictEqual(calls, 1);
+      done();
+    }, 60);
+  });
+
+  it('passes through the arguments of the last call', (done) => {
+    const received: number[] = [];
+    const debounced = debounce((n: number) => {
+      received.push(n);
+    }, 20);
+
+    debounced(1);
+    debounced(2);
+    debounced(3);
+
+    setTimeout(() => {
+      assert.deepStrictEqual(received, [3]);
+      done();
+    }, 60);
+  });
+
+  it('runs again for calls made after the delay has elapsed', (done) => {
+    let calls = 0;
+    const debounced = debounce(() => {
+      calls++;
+    }, 20);
+
+    debounced();
+
+    setTimeout(() => {
+      debounced();
+    }, 40);
+
+    setTimeout(() => {
+      assert.strictEqual(calls, 2);
+      done();
+    }, 90);
   });
 });

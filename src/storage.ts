@@ -19,6 +19,13 @@ export interface StorageBackend {
 export interface IStorage {
   getData(): MindStreamData;
   saveData(data: MindStreamData): void;
+  /**
+   * Re-reads the backend and, only if its content differs from what this
+   * instance itself last wrote (i.e. the change came from outside this
+   * instance), replaces the in-memory data with the freshly parsed/
+   * normalized version. Returns whether a reload actually happened.
+   */
+  reloadIfExternal(): boolean;
 }
 
 export const DEFAULT_TYPES: Omit<MindStreamTypeDef, 'id' | 'createdAt'>[] = [
@@ -88,24 +95,34 @@ export function normalizeData(raw: unknown): MindStreamData {
   };
 }
 
+/** Parses raw backend text into valid `MindStreamData`, falling back to a fresh default structure for `null`/corrupt input. */
+function parseOrDefault(raw: string | null): MindStreamData {
+  let parsed: unknown = null;
+  if (raw) {
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      parsed = null;
+    }
+  }
+  return parsed ? normalizeData(parsed) : createEmptyData();
+}
+
 /**
  * JSON-file based storage inside the workspace: `.mindstream/data.json`.
  * Writes happen safely (temporary file then rename) to avoid data corruption.
  */
 export class StorageService implements IStorage {
   private data: MindStreamData;
+  /** Raw text of the backend content as of the last successful load/save, used to
+   *  detect whether a later `reloadIfExternal()` call sees a genuinely external
+   *  change or just an echo of this instance's own write. */
+  private lastKnownText: string | null;
 
   private constructor(private readonly backend: StorageBackend) {
     const raw = backend.load();
-    let parsed: unknown = null;
-    if (raw) {
-      try {
-        parsed = JSON.parse(raw);
-      } catch {
-        parsed = null;
-      }
-    }
-    this.data = parsed ? normalizeData(parsed) : createEmptyData();
+    this.data = parseOrDefault(raw);
+    this.lastKnownText = raw;
   }
 
   /** Creates a storage service bound to a given directory (writes `.mindstream/data.json` inside it). */
@@ -148,7 +165,21 @@ export class StorageService implements IStorage {
 
   saveData(data: MindStreamData): void {
     this.data = data;
-    this.backend.save(JSON.stringify(data, null, 2));
+    const text = JSON.stringify(data, null, 2);
+    this.lastKnownText = text;
+    this.backend.save(text);
   }
 
+  reloadIfExternal(): boolean {
+    const raw = this.backend.load();
+    if (raw === this.lastKnownText) {
+      // Identical to what this instance last read/wrote: either nothing
+      // changed, or this is just an echo of our own write (e.g. a
+      // FileSystemWatcher event firing for a save we just performed).
+      return false;
+    }
+    this.data = parseOrDefault(raw);
+    this.lastKnownText = raw;
+    return true;
+  }
 }
