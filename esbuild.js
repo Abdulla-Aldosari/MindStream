@@ -34,14 +34,25 @@ function copyMedia() {
   fs.copyFileSync(path.join(codicons, 'codicon.css'), path.join(dest, 'codicon.css'));
   fs.copyFileSync(path.join(codicons, 'codicon.ttf'), path.join(dest, 'codicon.ttf'));
 
-  // Generate the full list of available codicon names from the single source of
-  // truth (codicon.csv) so the icons picker can use every icon the font ships.
-  const csv = fs.readFileSync(path.join(codicons, 'codicon.csv'), 'utf8');
-  const names = csv
-    .split(/\r?\n/)
-    .slice(1)
-    .map((line) => line.split(',')[0].trim())
-    .filter(Boolean);
+  // Generate the list of unique codicon names for the icons picker. The CSS
+  // classes are the single source of truth for what actually renders, and one
+  // glyph often has several alias classes pointing at the same codepoint. To
+  // keep the picker free of duplicates, group the classes by codepoint and
+  // keep only the shortest name per codepoint (ties keep the first, canonical
+  // name that appears in the CSS).
+  const css = fs.readFileSync(path.join(codicons, 'codicon.css'), 'utf8');
+  const shortestByCode = new Map();
+  const classRe = /\.codicon-([a-z0-9-]+):before\s*\{\s*content:\s*"\\([0-9a-f]+)"/g;
+  let match;
+  while ((match = classRe.exec(css)) !== null) {
+    const name = match[1];
+    const code = match[2];
+    const current = shortestByCode.get(code);
+    if (current === undefined || name.length < current.length) {
+      shortestByCode.set(code, name);
+    }
+  }
+  const names = Array.from(shortestByCode.values()).sort();
   fs.writeFileSync(
     path.join(dest, 'codicon-names.js'),
     'window.CODICON_NAMES = ' + JSON.stringify(names) + ';\n'

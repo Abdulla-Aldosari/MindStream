@@ -7,8 +7,8 @@
 
   const STATUS_CYCLE = ['pending', 'in-progress', 'done'];
   const STATUS_ORDER = { pending: 0, 'in-progress': 1, done: 2 };
-  // Full list of available codicon names, generated at build time from the
-  // codicons package (single source of truth) and loaded before this script.
+  // Unique codicon names (one per glyph, shortest alias per glyph), generated
+  // at build time from the codicons package and loaded before this script.
   const AVAILABLE_ICONS = window.CODICON_NAMES && window.CODICON_NAMES.length
     ? window.CODICON_NAMES
     : ['wrench', 'edit', 'star', 'sync', 'code', 'beaker', 'note', 'link', 'tag'];
@@ -1129,11 +1129,32 @@
     }
   }
 
+  function selectedIconName() {
+    const mode = state.iconsModalMode;
+    if (!mode) return null;
+    if (mode.mode === 'new') return state.pendingTypeIcon;
+    if (mode.mode === 'edit') {
+      const t = state.types.find((x) => x.id === mode.typeId);
+      return t ? t.icon : null;
+    }
+    return null;
+  }
+
+  function scrollSelectedIconIntoView() {
+    const selected = document.querySelector('.icon-pick.selected');
+    if (selected) {
+      requestAnimationFrame(() => {
+        selected.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    }
+  }
+
   function openIconsModal(mode) {
     state.iconsModalMode = mode;
     $('icons-modal').hidden = false;
     $('f-icon-filter').value = '';
     renderIcons('');
+    scrollSelectedIconIntoView();
     $('f-icon-filter').focus();
     setTypeIconActive();
   }
@@ -1148,6 +1169,7 @@
     const grid = $('icons-grid');
     grid.innerHTML = '';
     const term = (filter || '').trim().toLowerCase();
+    const selectedIcon = selectedIconName();
     let matched = 0;
     for (const name of AVAILABLE_ICONS) {
       if (term && name.toLowerCase().indexOf(term) === -1) {
@@ -1156,7 +1178,7 @@
       matched++;
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'icon-pick';
+      btn.className = 'icon-pick' + (name === selectedIcon ? ' selected' : '');
       btn.dataset.tooltip = name;
       btn.dataset.icon = name;
       btn.innerHTML = '<span class="codicon codicon-' + name + '"></span>';
