@@ -1,6 +1,6 @@
-import { GENERAL_CATEGORY_ID, MindStreamCategoryDef } from './models';
-import { IStorage } from './storage';
-import { newId, nowIso } from './util';
+import { GENERAL_CATEGORY_ID, MindStreamCategoryDef } from "./models";
+import { IStorage } from "./storage";
+import { newId, nowIso } from "./util";
 
 /**
  * Category management.
@@ -21,7 +21,7 @@ export class CategoriesRegistry {
 
   label(id: string): string {
     const c = this.get(id);
-    return c ? c.label : '(Deleted category)';
+    return c ? c.label : "(Deleted category)";
   }
 
   add(label: string): MindStreamCategoryDef {
@@ -30,7 +30,7 @@ export class CategoriesRegistry {
       id: newId(),
       label,
       order: (data.categories.length + 1) * 10,
-      createdAt: nowIso()
+      createdAt: nowIso(),
     };
     data.categories.push(def);
     this.storage.saveData(data);

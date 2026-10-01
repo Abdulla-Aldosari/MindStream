@@ -46,25 +46,25 @@ function computeTooltipPosition(opts) {
   const tipHeight = opts.tipHeight;
   const viewportWidth = opts.viewportWidth;
   const viewportHeight = opts.viewportHeight;
-  const pos = opts.pos || 'bottom';
+  const pos = opts.pos || "bottom";
   const margin = opts.margin != null ? opts.margin : 6;
 
   let left;
   let top;
   let resolvedPos = pos;
 
-  if (pos === 'left' || pos === 'right') {
-    if (pos === 'left') {
+  if (pos === "left" || pos === "right") {
+    if (pos === "left") {
       left = target.left - tipWidth - margin;
       if (left < margin) {
         left = target.right + margin;
-        resolvedPos = 'right';
+        resolvedPos = "right";
       }
     } else {
       left = target.right + margin;
       if (left + tipWidth > viewportWidth - margin) {
         left = target.left - tipWidth - margin;
-        resolvedPos = 'left';
+        resolvedPos = "left";
       }
     }
 
@@ -80,17 +80,17 @@ function computeTooltipPosition(opts) {
     return { left: left, top: top, resolvedPos: resolvedPos, arrowX: tipWidth / 2, arrowY: arrowY };
   }
 
-  if (pos === 'top') {
+  if (pos === "top") {
     top = target.top - tipHeight - margin;
     if (top < margin) {
       top = target.bottom + margin;
-      resolvedPos = 'bottom';
+      resolvedPos = "bottom";
     }
   } else {
     top = target.bottom + margin;
     if (top + tipHeight > viewportHeight - margin) {
       top = target.top - tipHeight - margin;
-      resolvedPos = 'top';
+      resolvedPos = "top";
     }
   }
 
@@ -120,15 +120,15 @@ function computeTooltipPosition(opts) {
 function buildTooltipHtml(header, body, footer) {
   const parts = [];
   if (header) {
-    parts.push('<div class="tooltip-header">' + header + '</div>');
+    parts.push('<div class="tooltip-header">' + header + "</div>");
   }
   if (body) {
-    parts.push('<div class="tooltip-body">' + body + '</div>');
+    parts.push('<div class="tooltip-body">' + body + "</div>");
   }
   if (footer) {
-    parts.push('<div class="tooltip-divider"></div><div class="tooltip-footer">' + footer + '</div>');
+    parts.push('<div class="tooltip-divider"></div><div class="tooltip-footer">' + footer + "</div>");
   }
-  return parts.join('');
+  return parts.join("");
 }
 
 /**
@@ -167,9 +167,9 @@ function isLayoutInducedHover(opts) {
 // This branch only runs inside the real webview. It never executes when
 // this file is `require()`-d from a Node-based unit test, where `document`
 // is undefined.
-if (typeof document !== 'undefined') {
+if (typeof document !== "undefined") {
   (function () {
-    const VALID_POS = ['top', 'bottom', 'left', 'right'];
+    const VALID_POS = ["top", "bottom", "left", "right"];
     const SHOW_DELAY = 500;
 
     let tooltipEl = null;
@@ -185,14 +185,14 @@ if (typeof document !== 'undefined') {
       if (tooltipEl) {
         return tooltipEl;
       }
-      tooltipEl = document.createElement('div');
-      tooltipEl.className = 'tooltip';
+      tooltipEl = document.createElement("div");
+      tooltipEl.className = "tooltip";
       document.body.appendChild(tooltipEl);
       return tooltipEl;
     }
 
     function findTooltipTarget(node) {
-      return node && node.closest ? node.closest('[data-tooltip]') : null;
+      return node && node.closest ? node.closest("[data-tooltip]") : null;
     }
 
     // Suppresses any tooltip whose target sits outside a currently open
@@ -236,21 +236,21 @@ if (typeof document !== 'undefined') {
       currentTarget = null;
       lastAppliedPos = null;
       if (tooltipEl) {
-        tooltipEl.classList.remove('visible');
+        tooltipEl.classList.remove("visible");
       }
     }
 
     function positionTooltip(target) {
       const tip = ensureTooltip();
       const rect = target.getBoundingClientRect();
-      const requestedPos = VALID_POS.indexOf(target.dataset.tooltipPos) !== -1 ? target.dataset.tooltipPos : 'bottom';
+      const requestedPos = VALID_POS.indexOf(target.dataset.tooltipPos) !== -1 ? target.dataset.tooltipPos : "bottom";
       const result = computeTooltipPosition({
         target: rect,
         tipWidth: tip.offsetWidth,
         tipHeight: tip.offsetHeight,
         viewportWidth: document.documentElement.clientWidth,
         viewportHeight: document.documentElement.clientHeight,
-        pos: requestedPos
+        pos: requestedPos,
       });
 
       // Skip the DOM writes entirely when nothing moved since the last
@@ -271,19 +271,19 @@ if (typeof document !== 'undefined') {
         return;
       }
 
-      tip.style.left = result.left + 'px';
-      tip.style.top = result.top + 'px';
-      tip.style.setProperty('--arrow-x', result.arrowX + 'px');
-      tip.style.setProperty('--arrow-y', result.arrowY + 'px');
-      tip.classList.remove('pos-top', 'pos-bottom', 'pos-left', 'pos-right');
-      tip.classList.add('pos-' + result.resolvedPos);
+      tip.style.left = result.left + "px";
+      tip.style.top = result.top + "px";
+      tip.style.setProperty("--arrow-x", result.arrowX + "px");
+      tip.style.setProperty("--arrow-y", result.arrowY + "px");
+      tip.classList.remove("pos-top", "pos-bottom", "pos-left", "pos-right");
+      tip.classList.add("pos-" + result.resolvedPos);
 
       lastAppliedPos = {
         left: result.left,
         top: result.top,
         arrowX: result.arrowX,
         arrowY: result.arrowY,
-        resolvedPos: result.resolvedPos
+        resolvedPos: result.resolvedPos,
       };
     }
 
@@ -311,8 +311,12 @@ if (typeof document !== 'undefined') {
         return;
       }
       const tip = ensureTooltip();
-      tip.innerHTML = buildTooltipHtml(target.dataset.tooltipHeader, target.dataset.tooltip, target.dataset.tooltipFooter);
-      tip.classList.add('visible');
+      tip.innerHTML = buildTooltipHtml(
+        target.dataset.tooltipHeader,
+        target.dataset.tooltip,
+        target.dataset.tooltipFooter
+      );
+      tip.classList.add("visible");
       positionTooltip(target);
       trackTarget();
     }
@@ -341,31 +345,33 @@ if (typeof document !== 'undefined') {
     // reads or allocations, so it costs nothing even though mousemove fires
     // frequently. `e.timeStamp` is reused instead of Date.now() to avoid
     // even the clock read.
-    document.addEventListener('mousemove', function (e) {
+    document.addEventListener("mousemove", function (e) {
       lastMoveX = e.clientX;
       lastMoveY = e.clientY;
       lastMoveTimeStamp = e.timeStamp;
     });
 
-    document.addEventListener('mouseover', function (e) {
+    document.addEventListener("mouseover", function (e) {
       const target = findTooltipTarget(e.target);
       if (!target || isMovingWithin(target, e.relatedTarget)) {
         return;
       }
-      if (isLayoutInducedHover({
-        timeStamp: e.timeStamp,
-        clientX: e.clientX,
-        clientY: e.clientY,
-        lastMoveX: lastMoveX,
-        lastMoveY: lastMoveY,
-        lastMoveTimeStamp: lastMoveTimeStamp
-      })) {
+      if (
+        isLayoutInducedHover({
+          timeStamp: e.timeStamp,
+          clientX: e.clientX,
+          clientY: e.clientY,
+          lastMoveX: lastMoveX,
+          lastMoveY: lastMoveY,
+          lastMoveTimeStamp: lastMoveTimeStamp,
+        })
+      ) {
         return;
       }
       activateTooltip(target);
     });
 
-    document.addEventListener('mouseout', function (e) {
+    document.addEventListener("mouseout", function (e) {
       const target = findTooltipTarget(e.target);
       if (!target || isMovingWithin(target, e.relatedTarget)) {
         return;
@@ -373,7 +379,7 @@ if (typeof document !== 'undefined') {
       hideTooltip();
     });
 
-    document.addEventListener('focusin', function (e) {
+    document.addEventListener("focusin", function (e) {
       const target = findTooltipTarget(e.target);
       if (!target) {
         return;
@@ -381,15 +387,15 @@ if (typeof document !== 'undefined') {
       activateTooltip(target);
     });
 
-    document.addEventListener('focusout', hideTooltip);
+    document.addEventListener("focusout", hideTooltip);
 
     // Hide on any pointer-down anywhere, including on the tooltip's own
     // target, matching VS Code's native hover behavior. Capture phase so it
     // fires even when a click handler further down stops propagation.
-    document.addEventListener('pointerdown', hideTooltip, true);
+    document.addEventListener("pointerdown", hideTooltip, true);
 
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') {
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") {
         hideTooltip();
       }
     });
@@ -398,14 +404,18 @@ if (typeof document !== 'undefined') {
     // the list and any nested scroller; otherwise a `position: fixed`
     // tooltip stays stuck in place while content scrolls beneath a
     // stationary mouse cursor.
-    window.addEventListener('scroll', hideTooltip, true);
-    window.addEventListener('blur', hideTooltip);
+    window.addEventListener("scroll", hideTooltip, true);
+    window.addEventListener("blur", hideTooltip);
   })();
 }
 
 // Exposes the pure functions to Node-based unit tests. This branch never
 // executes inside the real webview, where `module` is undefined, so it has
 // no effect on production behavior.
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { computeTooltipPosition: computeTooltipPosition, buildTooltipHtml: buildTooltipHtml, isLayoutInducedHover: isLayoutInducedHover };
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    computeTooltipPosition: computeTooltipPosition,
+    buildTooltipHtml: buildTooltipHtml,
+    isLayoutInducedHover: isLayoutInducedHover,
+  };
 }

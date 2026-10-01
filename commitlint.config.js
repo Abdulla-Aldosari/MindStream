@@ -1,7 +1,6 @@
 // @ts-check
 "use strict";
 
-
 // 1. Defining the Project's Core Scope
 const baseScopes = [
   "extension", // src/extension.ts: activate()/deactivate(), command registration, wiring all services together
@@ -46,10 +45,7 @@ const baseScopes = [
 // Negative scopes are reserved for small internal feat/fix/perf commits that must be
 // excluded from the auto-generated CHANGELOG by git-cliff. The skip rule that performs
 // the exclusion lives in "cliff.toml" -> commit_parsers, in the project root.
-const allowedScopes = [
-  ...baseScopes,
-  ...baseScopes.map(scope => `-${scope}`)
-];
+const allowedScopes = [...baseScopes, ...baseScopes.map((scope) => `-${scope}`)];
 
 // 3. Custom rule: a negative scope (e.g. "-sidebar") is reserved for small
 // internal commits and may only be used with feat, fix, or perf.
@@ -61,10 +57,7 @@ const negativeScopeTypesPlugin = {
       const scope = parsed && parsed.scope ? parsed.scope : "";
 
       if (scope.startsWith("-") && !["feat", "fix", "perf"].includes(type)) {
-        return [
-          false,
-          `negative scope "${scope}" is only allowed with types feat, fix, or perf`,
-        ];
+        return [false, `negative scope "${scope}" is only allowed with types feat, fix, or perf`];
       }
 
       return [true];
@@ -95,11 +88,7 @@ module.exports = {
     ],
 
     // MindStream project scopes using the dynamically generated list.
-    "scope-enum": [
-      2,
-      "always",
-      allowedScopes,
-    ],
+    "scope-enum": [2, "always", allowedScopes],
 
     // Negative scopes are reserved for small internal feat/fix/perf commits.
     "negative-scope-types": [2, "always"],

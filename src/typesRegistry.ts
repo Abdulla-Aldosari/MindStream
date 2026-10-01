@@ -1,6 +1,6 @@
-import { MindStreamTypeDef } from './models';
-import { IStorage } from './storage';
-import { newId, nowIso } from './util';
+import { MindStreamTypeDef } from "./models";
+import { IStorage } from "./storage";
+import { newId, nowIso } from "./util";
 
 /**
  * Types registry management.
@@ -20,7 +20,7 @@ export class TypesRegistry {
 
   label(id: string): string {
     const t = this.get(id);
-    return t ? t.label : '(Deleted type)';
+    return t ? t.label : "(Deleted type)";
   }
 
   add(label: string, icon?: string): MindStreamTypeDef {
@@ -30,7 +30,7 @@ export class TypesRegistry {
       label,
       icon,
       order: (data.types.length + 1) * 10,
-      createdAt: nowIso()
+      createdAt: nowIso(),
     };
     data.types.push(def);
     this.storage.saveData(data);

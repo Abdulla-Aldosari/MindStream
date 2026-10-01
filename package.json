@@ -217,7 +217,7 @@
     "test": "npm run compile && mocha",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "prettier:check": "prettier --check CHANGELOG.md package.json",
+    "prettier:check": "prettier --check .",
     "prettier": "prettier --write .",
     "changelog": "git-cliff -o CHANGELOG.md",
     "package": "npm run compile && vsce package",

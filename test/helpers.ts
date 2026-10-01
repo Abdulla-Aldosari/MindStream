@@ -1,5 +1,5 @@
-import { MindStreamData } from '../src/models';
-import { IStorage } from '../src/storage';
+import { MindStreamData } from "../src/models";
+import { IStorage } from "../src/storage";
 
 /** In-memory storage for tests (tracks the last saved state). */
 export class InMemoryStorage implements IStorage {

@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { randomUUID } from "crypto";
 
 /** Generates a unique id for every item/type. */
 export function newId(): string {
@@ -15,7 +15,7 @@ export function nowIso(): string {
  * tree (Extension Development Host) from a VSIX-installed build.
  */
 export function getBodyClass(isDevMode: boolean): string {
-  return isDevMode ? 'dev-mode' : '';
+  return isDevMode ? "dev-mode" : "";
 }
 
 /**

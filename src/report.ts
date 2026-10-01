@@ -1,5 +1,5 @@
-import { MindStreamItem } from './models';
-import { ItemsStore } from './itemsStore';
+import { MindStreamItem } from "./models";
+import { ItemsStore } from "./itemsStore";
 
 /** Data needed to render the weekly report (summary numbers + the records themselves). */
 export interface WeeklyReportData {
@@ -36,7 +36,7 @@ export function buildWeeklyReport(items: ItemsStore, now: Date = new Date()): We
     const at = items.completedAt(it);
     return at ? new Date(at).getTime() >= weekStart : false;
   });
-  const inProgress = all.filter((it) => it.status === 'in-progress');
+  const inProgress = all.filter((it) => it.status === "in-progress");
   const archived = all.filter((it) => it.archivedAt && new Date(it.archivedAt).getTime() >= weekStart);
   return {
     weekLabel: formatDate(now.toISOString()),
@@ -45,6 +45,6 @@ export function buildWeeklyReport(items: ItemsStore, now: Date = new Date()): We
     inProgressCount: inProgress.length,
     archivedCount: archived.length,
     completed,
-    inProgress
+    inProgress,
   };
 }
