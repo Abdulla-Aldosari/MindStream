@@ -78,13 +78,13 @@
         "command": "mindstream.manageTypes",
         "title": "Manage Types",
         "category": "MindStream",
-        "icon": "$(settings-gear)"
+        "icon": "$(tag)"
       },
       {
         "command": "mindstream.manageCategories",
         "title": "Manage Categories",
         "category": "MindStream",
-        "icon": "$(folder)"
+        "icon": "$(symbol-misc)"
       },
       {
         "command": "mindstream.refresh",
@@ -137,12 +137,12 @@
           "group": "navigation@1"
         },
         {
-          "command": "mindstream.manageTypes",
+          "command": "mindstream.manageCategories",
           "when": "view == mindstream.sidebar",
           "group": "navigation@2"
         },
         {
-          "command": "mindstream.manageCategories",
+          "command": "mindstream.manageTypes",
           "when": "view == mindstream.sidebar",
           "group": "navigation@3"
         },
