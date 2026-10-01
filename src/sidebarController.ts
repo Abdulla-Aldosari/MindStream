@@ -1,24 +1,24 @@
-import { MindStreamStatus } from './models';
-import { ItemsStore } from './itemsStore';
-import { TypesRegistry } from './typesRegistry';
-import { CategoriesRegistry } from './categoriesRegistry';
+import { MindStreamStatus } from "./models";
+import { ItemsStore } from "./itemsStore";
+import { TypesRegistry } from "./typesRegistry";
+import { CategoriesRegistry } from "./categoriesRegistry";
 
 export interface WebviewMessage {
   type:
-    | 'refresh'
-    | 'addItem'
-    | 'updateItem'
-    | 'deleteItem'
-    | 'changeStatus'
-    | 'toggleArchive'
-    | 'toggleArchiveView'
-    | 'addCategory'
-    | 'renameCategory'
-    | 'deleteCategory'
-    | 'addType'
-    | 'renameType'
-    | 'setTypeIcon'
-    | 'deleteType';
+    | "refresh"
+    | "addItem"
+    | "updateItem"
+    | "deleteItem"
+    | "changeStatus"
+    | "toggleArchive"
+    | "toggleArchiveView"
+    | "addCategory"
+    | "renameCategory"
+    | "deleteCategory"
+    | "addType"
+    | "renameType"
+    | "setTypeIcon"
+    | "deleteType";
   id?: string;
   title?: string;
   description?: string;
@@ -53,27 +53,27 @@ export class SidebarController {
 
   async handleMessage(msg: WebviewMessage): Promise<void> {
     switch (msg.type) {
-      case 'addItem':
+      case "addItem":
         if (msg.title?.trim() && msg.typeId) {
           this.items.create({
             typeId: msg.typeId,
             title: msg.title.trim(),
             description: msg.description,
-            categoryId: msg.categoryId
+            categoryId: msg.categoryId,
           });
         }
         break;
-      case 'updateItem':
+      case "updateItem":
         if (msg.id) {
           this.items.update(msg.id, {
             title: msg.title,
             description: msg.description,
             typeId: msg.typeId,
-            categoryId: msg.categoryId
+            categoryId: msg.categoryId,
           });
         }
         break;
-      case 'deleteItem':
+      case "deleteItem":
         if (msg.id) {
           const item = this.items.get(msg.id);
           if (!item) {
@@ -84,27 +84,27 @@ export class SidebarController {
           }
         }
         break;
-      case 'changeStatus':
+      case "changeStatus":
         if (msg.id && msg.status) {
           this.items.changeStatus(msg.id, msg.status);
         }
         break;
-      case 'toggleArchive':
-        if (msg.id && typeof msg.archived === 'boolean') {
+      case "toggleArchive":
+        if (msg.id && typeof msg.archived === "boolean") {
           this.items.setArchived(msg.id, msg.archived);
         }
         break;
-      case 'addCategory':
+      case "addCategory":
         if (msg.label?.trim()) {
           this.categories.add(msg.label.trim());
         }
         break;
-      case 'renameCategory':
+      case "renameCategory":
         if (msg.id && msg.label?.trim()) {
           this.categories.rename(msg.id, msg.label.trim());
         }
         break;
-      case 'deleteCategory': {
+      case "deleteCategory": {
         if (!msg.id) {
           break;
         }
@@ -119,22 +119,22 @@ export class SidebarController {
         }
         break;
       }
-      case 'addType':
+      case "addType":
         if (msg.label?.trim()) {
           this.types.add(msg.label.trim(), msg.icon);
         }
         break;
-      case 'renameType':
+      case "renameType":
         if (msg.id && msg.label?.trim()) {
           this.types.rename(msg.id, msg.label.trim());
         }
         break;
-      case 'setTypeIcon':
+      case "setTypeIcon":
         if (msg.id && msg.icon) {
           this.types.setIcon(msg.id, msg.icon);
         }
         break;
-      case 'deleteType': {
+      case "deleteType": {
         if (!msg.id) {
           break;
         }

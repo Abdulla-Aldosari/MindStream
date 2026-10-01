@@ -1,18 +1,18 @@
-import * as vscode from 'vscode';
-import { MindStreamStatus } from './models';
-import { ItemsStore } from './itemsStore';
-import { TypesRegistry } from './typesRegistry';
-import { CategoriesRegistry } from './categoriesRegistry';
-import { WeeklyReportData } from './report';
-import { SidebarController, SidebarUi, WebviewMessage } from './sidebarController';
-import { getBodyClass } from './util';
+import * as vscode from "vscode";
+import { MindStreamStatus } from "./models";
+import { ItemsStore } from "./itemsStore";
+import { TypesRegistry } from "./typesRegistry";
+import { CategoriesRegistry } from "./categoriesRegistry";
+import { WeeklyReportData } from "./report";
+import { SidebarController, SidebarUi, WebviewMessage } from "./sidebarController";
+import { getBodyClass } from "./util";
 
-export const VIEW_TYPE = 'mindstream.sidebar';
+export const VIEW_TYPE = "mindstream.sidebar";
 
 const STATUS_LABEL: Record<MindStreamStatus, string> = {
-  pending: 'None',
-  'in-progress': 'In Progress',
-  done: 'Done'
+  pending: "None",
+  "in-progress": "In Progress",
+  done: "Done",
 };
 
 /**
@@ -43,7 +43,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     this._view = webviewView;
     webviewView.webview.options = {
       enableScripts: true,
-      localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'dist', 'media')]
+      localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "dist", "media")],
     };
     webviewView.webview.html = this.getHtml(webviewView.webview);
     webviewView.webview.onDidReceiveMessage((msg: WebviewMessage) => this.handleMessage(msg));
@@ -58,39 +58,39 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
 
   /** Tells the webview to open the note editor modal. */
   openAddNote(): void {
-    this._view?.webview.postMessage({ type: 'openAddNote' });
+    this._view?.webview.postMessage({ type: "openAddNote" });
   }
 
   /** Tells the webview to open the categories management modal. */
   openCategories(): void {
-    this._view?.webview.postMessage({ type: 'openCategories' });
+    this._view?.webview.postMessage({ type: "openCategories" });
   }
 
   /** Tells the webview to open the types management modal. */
   openTypes(): void {
-    this._view?.webview.postMessage({ type: 'openTypes' });
+    this._view?.webview.postMessage({ type: "openTypes" });
   }
 
   /** Tells the webview to open the weekly report modal. */
   openWeeklyReport(report: WeeklyReportData): void {
-    this._view?.webview.postMessage({ type: 'openWeeklyReport', report });
+    this._view?.webview.postMessage({ type: "openWeeklyReport", report });
   }
 
   private updateBadge(): void {
     if (!this._view) {
       return;
     }
-    const inProgress = this.items.list().filter((it) => it.status === 'in-progress').length;
+    const inProgress = this.items.list().filter((it) => it.status === "in-progress").length;
     this._view.badge = inProgress > 0 ? { value: inProgress, tooltip: `${inProgress} in progress` } : undefined;
   }
 
   private async handleMessage(msg: WebviewMessage): Promise<void> {
     try {
-      if (msg.type === 'refresh') {
+      if (msg.type === "refresh") {
         this.postState();
         return;
       }
-      if (msg.type === 'toggleArchiveView') {
+      if (msg.type === "toggleArchiveView") {
         this._archiveVisible = !this._archiveVisible;
         this.refresh();
         return;
@@ -106,27 +106,23 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     const pick = await vscode.window.showWarningMessage(
       `Delete note "${title}" permanently?`,
       { modal: true },
-      'Delete'
+      "Delete"
     );
-    return pick === 'Delete';
+    return pick === "Delete";
   }
 
   async confirmDeleteCategory(label: string, count: number): Promise<boolean> {
     const pick = await vscode.window.showWarningMessage(
       `Delete category "${label}"? ${count} note(s) in it will be permanently deleted too.`,
       { modal: true },
-      'Delete'
+      "Delete"
     );
-    return pick === 'Delete';
+    return pick === "Delete";
   }
 
   async confirmDeleteType(label: string): Promise<boolean> {
-    const pick = await vscode.window.showWarningMessage(
-      `Delete type "${label}"?`,
-      { modal: true },
-      'Delete'
-    );
-    return pick === 'Delete';
+    const pick = await vscode.window.showWarningMessage(`Delete type "${label}"?`, { modal: true }, "Delete");
+    return pick === "Delete";
   }
 
   showInfo(message: string): void {
@@ -138,29 +134,31 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
       return;
     }
     void this._view.webview.postMessage({
-      type: 'state',
+      type: "state",
       items: this.items.list(this._archiveVisible),
       types: this.types.list().map((t) => ({ ...t, count: this.types.countItems(t.id) })),
       categories: this.categories.list().map((c) => ({ ...c, count: this.categories.countItems(c.id) })),
       statusLabels: STATUS_LABEL,
       includeArchived: this._archiveVisible,
-      direction: this.getDirection()
+      direction: this.getDirection(),
     });
   }
 
   /** Reads the UI direction setting (defaults to 'ltr'). */
   private getDirection(): string {
-    const configured = vscode.workspace.getConfiguration('mindstream').get<string>('ui.direction');
-    return configured === 'rtl' ? 'rtl' : 'ltr';
+    const configured = vscode.workspace.getConfiguration("mindstream").get<string>("ui.direction");
+    return configured === "rtl" ? "rtl" : "ltr";
   }
 
   private getHtml(webview: vscode.Webview): string {
-    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'media', 'sidebar.js'));
-    const iconClassUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'media', 'iconClass.js'));
-    const tooltipUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'media', 'tooltip.js'));
-    const codiconNamesUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'media', 'codicon-names.js'));
-    const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'media', 'sidebar.css'));
-    const codiconCssUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'media', 'codicon.css'));
+    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "sidebar.js"));
+    const iconClassUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "iconClass.js"));
+    const tooltipUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "tooltip.js"));
+    const codiconNamesUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, "dist", "media", "codicon-names.js")
+    );
+    const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "sidebar.css"));
+    const codiconCssUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "codicon.css"));
     const nonce = getNonce();
     return `<!DOCTYPE html>
 <html lang="en" dir="ltr">
@@ -282,8 +280,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
 }
 
 function getNonce(): string {
-  let text = '';
-  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let text = "";
+  const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   for (let i = 0; i < 32; i++) {
     text += possible.charAt(Math.floor(Math.random() * possible.length));
   }

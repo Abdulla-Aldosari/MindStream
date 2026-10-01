@@ -1,6 +1,6 @@
-import { GENERAL_CATEGORY_ID, MindStreamItem, MindStreamStatus } from './models';
-import { IStorage } from './storage';
-import { newId, nowIso } from './util';
+import { GENERAL_CATEGORY_ID, MindStreamItem, MindStreamStatus } from "./models";
+import { IStorage } from "./storage";
+import { newId, nowIso } from "./util";
 
 export interface NewItemInput {
   typeId: string;
@@ -35,9 +35,7 @@ export class ItemsStore {
   list(includeArchived = false): MindStreamItem[] {
     const items = this.storage.getData().items;
     const filtered = includeArchived ? items : items.filter((it) => !it.archived);
-    return [...filtered].sort(
-      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-    );
+    return [...filtered].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }
 
   get(id: string): MindStreamItem | undefined {
@@ -47,7 +45,7 @@ export class ItemsStore {
   create(input: NewItemInput): MindStreamItem {
     const data = this.storage.getData();
     const now = nowIso();
-    const status = input.status ?? 'pending';
+    const status = input.status ?? "pending";
     const item: MindStreamItem = {
       id: newId(),
       typeId: input.typeId,
@@ -59,7 +57,7 @@ export class ItemsStore {
       archived: false,
       tags: input.tags,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     };
     data.items.push(item);
     this.storage.saveData(data);
@@ -133,7 +131,7 @@ export class ItemsStore {
 
   /** Time of the last transition to "done" (used to show the completion sequence). */
   completedAt(item: MindStreamItem): string | undefined {
-    const done = item.statusHistory.filter((h) => h.status === 'done');
+    const done = item.statusHistory.filter((h) => h.status === "done");
     return done.length ? done[done.length - 1].at : undefined;
   }
 }

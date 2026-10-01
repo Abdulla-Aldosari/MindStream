@@ -1,18 +1,12 @@
-import * as assert from 'assert';
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
-import {
-  createEmptyData,
-  DEFAULT_TYPES,
-  DEFAULT_CATEGORIES,
-  normalizeData,
-  StorageService
-} from '../src/storage';
-import { DATA_VERSION, GENERAL_CATEGORY_ID } from '../src/models';
+import * as assert from "assert";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+import { createEmptyData, DEFAULT_TYPES, DEFAULT_CATEGORIES, normalizeData, StorageService } from "../src/storage";
+import { DATA_VERSION, GENERAL_CATEGORY_ID } from "../src/models";
 
-describe('createEmptyData', () => {
-  it('creates versioned empty data with ready-made types and the General category', () => {
+describe("createEmptyData", () => {
+  it("creates versioned empty data with ready-made types and the General category", () => {
     const data = createEmptyData();
     assert.strictEqual(data.version, DATA_VERSION);
     assert.strictEqual(data.items.length, 0);
@@ -32,21 +26,21 @@ describe('createEmptyData', () => {
   });
 });
 
-describe('DEFAULT_TYPES / DEFAULT_CATEGORIES', () => {
-  it('ships 11 default types', () => {
+describe("DEFAULT_TYPES / DEFAULT_CATEGORIES", () => {
+  it("ships 11 default types", () => {
     assert.strictEqual(DEFAULT_TYPES.length, 11);
   });
 
-  it('ships the General default category', () => {
+  it("ships the General default category", () => {
     assert.strictEqual(DEFAULT_CATEGORIES.length, 1);
     assert.strictEqual(DEFAULT_CATEGORIES[0].id, GENERAL_CATEGORY_ID);
-    assert.strictEqual(DEFAULT_CATEGORIES[0].label, 'General');
+    assert.strictEqual(DEFAULT_CATEGORIES[0].label, "General");
   });
 });
 
-describe('normalizeData', () => {
-  it('returns empty data for null / non-object input', () => {
-    for (const raw of [null, undefined, 42, 'text', true]) {
+describe("normalizeData", () => {
+  it("returns empty data for null / non-object input", () => {
+    for (const raw of [null, undefined, 42, "text", true]) {
       const d = normalizeData(raw);
       assert.strictEqual(d.version, DATA_VERSION);
       assert.strictEqual(d.types.length, DEFAULT_TYPES.length);
@@ -54,7 +48,7 @@ describe('normalizeData', () => {
     }
   });
 
-  it('fills missing arrays and version', () => {
+  it("fills missing arrays and version", () => {
     const d = normalizeData({});
     assert.strictEqual(d.version, DATA_VERSION);
     assert.deepStrictEqual(d.types, []);
@@ -62,98 +56,98 @@ describe('normalizeData', () => {
     assert.deepStrictEqual(d.items, []);
   });
 
-  it('injects the General category at the front when missing', () => {
-    const d = normalizeData({ categories: [{ id: 'x', label: 'X', createdAt: 't' }] });
+  it("injects the General category at the front when missing", () => {
+    const d = normalizeData({ categories: [{ id: "x", label: "X", createdAt: "t" }] });
     assert.strictEqual(d.categories[0].id, GENERAL_CATEGORY_ID);
     assert.strictEqual(d.categories.length, 2);
   });
 
-  it('does not duplicate the General category when already present', () => {
+  it("does not duplicate the General category when already present", () => {
     const d = normalizeData({
       categories: [
-        { id: GENERAL_CATEGORY_ID, label: 'General', isDefault: true, order: 0, createdAt: 't' },
-        { id: 'x', label: 'X', createdAt: 't' }
-      ]
+        { id: GENERAL_CATEGORY_ID, label: "General", isDefault: true, order: 0, createdAt: "t" },
+        { id: "x", label: "X", createdAt: "t" },
+      ],
     });
     assert.strictEqual(d.categories.filter((c) => c.id === GENERAL_CATEGORY_ID).length, 1);
     assert.strictEqual(d.categories.length, 2);
   });
 
-  it('ignores legacy items without a categoryId', () => {
-    const d = normalizeData({ items: [{ id: 'x', typeId: 't', title: 'No cat' }] });
+  it("ignores legacy items without a categoryId", () => {
+    const d = normalizeData({ items: [{ id: "x", typeId: "t", title: "No cat" }] });
     assert.strictEqual(d.items.length, 0);
   });
 
-  it('fills missing statusHistory and archived on kept items', () => {
+  it("fills missing statusHistory and archived on kept items", () => {
     const d = normalizeData({
       items: [
         {
-          id: 'x',
-          typeId: 't',
-          categoryId: 'general',
-          title: 'A',
-          status: 'done',
-          createdAt: '2020-01-01T00:00:00.000Z'
-        }
-      ]
+          id: "x",
+          typeId: "t",
+          categoryId: "general",
+          title: "A",
+          status: "done",
+          createdAt: "2020-01-01T00:00:00.000Z",
+        },
+      ],
     });
     assert.strictEqual(d.items.length, 1);
     const it = d.items[0];
-    assert.deepStrictEqual(it.statusHistory, [{ status: 'done', at: '2020-01-01T00:00:00.000Z' }]);
+    assert.deepStrictEqual(it.statusHistory, [{ status: "done", at: "2020-01-01T00:00:00.000Z" }]);
     assert.strictEqual(it.archived, false);
   });
 
-  it('preserves a numeric version when provided', () => {
+  it("preserves a numeric version when provided", () => {
     const d = normalizeData({ version: 7 });
     assert.strictEqual(d.version, 7);
   });
 });
 
-describe('StorageService', () => {
-  it('fromText: corrupt JSON falls back to default data', () => {
-    const s = StorageService.fromText('{not valid json');
+describe("StorageService", () => {
+  it("fromText: corrupt JSON falls back to default data", () => {
+    const s = StorageService.fromText("{not valid json");
     assert.strictEqual(s.getData().version, DATA_VERSION);
   });
 
-  it('fromText: reads and normalizes valid JSON', () => {
+  it("fromText: reads and normalizes valid JSON", () => {
     const s = StorageService.fromText(JSON.stringify({ version: 1, types: [], categories: [], items: [] }));
     assert.strictEqual(s.getData().version, 1);
     assert.strictEqual(s.getData().categories[0].id, GENERAL_CATEGORY_ID);
   });
 
-  it('forDir: round-trips data through the filesystem', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindstream-test-'));
+  it("forDir: round-trips data through the filesystem", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mindstream-test-"));
     try {
       const s1 = StorageService.forDir(dir);
       const data = s1.getData();
       data.items.push({
-        id: 'i1',
-        typeId: 't1',
+        id: "i1",
+        typeId: "t1",
         categoryId: GENERAL_CATEGORY_ID,
-        title: 'Hello',
-        status: 'pending',
-        statusHistory: [{ status: 'pending', at: '2020-01-01T00:00:00.000Z' }],
+        title: "Hello",
+        status: "pending",
+        statusHistory: [{ status: "pending", at: "2020-01-01T00:00:00.000Z" }],
         archived: false,
-        createdAt: '2020-01-01T00:00:00.000Z',
-        updatedAt: '2020-01-01T00:00:00.000Z'
+        createdAt: "2020-01-01T00:00:00.000Z",
+        updatedAt: "2020-01-01T00:00:00.000Z",
       });
       s1.saveData(data);
 
       const s2 = StorageService.forDir(dir);
       assert.strictEqual(s2.getData().items.length, 1);
-      assert.strictEqual(s2.getData().items[0].title, 'Hello');
+      assert.strictEqual(s2.getData().items[0].title, "Hello");
 
-      const file = path.join(dir, '.mindstream', 'data.json');
+      const file = path.join(dir, ".mindstream", "data.json");
       assert.ok(fs.existsSync(file));
-      assert.ok(!fs.existsSync(file + '.tmp'));
+      assert.ok(!fs.existsSync(file + ".tmp"));
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
 });
 
-describe('StorageService.reloadIfExternal', () => {
-  it('returns false and keeps the in-memory data when the backend is unchanged', () => {
+describe("StorageService.reloadIfExternal", () => {
+  it("returns false and keeps the in-memory data when the backend is unchanged", () => {
     const s = StorageService.fromText(JSON.stringify(createEmptyData()));
     const before = s.getData();
 
@@ -161,8 +155,8 @@ describe('StorageService.reloadIfExternal', () => {
     assert.strictEqual(s.getData(), before);
   });
 
-  it('returns false for an event that just echoes this instance\'s own saveData()', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindstream-reload-test-'));
+  it("returns false for an event that just echoes this instance's own saveData()", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mindstream-reload-test-"));
     try {
       const s = StorageService.forDir(dir);
       const data = s.getData();
@@ -174,43 +168,43 @@ describe('StorageService.reloadIfExternal', () => {
     }
   });
 
-  it('returns true and reloads when the backend file changed externally', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindstream-reload-test-'));
+  it("returns true and reloads when the backend file changed externally", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mindstream-reload-test-"));
     try {
       const s = StorageService.forDir(dir);
       assert.strictEqual(s.getData().items.length, 0);
 
-      const file = path.join(dir, '.mindstream', 'data.json');
+      const file = path.join(dir, ".mindstream", "data.json");
       fs.mkdirSync(path.dirname(file), { recursive: true });
       const externalData = createEmptyData();
       externalData.items.push({
-        id: 'ext-1',
-        typeId: 't1',
+        id: "ext-1",
+        typeId: "t1",
         categoryId: GENERAL_CATEGORY_ID,
-        title: 'External edit',
-        status: 'pending',
-        statusHistory: [{ status: 'pending', at: '2020-01-01T00:00:00.000Z' }],
+        title: "External edit",
+        status: "pending",
+        statusHistory: [{ status: "pending", at: "2020-01-01T00:00:00.000Z" }],
         archived: false,
-        createdAt: '2020-01-01T00:00:00.000Z',
-        updatedAt: '2020-01-01T00:00:00.000Z'
+        createdAt: "2020-01-01T00:00:00.000Z",
+        updatedAt: "2020-01-01T00:00:00.000Z",
       });
-      fs.writeFileSync(file, JSON.stringify(externalData, null, 2), 'utf8');
+      fs.writeFileSync(file, JSON.stringify(externalData, null, 2), "utf8");
 
       assert.strictEqual(s.reloadIfExternal(), true);
       assert.strictEqual(s.getData().items.length, 1);
-      assert.strictEqual(s.getData().items[0].title, 'External edit');
+      assert.strictEqual(s.getData().items[0].title, "External edit");
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
 
-  it('a second call right after a detected external change returns false (no-op)', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindstream-reload-test-'));
+  it("a second call right after a detected external change returns false (no-op)", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mindstream-reload-test-"));
     try {
       const s = StorageService.forDir(dir);
-      const file = path.join(dir, '.mindstream', 'data.json');
+      const file = path.join(dir, ".mindstream", "data.json");
       fs.mkdirSync(path.dirname(file), { recursive: true });
-      fs.writeFileSync(file, JSON.stringify(createEmptyData(), null, 2), 'utf8');
+      fs.writeFileSync(file, JSON.stringify(createEmptyData(), null, 2), "utf8");
 
       assert.strictEqual(s.reloadIfExternal(), true);
       assert.strictEqual(s.reloadIfExternal(), false);

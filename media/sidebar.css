@@ -12,7 +12,7 @@
 body.vscode-dark {
   --ms-blend-color: #ffffff;
 }
- 
+
 body.vscode-light {
   --ms-blend-color: #000000;
 }
@@ -23,7 +23,6 @@ body.vscode-light[data-vscode-theme-id="Visual Studio Light"],
 body.vscode-light[data-vscode-theme-id="Light+"] {
   --ms-mgmt-row-hoverBackground: var(--vscode-inputOption-hoverBackground, var(--vscode-toolbar-hoverBackground));
 }
-
 
 html,
 body {
@@ -141,7 +140,10 @@ body.dev-mode #toolbar {
 }
 
 .cs-item[data-highlighted] {
-  background: var(--vscode-quickInputList-focusBackground, color-mix(in srgb, var(--vscode-editor-background) 80%, var(--vscode-foreground)));
+  background: var(
+    --vscode-quickInputList-focusBackground,
+    color-mix(in srgb, var(--vscode-editor-background) 80%, var(--vscode-foreground))
+  );
   color: var(--vscode-quickInputList-focusForeground, var(--vscode-editor-foreground));
 }
 
@@ -525,13 +527,19 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   color: var(--vscode-descriptionForeground);
   white-space: nowrap;
   border: 1px solid;
-  border-color: color-mix(in srgb, var(--vscode-input-border, var(--vscode-panel-border, transparent)), var(--ms-blend-color) 4%);
+  border-color: color-mix(
+    in srgb,
+    var(--vscode-input-border, var(--vscode-panel-border, transparent)),
+    var(--ms-blend-color) 4%
+  );
 }
 .mgmt-row:hover .mgmt-count {
-  border-color: color-mix(in srgb, var(--vscode-input-border, var(--vscode-panel-border, transparent)), var(--ms-blend-color) 10%);
+  border-color: color-mix(
+    in srgb,
+    var(--vscode-input-border, var(--vscode-panel-border, transparent)),
+    var(--ms-blend-color) 10%
+  );
 }
-
-
 
 .category-default-badge {
   flex-shrink: 0;
@@ -541,15 +549,22 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   border-radius: var(--radius-md);
   color: var(--vscode-descriptionForeground);
   border: 1px solid;
-  border-color: color-mix(in srgb, var(--vscode-input-border, var(--vscode-panel-border, transparent)), var(--ms-blend-color) 4%);
+  border-color: color-mix(
+    in srgb,
+    var(--vscode-input-border, var(--vscode-panel-border, transparent)),
+    var(--ms-blend-color) 4%
+  );
   white-space: nowrap;
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
 .mgmt-row:hover .category-default-badge {
-  border-color: color-mix(in srgb, var(--vscode-input-border, var(--vscode-panel-border, transparent)), var(--ms-blend-color) 10%);
+  border-color: color-mix(
+    in srgb,
+    var(--vscode-input-border, var(--vscode-panel-border, transparent)),
+    var(--ms-blend-color) 10%
+  );
 }
-
 
 .mgmt-row.just-added {
   animation: mgmt-added 1.6s ease;
@@ -768,8 +783,7 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 }
 
 .modal-card .btn.btn-primary,
-.modal-card .btn.btn-ghost
-{
+.modal-card .btn.btn-ghost {
   min-width: 65px;
   height: 27px;
   box-sizing: border-box;
@@ -943,7 +957,7 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 .viewer-desc-content {
   padding: 14px;
   font-size: 13px;
-  color: var(--vscode-foreground);  
+  color: var(--vscode-foreground);
   line-height: 1.6;
   word-break: break-word;
   white-space: pre-wrap;
@@ -1119,7 +1133,10 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
    (guaranteed readable together in every theme) plus a focus border, and is
    placed after :hover so it wins over the hover background/border. */
 .icon-pick.selected {
-  background: var(--vscode-quickInputList-focusBackground, color-mix(in srgb, var(--vscode-editor-background) 80%, var(--vscode-foreground)));
+  background: var(
+    --vscode-quickInputList-focusBackground,
+    color-mix(in srgb, var(--vscode-editor-background) 80%, var(--vscode-foreground))
+  );
   color: var(--vscode-quickInputList-focusForeground, var(--vscode-editor-foreground));
 }
 .icon-pick .codicon {

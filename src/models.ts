@@ -2,7 +2,7 @@
  * Core data models for the MindStream extension.
  */
 
-export type MindStreamStatus = 'pending' | 'in-progress' | 'done';
+export type MindStreamStatus = "pending" | "in-progress" | "done";
 
 /** Optional link to a specific code/file location — future design, not used in the UI yet. */
 export interface MindStreamLink {
@@ -64,4 +64,4 @@ export interface MindStreamData {
 export const DATA_VERSION = 1;
 
 /** Fixed id of the built-in "General" category. */
-export const GENERAL_CATEGORY_ID = 'general';
+export const GENERAL_CATEGORY_ID = "general";

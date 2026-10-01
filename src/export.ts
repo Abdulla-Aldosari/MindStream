@@ -1,24 +1,20 @@
-import { MindStreamData, MindStreamStatus } from './models';
-import { ItemsStore } from './itemsStore';
-import { TypesRegistry } from './typesRegistry';
-import { CategoriesRegistry } from './categoriesRegistry';
-import { formatDate, WeeklyReportData } from './report';
+import { MindStreamData, MindStreamStatus } from "./models";
+import { ItemsStore } from "./itemsStore";
+import { TypesRegistry } from "./typesRegistry";
+import { CategoriesRegistry } from "./categoriesRegistry";
+import { formatDate, WeeklyReportData } from "./report";
 
 /** Human-readable labels for each item status (used in exports). */
 export const STATUS_LABEL: Record<MindStreamStatus, string> = {
-  pending: 'None',
-  'in-progress': 'In Progress',
-  done: 'Done'
+  pending: "None",
+  "in-progress": "In Progress",
+  done: "Done",
 };
 
 /** Builds the Markdown export content (a list of lines) for all notes. */
-export function buildMarkdownExport(
-  items: ItemsStore,
-  types: TypesRegistry,
-  categories: CategoriesRegistry
-): string[] {
+export function buildMarkdownExport(items: ItemsStore, types: TypesRegistry, categories: CategoriesRegistry): string[] {
   const all = items.list(true);
-  const lines: string[] = ['# MindStream Notes', ''];
+  const lines: string[] = ["# MindStream Notes", ""];
   for (const it of all) {
     lines.push(`## [${types.label(it.typeId)}] ${it.title}`);
     lines.push(`- Status: ${STATUS_LABEL[it.status]}`);
@@ -29,15 +25,15 @@ export function buildMarkdownExport(
       lines.push(`- Completed: ${formatDate(done)}`);
     }
     if (it.archived) {
-      lines.push('- Archived');
+      lines.push("- Archived");
     }
     if (it.description) {
-      lines.push('');
+      lines.push("");
       lines.push(it.description);
     }
-    lines.push('');
-    lines.push('---');
-    lines.push('');
+    lines.push("");
+    lines.push("---");
+    lines.push("");
   }
   return lines;
 }
@@ -46,26 +42,26 @@ export function buildMarkdownExport(
 export function buildWeeklyReportText(report: WeeklyReportData): string[] {
   const lines: string[] = [
     `MindStream Weekly Report — Week of ${report.weekLabel}`,
-    '',
+    "",
     `Created this week:   ${report.createdCount} notes`,
     `Completed this week: ${report.completedCount} notes`,
     `Currently in progress: ${report.inProgressCount} notes`,
     `Archived this week:  ${report.archivedCount} notes`,
-    ''
+    "",
   ];
   if (report.completed.length) {
-    lines.push('Completed:');
+    lines.push("Completed:");
     for (const it of report.completed) {
       lines.push(`- ${it.title}`);
     }
-    lines.push('');
+    lines.push("");
   }
   if (report.inProgress.length) {
-    lines.push('In progress:');
+    lines.push("In progress:");
     for (const it of report.inProgress) {
       lines.push(`- ${it.title}`);
     }
-    lines.push('');
+    lines.push("");
   }
   return lines;
 }

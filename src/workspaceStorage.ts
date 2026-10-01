@@ -1,5 +1,5 @@
-import * as vscode from 'vscode';
-import { StorageService } from './storage';
+import * as vscode from "vscode";
+import { StorageService } from "./storage";
 
 /**
  * Creates a storage service bound to the actual open workspace folder (the visible project root).
@@ -12,4 +12,3 @@ export function createWorkspaceStorage(folder: vscode.WorkspaceFolder | undefine
   }
   return StorageService.forDir(folder.uri.fsPath);
 }
-
