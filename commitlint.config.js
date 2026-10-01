@@ -38,6 +38,7 @@ const baseScopes = [
   "license", // changes to the LICENSE file
   "changelog", // CHANGELOG.md content or cliff.toml changelog-generation configuration
   "package", // package.json metadata, scripts, or dependencies
+  "release", // version bump and CHANGELOG.md updates for a release
   "iconClass", // media/iconClass.js: generates a safe, valid Codicon CSS class for an icon name.
 ];
 
