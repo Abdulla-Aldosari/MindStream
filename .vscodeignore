@@ -14,6 +14,7 @@ esbuild.js
 tsconfig.json
 .gitignore
 .mocharc.json
+.prettierignore
 cliff.toml
 commitlint.config.js
 eslint.config.js
