@@ -74,7 +74,7 @@ commit_parsers = [
   # Breaking changes: matches type(optional-scope)!: regardless of type
   { message = "^[a-z]+(\\([^)]*\\))?!:", group = "<!-- 0 -->⚠️ Important Changes" },
 
-  { message = "^feat",    group = "<!-- 1 -->🚀 What's New" },
+  { message = "^feat",    group = "<!-- 1 -->🚀 Features" },
   { message = "^fix",     group = "<!-- 2 -->🐛 Bug Fixes" },
   { message = "^perf",    group = "<!-- 3 -->⚡ Performance" },
 
