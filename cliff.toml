@@ -75,7 +75,7 @@ commit_parsers = [
   { message = "^[a-z]+(\\([^)]*\\))?!:", group = "<!-- 0 -->⚠️ Important Changes" },
 
   { message = "^feat",    group = "<!-- 1 -->🚀 What's New" },
-  { message = "^fix",     group = "<!-- 2 -->🐛 Fixes" },
+  { message = "^fix",     group = "<!-- 2 -->🐛 Bug Fixes" },
   { message = "^perf",    group = "<!-- 3 -->⚡ Performance" },
 
 
