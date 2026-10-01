@@ -120,13 +120,13 @@ function computeTooltipPosition(opts) {
 function buildTooltipHtml(header, body, footer) {
   const parts = [];
   if (header) {
-    parts.push('<div class="tooltip-header">' + header + "</div>");
+    parts.push(`<div class="tooltip-header">${header}</div>`);
   }
   if (body) {
-    parts.push('<div class="tooltip-body">' + body + "</div>");
+    parts.push(`<div class="tooltip-body">${body}</div>`);
   }
   if (footer) {
-    parts.push('<div class="tooltip-divider"></div><div class="tooltip-footer">' + footer + "</div>");
+    parts.push(`<div class="tooltip-divider"></div><div class="tooltip-footer">${footer}</div>`);
   }
   return parts.join("");
 }
@@ -271,12 +271,12 @@ if (typeof document !== "undefined") {
         return;
       }
 
-      tip.style.left = result.left + "px";
-      tip.style.top = result.top + "px";
-      tip.style.setProperty("--arrow-x", result.arrowX + "px");
-      tip.style.setProperty("--arrow-y", result.arrowY + "px");
+      tip.style.left = `${result.left}px`;
+      tip.style.top = `${result.top}px`;
+      tip.style.setProperty("--arrow-x", `${result.arrowX}px`);
+      tip.style.setProperty("--arrow-y", `${result.arrowY}px`);
       tip.classList.remove("pos-top", "pos-bottom", "pos-left", "pos-right");
-      tip.classList.add("pos-" + result.resolvedPos);
+      tip.classList.add(`pos-${result.resolvedPos}`);
 
       lastAppliedPos = {
         left: result.left,

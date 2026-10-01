@@ -101,60 +101,30 @@
     const items = options
       .map(function (opt) {
         const isSelected = opt.value === selectedValue;
-        const badgeStartHtml = opt.badgeStart ? '<span class="cs-item-badge">' + opt.badgeStart + "</span>" : "";
-        const badgeEndHtml = opt.badgeEnd ? '<span class="cs-item-badge">' + opt.badgeEnd + "</span>" : "";
-        const itemClass = opt.itemClass ? " " + opt.itemClass : "";
-        return (
-          '<div class="cs-item' +
-          itemClass +
-          '" role="menuitem" tabindex="-1" data-value="' +
-          escapeAttr(opt.value) +
-          '">' +
-          '<span class="cs-item-label-group">' +
-          badgeStartHtml +
-          '<span class="cs-item-label">' +
-          escapeHtml(opt.label) +
-          "</span>" +
-          badgeEndHtml +
-          "</span>" +
-          (isSelected ? csIcons.checkmark : "") +
-          "</div>"
-        );
+        const badgeStartHtml = opt.badgeStart ? `<span class="cs-item-badge">${opt.badgeStart}</span>` : "";
+        const badgeEndHtml = opt.badgeEnd ? `<span class="cs-item-badge">${opt.badgeEnd}</span>` : "";
+        const itemClass = opt.itemClass ? ` ${opt.itemClass}` : "";
+        return `<div class="cs-item${itemClass}" role="menuitem" tabindex="-1" data-value="${escapeAttr(opt.value)}">
+          <span class="cs-item-label-group">${badgeStartHtml}<span class="cs-item-label">${escapeHtml(opt.label)}</span>${badgeEndHtml}</span>
+          ${isSelected ? csIcons.checkmark : ""}
+        </div>`;
       })
       .join("");
 
-    const menuClass = "cs-menu" + (menuUp ? " cs-menu-up" : "");
-    const wrapClass = "cs-wrap" + (wrapExtraClass ? " " + wrapExtraClass : "");
-    const selectedItemClass = selectedOption && selectedOption.itemClass ? " " + selectedOption.itemClass : "";
+    const menuClass = `cs-menu${menuUp ? " cs-menu-up" : ""}`;
+    const wrapClass = `cs-wrap${wrapExtraClass ? ` ${wrapExtraClass}` : ""}`;
+    const selectedItemClass = selectedOption && selectedOption.itemClass ? ` ${selectedOption.itemClass}` : "";
+    const btnClass = `cs-btn${btnExtraClass ? ` ${btnExtraClass}` : ""}${selectedItemClass}`;
 
-    return (
-      '<div class="' +
-      wrapClass +
-      '" id="' +
-      escapeAttr(wrapperId) +
-      '">' +
-      '<button class="cs-btn' +
-      (btnExtraClass ? " " + btnExtraClass : "") +
-      selectedItemClass +
-      '" type="button" aria-haspopup="menu" aria-expanded="false" id="' +
-      escapeAttr(btnId) +
-      '">' +
-      '<span class="cs-btn-label">' +
-      escapeHtml(selectedLabel) +
-      "</span>" +
-      csIcons.chevron +
-      "</button>" +
-      '<div class="' +
-      menuClass +
-      '" role="menu" id="' +
-      escapeAttr(menuId) +
-      '" hidden>' +
-      '<div class="cs-menu-items-wrapper">' +
-      items +
-      "</div>" +
-      "</div>" +
-      "</div>"
-    );
+    return `<div class="${wrapClass}" id="${escapeAttr(wrapperId)}">
+      <button class="${btnClass}" type="button" aria-haspopup="menu" aria-expanded="false" id="${escapeAttr(btnId)}">
+        <span class="cs-btn-label">${escapeHtml(selectedLabel)}</span>
+        ${csIcons.chevron}
+      </button>
+      <div class="${menuClass}" role="menu" id="${escapeAttr(menuId)}" hidden>
+        <div class="cs-menu-items-wrapper">${items}</div>
+      </div>
+    </div>`;
   }
 
   function bindCustomSelect(wrapperId, btnId, menuId, onChange) {
@@ -292,31 +262,24 @@
 
   function renderEmptyState() {
     function createButton(label) {
-      return '<button type="button" class="btn btn-primary empty-create-btn">' + label + "</button>";
+      return `<button type="button" class="btn btn-primary empty-create-btn">${label}</button>`;
     }
 
     if (state.items.length === 0) {
-      emptyEl.innerHTML =
-        '<div class="empty-text">Looks like there are no notes yet.</div>' + createButton("Create your first note");
+      emptyEl.innerHTML = `<div class="empty-text">Looks like there are no notes yet.</div>${createButton("Create your first note")}`;
       emptyEl.hidden = false;
       return;
     }
 
     if (itemsInCategory().length === 0) {
-      emptyEl.innerHTML = '<div class="empty-text">No notes in this category.</div>' + createButton("Create one");
+      emptyEl.innerHTML = `<div class="empty-text">No notes in this category.</div>${createButton("Create one")}`;
       emptyEl.hidden = false;
       return;
     }
 
     if (filteredItems().length === 0) {
       const t = typeOf(state.typeFilter);
-      emptyEl.innerHTML =
-        '<div class="empty-text">Looks like there are no <span class="' +
-        iconClass(t.icon) +
-        '"></span> ' +
-        esc(t.label) +
-        " notes yet.</div>" +
-        createButton("Create one");
+      emptyEl.innerHTML = `<div class="empty-text">Looks like there are no <span class="${iconClass(t.icon)}"></span> ${esc(t.label)} notes yet.</div>${createButton("Create one")}`;
       emptyEl.hidden = false;
       return;
     }
@@ -403,7 +366,7 @@
         const next = el.getBoundingClientRect();
         const dy = prev.top - next.top;
         if (Math.abs(dy) > 1) {
-          el.animate([{ transform: "translateY(" + dy + "px)" }, { transform: "translateY(0px)" }], {
+          el.animate([{ transform: `translateY(${dy}px)` }, { transform: "translateY(0px)" }], {
             duration: 250,
             easing: "ease",
           });
@@ -433,7 +396,7 @@
 
     const typeBadge = document.createElement("span");
     typeBadge.className = "card-type";
-    typeBadge.innerHTML = '<span class="' + iconClass(t.icon) + '"></span> ' + esc(t.label);
+    typeBadge.innerHTML = `<span class="${iconClass(t.icon)}"></span> ${esc(t.label)}`;
     head.appendChild(typeBadge);
     card.appendChild(head);
 
@@ -517,7 +480,7 @@
 
     const count = document.createElement("span");
     count.className = "group-count";
-    count.textContent = "(" + items.length + ")";
+    count.textContent = `(${items.length})`;
     header.appendChild(count);
 
     header.addEventListener("click", () => {
@@ -530,9 +493,9 @@
 
   function btnIcon(codicon, title, onClick, danger) {
     const b = document.createElement("button");
-    b.className = "icon-btn" + (danger ? " danger" : "");
+    b.className = `icon-btn${danger ? " danger" : ""}`;
     b.dataset.tooltip = title;
-    b.innerHTML = '<span class="codicon ' + codicon + '"></span>';
+    b.innerHTML = `<span class="codicon ${codicon}"></span>`;
     b.addEventListener("click", onClick);
     return b;
   }
@@ -578,7 +541,7 @@
 
   function fillTypeSelect(selectedTypeId) {
     const options = state.types.map(function (t) {
-      const badgeStart = t.icon ? '<span class="' + iconClass(t.icon) + '"></span>' : "";
+      const badgeStart = t.icon ? `<span class="${iconClass(t.icon)}"></span>` : "";
       return { value: t.id, label: t.label, badgeStart: badgeStart };
     });
     state.formTypeId = selectedTypeId != null ? selectedTypeId : (state.types[0] && state.types[0].id) || null;
@@ -657,7 +620,7 @@
       if (deferFlash) {
         pendingFlashId = itemId;
       } else {
-        const card = listEl.querySelector('.card[data-id="' + itemId + '"]');
+        const card = listEl.querySelector(`.card[data-id="${itemId}"]`);
         if (card) {
           flashCard(card);
         }
@@ -705,16 +668,15 @@
     titleEl.setAttribute("dir", state.direction);
 
     const typeEl = $("view-type");
-    typeEl.innerHTML =
-      '<span class="' + iconClass(t.icon) + '"></span>' + '<span class="chip-label">' + esc(t.label) + "</span>";
+    typeEl.innerHTML = `<span class="${iconClass(t.icon)}"></span><span class="chip-label">${esc(t.label)}</span>`;
 
     const catEl = $("view-category");
-    catEl.innerHTML = cat ? '<span class="chip-label">' + esc(cat.label) + "</span>" : "";
+    catEl.innerHTML = cat ? `<span class="chip-label">${esc(cat.label)}</span>` : "";
     catEl.hidden = !cat;
 
     const statusEl = $("view-status");
-    statusEl.className = "status " + item.status;
-    statusEl.innerHTML = '<span class="chip-label">' + esc(state.statusLabels[item.status] || item.status) + "</span>";
+    statusEl.className = `status ${item.status}`;
+    statusEl.innerHTML = `<span class="chip-label">${esc(state.statusLabels[item.status] || item.status)}</span>`;
 
     const descEl = $("view-desc");
     descEl.setAttribute("dir", state.direction);
@@ -722,7 +684,7 @@
     $("view-desc-content").textContent = item.description || "";
 
     $("view-timestamps").textContent =
-      "Created: " + formatDate(item.createdAt) + "\u2003\u00b7\u2003Updated: " + formatDate(item.updatedAt);
+      `Created: ${formatDate(item.createdAt)}\u2003\u00b7\u2003Updated: ${formatDate(item.updatedAt)}`;
 
     viewModalEl.hidden = false;
   }
@@ -739,7 +701,7 @@
     // transitioning straight into another modal (e.g. Edit), where the card is
     // immediately covered and the flash would only be distracting.
     if (itemId && !skipFlash) {
-      const card = listEl.querySelector('.card[data-id="' + itemId + '"]');
+      const card = listEl.querySelector(`.card[data-id="${itemId}"]`);
       if (card) {
         flashCard(card);
       }
@@ -799,14 +761,14 @@
   }
 
   function renderWeeklyReport(report) {
-    $("report-title").textContent = "Weekly Report — Week of " + report.weekLabel;
+    $("report-title").textContent = `Weekly Report — Week of ${report.weekLabel}`;
 
     const summary = $("report-summary");
     summary.innerHTML = "";
-    summary.appendChild(reportStat("Created this week", report.createdCount + " notes"));
-    summary.appendChild(reportStat("Completed this week", report.completedCount + " notes"));
-    summary.appendChild(reportStat("Currently in progress", report.inProgressCount + " notes"));
-    summary.appendChild(reportStat("Archived this week", report.archivedCount + " notes"));
+    summary.appendChild(reportStat("Created this week", `${report.createdCount} notes`));
+    summary.appendChild(reportStat("Completed this week", `${report.completedCount} notes`));
+    summary.appendChild(reportStat("Currently in progress", `${report.inProgressCount} notes`));
+    summary.appendChild(reportStat("Archived this week", `${report.archivedCount} notes`));
 
     const body = $("report-body");
     body.innerHTML = "";
@@ -845,7 +807,7 @@
   function reportSectionHeader(label, count) {
     const h = document.createElement("div");
     h.className = "report-section-header";
-    h.textContent = label + " (" + count + ")";
+    h.textContent = `${label} (${count})`;
     return h;
   }
 
@@ -1006,7 +968,7 @@
       iconBtn.className = "icon-btn type-icon-btn";
       iconBtn.dataset.typeId = t.id;
       iconBtn.dataset.tooltip = "Change icon";
-      iconBtn.innerHTML = '<span class="' + iconClass(t.icon) + '" data-type-icon="' + esc(t.id) + '"></span>';
+      iconBtn.innerHTML = `<span class="${iconClass(t.icon)}" data-type-icon="${esc(t.id)}"></span>`;
       iconBtn.addEventListener("click", () => {
         if (
           isIconsModalOpen() &&
@@ -1140,7 +1102,7 @@
     if (mode.mode === "new") {
       $("btn-type-icon").classList.add("active");
     } else if (mode.mode === "edit") {
-      const btn = document.querySelector('.type-icon-btn[data-type-id="' + mode.typeId + '"]');
+      const btn = document.querySelector(`.type-icon-btn[data-type-id="${mode.typeId}"]`);
       if (btn) btn.classList.add("active");
     }
   }
@@ -1194,10 +1156,10 @@
       matched++;
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "icon-pick" + (name === selectedIcon ? " selected" : "");
+      btn.className = `icon-pick${name === selectedIcon ? " selected" : ""}`;
       btn.dataset.tooltip = name;
       btn.dataset.icon = name;
-      btn.innerHTML = '<span class="codicon codicon-' + name + '"></span>';
+      btn.innerHTML = `<span class="codicon codicon-${name}"></span>`;
       btn.addEventListener("click", () => commitIcon(name));
       if (state.iconsModalMode && state.iconsModalMode.mode === "edit") {
         const typeId = state.iconsModalMode.typeId;
@@ -1216,9 +1178,9 @@
   }
 
   function previewTypeIcon(typeId, icon) {
-    const el = document.querySelector('[data-type-icon="' + typeId + '"]');
+    const el = document.querySelector(`[data-type-icon="${typeId}"]`);
     if (el) {
-      el.className = "codicon " + (icon ? "codicon-" + icon : "codicon-tag");
+      el.className = `codicon ${icon ? `codicon-${icon}` : "codicon-tag"}`;
     }
   }
 
@@ -1325,12 +1287,12 @@
   function populateCategoryFilter() {
     const current = state.categoryFilter;
     const totalCount = state.items.length;
-    const options = [{ value: "all", label: "All Categories", badgeEnd: "(" + totalCount + ")" }].concat(
+    const options = [{ value: "all", label: "All Categories", badgeEnd: `(${totalCount})` }].concat(
       state.categories.map(function (c) {
         const count = state.items.filter(function (it) {
           return it.categoryId === c.id;
         }).length;
-        return { value: c.id, label: c.label, badgeEnd: "(" + count + ")" };
+        return { value: c.id, label: c.label, badgeEnd: `(${count})` };
       })
     );
     if (state.categories.length && !state.categories.some((c) => c.id === current)) {
@@ -1362,7 +1324,7 @@
   function populateTypeFilter() {
     const current = state.typeFilter;
     const inCategory = itemsInCategory();
-    const options = [{ value: "all", label: "All Types", badgeEnd: "(" + inCategory.length + ")" }].concat(
+    const options = [{ value: "all", label: "All Types", badgeEnd: `(${inCategory.length})` }].concat(
       state.types.map(function (t) {
         const count = inCategory.filter(function (it) {
           return it.typeId === t.id;
@@ -1370,8 +1332,8 @@
         return {
           value: t.id,
           label: t.label,
-          badgeStart: t.icon ? '<span class="' + iconClass(t.icon) + '"></span>' : "",
-          badgeEnd: "(" + count + ")",
+          badgeStart: t.icon ? `<span class="${iconClass(t.icon)}"></span>` : "",
+          badgeEnd: `(${count})`,
         };
       })
     );
