@@ -1,6 +1,7 @@
 .cline/
 .vsenv/
 .mindstream/
+.devdeck/
 node_modules/
 dist/
 *.vsix
