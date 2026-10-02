@@ -2,6 +2,7 @@
 .github/
 .husky/
 .mindstream/
+.devdeck/
 .vsenv/
 .vscode/
 src/
