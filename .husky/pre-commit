@@ -1,2 +1,10 @@
 npx lint-staged
 npm run lint && npm run typecheck && npm test
+
+if git diff --cached --name-only | grep -qx "commitlint\.config\.js"; then
+  # Updates the accepted commit scopes, used only for commit message
+  # generation. Missing script file is harmless, so skip silently.
+  if [ -f ".vsenv/scripts/sync-commit-scopes.js" ]; then
+    node .vsenv/scripts/sync-commit-scopes.js --suppressErrors
+  fi
+fi
