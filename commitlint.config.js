@@ -40,6 +40,7 @@ const baseScopes = [
   "package", // package.json metadata, scripts, or dependencies
   "release", // version bump and CHANGELOG.md updates for a release
   "iconClass", // media/iconClass.js: generates a safe, valid Codicon CSS class for an icon name.
+  "emoji", // src/emojiRegistry.ts + media/emoji.js: global emoji palette, recent tracking, and the webview picker
 ];
 
 // 2. Append a negative variant of every base scope prefixed with "-" (e.g. "-sidebar").
@@ -82,11 +83,7 @@ module.exports = {
     "body-max-line-length": [2, "always", 72],
 
     // Allowed commit types (fixed, do not change).
-    "type-enum": [
-      2,
-      "always",
-      ["feat", "fix", "perf", "style", "refactor", "docs", "test", "chore", "build", "ci", "revert"],
-    ],
+    "type-enum": [2, "always", ["feat", "fix", "perf", "style", "refactor", "docs", "test", "chore", "build", "ci", "revert"]],
 
     // MindStream project scopes using the dynamically generated list.
     "scope-enum": [2, "always", allowedScopes],

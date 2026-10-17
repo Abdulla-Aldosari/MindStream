@@ -3,6 +3,7 @@ import { MindStreamStatus } from "./models";
 import { ItemsStore } from "./itemsStore";
 import { TypesRegistry } from "./typesRegistry";
 import { CategoriesRegistry } from "./categoriesRegistry";
+import { EmojiRegistry } from "./emojiRegistry";
 import { WeeklyReportData } from "./report";
 import { SidebarController, SidebarUi, WebviewMessage } from "./sidebarController";
 import { getBodyClass } from "./util";
@@ -30,9 +31,10 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     private readonly items: ItemsStore,
     private readonly types: TypesRegistry,
     private readonly categories: CategoriesRegistry,
+    private readonly emoji: EmojiRegistry,
     private readonly isDevMode: boolean = false
   ) {
-    this.controller = new SidebarController(items, types, categories, this);
+    this.controller = new SidebarController(items, types, categories, this.emoji, this);
   }
 
   resolveWebviewView(webviewView: vscode.WebviewView, _context: vscode.WebviewViewResolveContext, _token: vscode.CancellationToken): void {
@@ -142,6 +144,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
       statusLabels: STATUS_LABEL,
       includeArchived: this._archiveVisible,
       direction: this.getDirection(),
+      emojiPalette: this.emoji.palette(),
+      emojiRecents: this.emoji.recents(),
     });
   }
 
@@ -155,6 +159,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "sidebar.js"));
     const iconClassUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "iconClass.js"));
     const defaultTypeUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "defaultType.js"));
+    const emojiUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "emoji.js"));
     const tooltipUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "tooltip.js"));
     const codiconNamesUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "codicon-names.js"));
     const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "sidebar.css"));
@@ -270,9 +275,45 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
       <div id="report-body" class="report-body"></div>
     </div>
   </div>
+  <div id="emoji-picker" class="emoji-picker" hidden>
+    <div id="emoji-recents-row" class="emoji-recents-row" hidden>
+      <div class="emoji-section-label">Recent</div>
+      <div id="emoji-recents-grid" class="emoji-recents-grid"></div>
+    </div>
+    <div id="emoji-symbols-row" class="emoji-symbols-row">
+      <div class="emoji-section-label">Symbols</div>
+      <div id="emoji-symbols-grid" class="emoji-symbols-grid"></div>
+    </div>
+    <div id="emoji-grid" class="emoji-grid"></div>
+    <div class="emoji-picker-footer">
+      <button id="emoji-edit-btn" class="btn btn-ghost" type="button">Edit list</button>
+    </div>
+  </div>
+  <div id="emoji-edit-modal" class="modal" hidden>
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-title">Edit Emoji List</span>
+          <span class="modal-subtitle">Emoji are stored as a plain sequence and split automatically</span>
+        </div>
+        <button id="emoji-edit-close" class="icon-btn close-x-btn" data-tooltip="Close">✕</button>
+      </div>
+      <label class="field">
+        <span>Emoji</span>
+        <textarea id="f-emoji-list" rows="4" placeholder="Paste or type emoji one after another..."></textarea>
+      </label>
+      <div id="emoji-edit-preview" class="emoji-edit-preview"></div>
+      <div class="modal-actions">
+        <span id="emoji-notice" class="emoji-notice" hidden></span>
+        <button id="emoji-edit-cancel" class="btn btn-ghost">Cancel</button>
+        <button id="emoji-edit-save" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
   <script nonce="${nonce}" src="${codiconNamesUri}"></script>
   <script nonce="${nonce}" src="${iconClassUri}"></script>
   <script nonce="${nonce}" src="${defaultTypeUri}"></script>
+  <script nonce="${nonce}" src="${emojiUri}"></script>
   <script nonce="${nonce}" src="${tooltipUri}"></script>
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>

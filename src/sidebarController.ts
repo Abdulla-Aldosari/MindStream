@@ -2,6 +2,7 @@ import { MindStreamStatus } from "./models";
 import { ItemsStore } from "./itemsStore";
 import { TypesRegistry } from "./typesRegistry";
 import { CategoriesRegistry } from "./categoriesRegistry";
+import { EmojiRegistry } from "./emojiRegistry";
 
 export interface WebviewMessage {
   type:
@@ -19,7 +20,9 @@ export interface WebviewMessage {
     | "addType"
     | "renameType"
     | "setTypeIcon"
-    | "deleteType";
+    | "deleteType"
+    | "recordEmojiUse"
+    | "updateEmojiPalette";
   id?: string;
   title?: string;
   description?: string;
@@ -29,6 +32,8 @@ export interface WebviewMessage {
   icon?: string;
   status?: MindStreamStatus;
   archived?: boolean;
+  emoji?: string;
+  palette?: string[];
 }
 
 /** User-facing confirmations and notices the controller needs from the host. */
@@ -50,6 +55,7 @@ export class SidebarController {
     private readonly items: ItemsStore,
     private readonly types: TypesRegistry,
     private readonly categories: CategoriesRegistry,
+    private readonly emoji: EmojiRegistry,
     private readonly ui: SidebarUi
   ) {}
 
@@ -169,6 +175,16 @@ export class SidebarController {
         }
         break;
       }
+      case "recordEmojiUse":
+        if (msg.emoji) {
+          await this.emoji.recordUse(msg.emoji);
+        }
+        break;
+      case "updateEmojiPalette":
+        if (msg.palette) {
+          await this.emoji.setPalette(msg.palette);
+        }
+        break;
     }
   }
 }
