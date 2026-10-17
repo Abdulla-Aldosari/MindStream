@@ -4,7 +4,18 @@ import { ItemsStore } from "../src/itemsStore";
 import { TypesRegistry } from "../src/typesRegistry";
 import { CategoriesRegistry } from "../src/categoriesRegistry";
 import { SidebarController, SidebarUi } from "../src/sidebarController";
+import { EmojiMemento, EmojiRegistry } from "../src/emojiRegistry";
 import { InMemoryStorage } from "./helpers";
+
+class FakeEmojiMemento implements EmojiMemento {
+  private store = new Map<string, unknown>();
+  get<T>(key: string, defaultValue: T): T {
+    return (this.store.has(key) ? this.store.get(key) : defaultValue) as T;
+  }
+  async update(key: string, value: unknown): Promise<void> {
+    this.store.set(key, value);
+  }
+}
 
 class FakeUi implements SidebarUi {
   confirmDeleteNoteResult = true;
@@ -47,10 +58,11 @@ function setup() {
   const items = new ItemsStore(storage);
   const types = new TypesRegistry(storage);
   const categories = new CategoriesRegistry(storage);
+  const emoji = new EmojiRegistry(new FakeEmojiMemento());
   const ui = new FakeUi();
-  const controller = new SidebarController(items, types, categories, ui);
+  const controller = new SidebarController(items, types, categories, emoji, ui);
   const typeId = storage.getData().types[0].id;
-  return { storage, items, types, categories, ui, controller, typeId };
+  return { storage, items, types, categories, emoji, ui, controller, typeId };
 }
 
 describe("SidebarController.handleMessage", () => {
@@ -210,5 +222,18 @@ describe("SidebarController.handleMessage", () => {
     ui.confirmDeleteTypeResult = false;
     await controller.handleMessage({ type: "deleteType", id: def.id });
     assert.ok(types.get(def.id));
+  });
+
+  it("recordEmojiUse records the emoji as the most recent", async () => {
+    const { emoji, controller } = setup();
+    await controller.handleMessage({ type: "recordEmojiUse", emoji: "📌" });
+    await controller.handleMessage({ type: "recordEmojiUse", emoji: "✅" });
+    assert.deepStrictEqual(emoji.recents(), ["✅", "📌"]);
+  });
+
+  it("updateEmojiPalette replaces and dedupes the palette", async () => {
+    const { emoji, controller } = setup();
+    await controller.handleMessage({ type: "updateEmojiPalette", palette: ["✅", "📌", "✅"] });
+    assert.deepStrictEqual(emoji.palette(), ["✅", "📌"]);
   });
 });

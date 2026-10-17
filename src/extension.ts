@@ -3,6 +3,7 @@ import { createWorkspaceStorage } from "./workspaceStorage";
 import { ItemsStore } from "./itemsStore";
 import { TypesRegistry } from "./typesRegistry";
 import { CategoriesRegistry } from "./categoriesRegistry";
+import { EmojiMemento, EmojiRegistry } from "./emojiRegistry";
 import { SidebarProvider, VIEW_TYPE } from "./sidebarProvider";
 import { buildWeeklyReport } from "./report";
 import { IStorage } from "./storage";
@@ -20,12 +21,7 @@ const WATCHER_DEBOUNCE_MS = 200;
  * change is detected. `storage.reloadIfExternal()` ignores events that are
  * just an echo of this instance's own write.
  */
-function watchDataFile(
-  context: vscode.ExtensionContext,
-  folder: vscode.WorkspaceFolder,
-  storage: IStorage,
-  onExternalChange: () => void
-): void {
+function watchDataFile(context: vscode.ExtensionContext, folder: vscode.WorkspaceFolder, storage: IStorage, onExternalChange: () => void): void {
   const pattern = new vscode.RelativePattern(folder, ".mindstream/data.json");
   const watcher = vscode.workspace.createFileSystemWatcher(pattern);
   context.subscriptions.push(watcher);
@@ -90,20 +86,12 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(vscode.window.registerWebviewViewProvider(VIEW_TYPE, new NoWorkspaceProvider()));
     context.subscriptions.push(vscode.commands.registerCommand("mindstream.addNote", () => requireWorkspace(deps)));
     context.subscriptions.push(vscode.commands.registerCommand("mindstream.manageTypes", () => requireWorkspace(deps)));
-    context.subscriptions.push(
-      vscode.commands.registerCommand("mindstream.manageCategories", () => requireWorkspace(deps))
-    );
-    context.subscriptions.push(
-      vscode.commands.registerCommand("mindstream.exportMarkdown", () => requireWorkspace(deps))
-    );
+    context.subscriptions.push(vscode.commands.registerCommand("mindstream.manageCategories", () => requireWorkspace(deps)));
+    context.subscriptions.push(vscode.commands.registerCommand("mindstream.exportMarkdown", () => requireWorkspace(deps)));
     context.subscriptions.push(vscode.commands.registerCommand("mindstream.exportJson", () => requireWorkspace(deps)));
     context.subscriptions.push(vscode.commands.registerCommand("mindstream.importJson", () => requireWorkspace(deps)));
-    context.subscriptions.push(
-      vscode.commands.registerCommand("mindstream.weeklyReport", () => requireWorkspace(deps))
-    );
-    context.subscriptions.push(
-      vscode.commands.registerCommand("mindstream.exportWeeklyReport", () => requireWorkspace(deps))
-    );
+    context.subscriptions.push(vscode.commands.registerCommand("mindstream.weeklyReport", () => requireWorkspace(deps)));
+    context.subscriptions.push(vscode.commands.registerCommand("mindstream.exportWeeklyReport", () => requireWorkspace(deps)));
     context.subscriptions.push(vscode.commands.registerCommand("mindstream.refresh", () => requireWorkspace(deps)));
     context.subscriptions.push(
       vscode.commands.registerCommand("mindstream.showSidebar", async () => {
@@ -121,8 +109,16 @@ export function activate(context: vscode.ExtensionContext): void {
   const items = new ItemsStore(storage);
   const categories = new CategoriesRegistry(storage);
 
+  const emojiMemento: EmojiMemento = {
+    get: (key, defaultValue) => context.globalState.get(key, defaultValue),
+    update: async (key, value) => {
+      await context.globalState.update(key, value);
+    },
+  };
+  const emoji = new EmojiRegistry(emojiMemento);
+
   const isDevMode = context.extensionMode === vscode.ExtensionMode.Development;
-  sidebar = new SidebarProvider(context.extensionUri, items, types, categories, isDevMode);
+  sidebar = new SidebarProvider(context.extensionUri, items, types, categories, emoji, isDevMode);
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(VIEW_TYPE, sidebar, {
@@ -134,24 +130,12 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(vscode.commands.registerCommand("mindstream.addNote", () => sidebar?.openAddNote()));
   context.subscriptions.push(vscode.commands.registerCommand("mindstream.manageTypes", () => sidebar?.openTypes()));
-  context.subscriptions.push(
-    vscode.commands.registerCommand("mindstream.manageCategories", () => sidebar?.openCategories())
-  );
-  context.subscriptions.push(
-    vscode.commands.registerCommand("mindstream.exportMarkdown", () => exportMarkdown(deps, items, types, categories))
-  );
+  context.subscriptions.push(vscode.commands.registerCommand("mindstream.manageCategories", () => sidebar?.openCategories()));
+  context.subscriptions.push(vscode.commands.registerCommand("mindstream.exportMarkdown", () => exportMarkdown(deps, items, types, categories)));
   context.subscriptions.push(vscode.commands.registerCommand("mindstream.exportJson", () => exportJson(deps, storage)));
-  context.subscriptions.push(
-    vscode.commands.registerCommand("mindstream.importJson", () => importJson(deps, storage, () => sidebar?.refresh()))
-  );
-  context.subscriptions.push(
-    vscode.commands.registerCommand("mindstream.weeklyReport", () =>
-      sidebar?.openWeeklyReport(buildWeeklyReport(items))
-    )
-  );
-  context.subscriptions.push(
-    vscode.commands.registerCommand("mindstream.exportWeeklyReport", () => exportWeeklyReport(deps, items))
-  );
+  context.subscriptions.push(vscode.commands.registerCommand("mindstream.importJson", () => importJson(deps, storage, () => sidebar?.refresh())));
+  context.subscriptions.push(vscode.commands.registerCommand("mindstream.weeklyReport", () => sidebar?.openWeeklyReport(buildWeeklyReport(items))));
+  context.subscriptions.push(vscode.commands.registerCommand("mindstream.exportWeeklyReport", () => exportWeeklyReport(deps, items)));
   context.subscriptions.push(
     vscode.commands.registerCommand("mindstream.refresh", () => {
       storage.reloadIfExternal();

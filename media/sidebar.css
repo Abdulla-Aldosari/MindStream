@@ -113,10 +113,7 @@ body.dev-mode #toolbar {
   left: 0;
   z-index: 300;
   min-width: max(100%, 160px);
-  background: var(
-    --vscode-dropdown-listBackground,
-    var(--vscode-settings-dropdownBackground, var(--vscode-input-background))
-  );
+  background: var(--vscode-dropdown-listBackground, var(--vscode-settings-dropdownBackground, var(--vscode-input-background)));
   border: 1px solid var(--vscode-settings-dropdownBorder, var(--vscode-panel-border, transparent));
   border-radius: var(--radius);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
@@ -140,10 +137,7 @@ body.dev-mode #toolbar {
 }
 
 .cs-item[data-highlighted] {
-  background: var(
-    --vscode-quickInputList-focusBackground,
-    color-mix(in srgb, var(--vscode-editor-background) 80%, var(--vscode-foreground))
-  );
+  background: var(--vscode-quickInputList-focusBackground, color-mix(in srgb, var(--vscode-editor-background) 80%, var(--vscode-foreground)));
   color: var(--vscode-quickInputList-focusForeground, var(--vscode-editor-foreground));
 }
 
@@ -527,18 +521,10 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   color: var(--vscode-descriptionForeground);
   white-space: nowrap;
   border: 1px solid;
-  border-color: color-mix(
-    in srgb,
-    var(--vscode-input-border, var(--vscode-panel-border, transparent)),
-    var(--ms-blend-color) 4%
-  );
+  border-color: color-mix(in srgb, var(--vscode-input-border, var(--vscode-panel-border, transparent)), var(--ms-blend-color) 4%);
 }
 .mgmt-row:hover .mgmt-count {
-  border-color: color-mix(
-    in srgb,
-    var(--vscode-input-border, var(--vscode-panel-border, transparent)),
-    var(--ms-blend-color) 10%
-  );
+  border-color: color-mix(in srgb, var(--vscode-input-border, var(--vscode-panel-border, transparent)), var(--ms-blend-color) 10%);
 }
 
 .category-default-badge {
@@ -549,21 +535,13 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   border-radius: var(--radius-md);
   color: var(--vscode-descriptionForeground);
   border: 1px solid;
-  border-color: color-mix(
-    in srgb,
-    var(--vscode-input-border, var(--vscode-panel-border, transparent)),
-    var(--ms-blend-color) 4%
-  );
+  border-color: color-mix(in srgb, var(--vscode-input-border, var(--vscode-panel-border, transparent)), var(--ms-blend-color) 4%);
   white-space: nowrap;
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
 .mgmt-row:hover .category-default-badge {
-  border-color: color-mix(
-    in srgb,
-    var(--vscode-input-border, var(--vscode-panel-border, transparent)),
-    var(--ms-blend-color) 10%
-  );
+  border-color: color-mix(in srgb, var(--vscode-input-border, var(--vscode-panel-border, transparent)), var(--ms-blend-color) 10%);
 }
 
 .mgmt-row.just-added {
@@ -1133,10 +1111,7 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
    (guaranteed readable together in every theme) plus a focus border, and is
    placed after :hover so it wins over the hover background/border. */
 .icon-pick.selected {
-  background: var(
-    --vscode-quickInputList-focusBackground,
-    color-mix(in srgb, var(--vscode-editor-background) 80%, var(--vscode-foreground))
-  );
+  background: var(--vscode-quickInputList-focusBackground, color-mix(in srgb, var(--vscode-editor-background) 80%, var(--vscode-foreground)));
   color: var(--vscode-quickInputList-focusForeground, var(--vscode-editor-foreground));
 }
 .icon-pick .codicon {
@@ -1160,4 +1135,107 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 }
 .icon-filter-input::placeholder {
   color: var(--vscode-input-placeholderForeground);
+}
+
+/* Emoji picker (floating popup anchored to the focused title/description
+   field). Positioned via --picker-* custom properties computed at runtime in
+   sidebar.js (the only sanctioned use of style.setProperty). */
+.emoji-picker {
+  position: fixed;
+  top: var(--picker-top, 0);
+  left: var(--picker-left, 0);
+  width: var(--picker-width, 240px);
+  box-sizing: border-box;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background: var(--vscode-editor-background, var(--vscode-sideBar-background));
+  border: 1px solid var(--vscode-widget-border, #444);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.emoji-section-label {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 2px;
+}
+
+.emoji-recents-grid,
+.emoji-symbols-grid,
+.emoji-grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 4px;
+  padding: 2px;
+}
+
+.emoji-symbols-row {
+  border-top: 1px solid var(--vscode-widget-border, #444);
+  padding-top: 8px;
+}
+
+.emoji-grid {
+  max-height: 176px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.emoji-pick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.emoji-pick:hover {
+  border-color: var(--vscode-focusBorder);
+}
+
+.emoji-pick:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  border-color: var(--vscode-focusBorder);
+}
+
+.emoji-picker-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Emoji edit modal live preview grid */
+.emoji-edit-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-height: 140px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--vscode-widget-border, #444);
+  border-radius: var(--radius-sm);
+}
+
+.emoji-edit-preview-item {
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* Transient "Already exists" notice shown next to the Cancel button when a
+   pasted emoji is already in the list. */
+.emoji-notice {
+  font-size: 11px;
+  color: var(--vscode-errorForeground, #f14c4c);
+  align-self: center;
 }

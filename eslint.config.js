@@ -36,7 +36,7 @@ module.exports = [
   {
     // media/*.js webview scripts have no ES module exports, so importing
     // their side-effect-free logic for unit tests requires require().
-    files: ["test/sidebarIconClass.test.ts", "test/tooltip.test.ts", "test/defaultType.test.ts"],
+    files: ["test/sidebarIconClass.test.ts", "test/tooltip.test.ts", "test/defaultType.test.ts", "test/emoji.test.ts"],
     rules: {
       "@typescript-eslint/no-require-imports": "off",
     },
@@ -62,13 +62,15 @@ module.exports = [
       globals: {
         iconClass: "readonly",
         resolveCategoryDefaultTypeId: "readonly",
+        splitEmojis: "readonly",
+        isEmoji: "readonly",
       },
     },
   },
   {
     // Side-effect-free media/*.js files also expose their functions to
     // Node-based unit tests via a guarded `module.exports` block.
-    files: ["media/iconClass.js", "media/tooltip.js", "media/defaultType.js"],
+    files: ["media/iconClass.js", "media/tooltip.js", "media/defaultType.js", "media/emoji.js"],
     languageOptions: {
       globals: {
         module: "readonly",
