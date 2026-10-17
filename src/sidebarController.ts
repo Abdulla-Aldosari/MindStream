@@ -15,6 +15,7 @@ export interface WebviewMessage {
     | "addCategory"
     | "renameCategory"
     | "deleteCategory"
+    | "setCategoryDefaultType"
     | "addType"
     | "renameType"
     | "setTypeIcon"
@@ -35,6 +36,7 @@ export interface SidebarUi {
   confirmDeleteNote(title: string): Promise<boolean>;
   confirmDeleteCategory(label: string, count: number): Promise<boolean>;
   confirmDeleteType(label: string): Promise<boolean>;
+  pickType(types: { id: string; label: string; icon?: string }[]): Promise<string | undefined>;
   showInfo(message: string): void;
 }
 
@@ -119,6 +121,21 @@ export class SidebarController {
         }
         break;
       }
+      case "setCategoryDefaultType": {
+        if (!msg.id) {
+          break;
+        }
+        const cat = this.categories.get(msg.id);
+        if (!cat) {
+          break;
+        }
+        const types = this.types.list();
+        const picked = await this.ui.pickType(types.map((t) => ({ id: t.id, label: t.label, icon: t.icon })));
+        if (picked) {
+          this.categories.setDefaultType(msg.id, picked);
+        }
+        break;
+      }
       case "addType":
         if (msg.label?.trim()) {
           this.types.add(msg.label.trim(), msg.icon);
@@ -144,9 +161,7 @@ export class SidebarController {
         }
         const linked = this.types.countItems(msg.id);
         if (linked > 0) {
-          this.ui.showInfo(
-            `Type "${typeDef.label}" is used by ${linked} note(s). Change those notes to a different type before deleting it.`
-          );
+          this.ui.showInfo(`Type "${typeDef.label}" is used by ${linked} note(s). Change those notes to a different type before deleting it.`);
           break;
         }
         if (await this.ui.confirmDeleteType(typeDef.label)) {
