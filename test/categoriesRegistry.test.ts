@@ -50,6 +50,20 @@ describe("CategoriesRegistry", () => {
     // no throw
   });
 
+  it("setDefaultType stores the type id and persists it", () => {
+    const { storage, categories } = setup();
+    const cat = categories.add("Fixes");
+    categories.setDefaultType(cat.id, "type-1");
+    assert.strictEqual(categories.get(cat.id)!.defaultTypeId, "type-1");
+    assert.strictEqual(storage.saved.at(-1)!.categories.find((c) => c.id === cat.id)!.defaultTypeId, "type-1");
+  });
+
+  it("setDefaultType ignores unknown ids", () => {
+    const { categories } = setup();
+    categories.setDefaultType("missing", "type-1");
+    // no throw
+  });
+
   it("remove returns false for unknown and for the default category", () => {
     const { categories } = setup();
     assert.strictEqual(categories.remove("missing"), false);

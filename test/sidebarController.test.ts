@@ -10,10 +10,12 @@ class FakeUi implements SidebarUi {
   confirmDeleteNoteResult = true;
   confirmDeleteCategoryResult = true;
   confirmDeleteTypeResult = true;
+  pickTypeResult: string | undefined = undefined;
   infos: string[] = [];
   confirmedNotes: string[] = [];
   confirmedCategories: { label: string; count: number }[] = [];
   confirmedTypes: string[] = [];
+  pickedTypes: { id: string; label: string; icon?: string }[] = [];
 
   async confirmDeleteNote(title: string): Promise<boolean> {
     this.confirmedNotes.push(title);
@@ -28,6 +30,11 @@ class FakeUi implements SidebarUi {
   async confirmDeleteType(label: string): Promise<boolean> {
     this.confirmedTypes.push(label);
     return this.confirmDeleteTypeResult;
+  }
+
+  async pickType(types: { id: string; label: string; icon?: string }[]): Promise<string | undefined> {
+    this.pickedTypes = types;
+    return this.pickTypeResult;
   }
 
   showInfo(message: string): void {
@@ -114,6 +121,31 @@ describe("SidebarController.handleMessage", () => {
     const cat = categories.add("Temp");
     await controller.handleMessage({ type: "renameCategory", id: cat.id, label: "Pre-Launch" });
     assert.strictEqual(categories.label(cat.id), "Pre-Launch");
+  });
+
+  it("setCategoryDefaultType saves the picked type", async () => {
+    const { types, categories, ui, controller } = setup();
+    const cat = categories.add("Fixes");
+    const fix = types.list().find((t) => t.label === "Fix")!;
+    ui.pickTypeResult = fix.id;
+    await controller.handleMessage({ type: "setCategoryDefaultType", id: cat.id });
+    assert.strictEqual(categories.get(cat.id)!.defaultTypeId, fix.id);
+    assert.strictEqual(ui.pickedTypes.length, types.list().length);
+  });
+
+  it("setCategoryDefaultType does nothing when the picker is cancelled", async () => {
+    const { categories, ui, controller } = setup();
+    const cat = categories.add("Fixes");
+    ui.pickTypeResult = undefined;
+    await controller.handleMessage({ type: "setCategoryDefaultType", id: cat.id });
+    assert.strictEqual(categories.get(cat.id)!.defaultTypeId, undefined);
+  });
+
+  it("setCategoryDefaultType ignores an unknown category without prompting", async () => {
+    const { ui, controller } = setup();
+    ui.pickTypeResult = "anything";
+    await controller.handleMessage({ type: "setCategoryDefaultType", id: "missing" });
+    assert.strictEqual(ui.pickedTypes.length, 0);
   });
 
   it("deleteCategory confirms with the item count and removes both", async () => {

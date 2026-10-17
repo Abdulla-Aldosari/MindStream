@@ -47,6 +47,17 @@ export class CategoriesRegistry {
     this.storage.saveData(data);
   }
 
+  /** Sets the default type pre-selected when adding a note to this category. */
+  setDefaultType(id: string, typeId: string): void {
+    const data = this.storage.getData();
+    const def = data.categories.find((c) => c.id === id);
+    if (!def) {
+      return;
+    }
+    def.defaultTypeId = typeId;
+    this.storage.saveData(data);
+  }
+
   /** Removes a category. Returns false if it is the protected default category. */
   remove(id: string): boolean {
     const data = this.storage.getData();

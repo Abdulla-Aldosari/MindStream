@@ -35,11 +35,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     this.controller = new SidebarController(items, types, categories, this);
   }
 
-  resolveWebviewView(
-    webviewView: vscode.WebviewView,
-    _context: vscode.WebviewViewResolveContext,
-    _token: vscode.CancellationToken
-  ): void {
+  resolveWebviewView(webviewView: vscode.WebviewView, _context: vscode.WebviewViewResolveContext, _token: vscode.CancellationToken): void {
     this._view = webviewView;
     webviewView.webview.options = {
       enableScripts: true,
@@ -103,26 +99,31 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
   }
 
   async confirmDeleteNote(title: string): Promise<boolean> {
-    const pick = await vscode.window.showWarningMessage(
-      `Delete note "${title}" permanently?`,
-      { modal: true },
-      "Delete"
-    );
+    const pick = await vscode.window.showWarningMessage(`Delete note "${title}" permanently?`, { modal: true }, "Delete");
     return pick === "Delete";
   }
 
   async confirmDeleteCategory(label: string, count: number): Promise<boolean> {
-    const pick = await vscode.window.showWarningMessage(
-      `Delete category "${label}"? ${count} note(s) in it will be permanently deleted too.`,
-      { modal: true },
-      "Delete"
-    );
+    const pick = await vscode.window.showWarningMessage(`Delete category "${label}"? ${count} note(s) in it will be permanently deleted too.`, { modal: true }, "Delete");
     return pick === "Delete";
   }
 
   async confirmDeleteType(label: string): Promise<boolean> {
     const pick = await vscode.window.showWarningMessage(`Delete type "${label}"?`, { modal: true }, "Delete");
     return pick === "Delete";
+  }
+
+  async pickType(types: { id: string; label: string; icon?: string }[]): Promise<string | undefined> {
+    const items: (vscode.QuickPickItem & { typeId: string })[] = types.map((t) => ({
+      label: t.label,
+      iconPath: new vscode.ThemeIcon(t.icon || "tag"),
+      typeId: t.id,
+    }));
+    const pick = await vscode.window.showQuickPick(items, {
+      title: "Set Default Type",
+      placeHolder: "Choose the type to pre-select for notes in this category",
+    });
+    return pick?.typeId;
   }
 
   showInfo(message: string): void {
@@ -153,10 +154,9 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
   private getHtml(webview: vscode.Webview): string {
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "sidebar.js"));
     const iconClassUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "iconClass.js"));
+    const defaultTypeUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "defaultType.js"));
     const tooltipUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "tooltip.js"));
-    const codiconNamesUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, "dist", "media", "codicon-names.js")
-    );
+    const codiconNamesUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "codicon-names.js"));
     const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "sidebar.css"));
     const codiconCssUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "codicon.css"));
     const nonce = getNonce();
@@ -272,6 +272,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
   </div>
   <script nonce="${nonce}" src="${codiconNamesUri}"></script>
   <script nonce="${nonce}" src="${iconClassUri}"></script>
+  <script nonce="${nonce}" src="${defaultTypeUri}"></script>
   <script nonce="${nonce}" src="${tooltipUri}"></script>
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>

@@ -49,6 +49,12 @@ export interface MindStreamCategoryDef {
   label: string;
   /** true only for the built-in "General" category. */
   isDefault?: boolean;
+  /**
+   * Optional id of the type pre-selected when adding a note to this category.
+   * When absent (or pointing at a deleted type), the form falls back to the
+   * first registered type ("General" by convention).
+   */
+  defaultTypeId?: string;
   order?: number;
   createdAt: string;
 }

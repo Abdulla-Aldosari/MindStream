@@ -9,10 +9,7 @@
   const STATUS_ORDER = { pending: 0, "in-progress": 1, done: 2 };
   // Unique codicon names (one per glyph, shortest alias per glyph), generated
   // at build time from the codicons package and loaded before this script.
-  const AVAILABLE_ICONS =
-    window.CODICON_NAMES && window.CODICON_NAMES.length
-      ? window.CODICON_NAMES
-      : ["wrench", "edit", "star", "sync", "code", "beaker", "note", "link", "tag"];
+  const AVAILABLE_ICONS = window.CODICON_NAMES && window.CODICON_NAMES.length ? window.CODICON_NAMES : ["wrench", "edit", "star", "sync", "code", "beaker", "note", "link", "tag"];
 
   const saved = vscode.getState() || {};
 
@@ -29,6 +26,7 @@
     typeFilter: saved.typeFilter || "all",
     formTypeId: null,
     formCategoryId: null,
+    formTypeTouched: false,
     pendingTypeIcon: "tag",
     iconsModalMode: null,
     direction: "ltr",
@@ -67,12 +65,7 @@
   // --- Custom select component (replaces native <select>) ---
 
   function escapeHtml(value) {
-    return String(value)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
+    return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
   function escapeAttr(value) {
@@ -176,8 +169,7 @@
           highlightedItem.setAttribute("data-highlighted", "");
           const itemsWrapper = menu.querySelector(".cs-menu-items-wrapper");
           if (itemsWrapper) {
-            itemsWrapper.scrollTop =
-              highlightedItem.offsetTop - itemsWrapper.clientHeight / 2 + highlightedItem.offsetHeight / 2;
+            itemsWrapper.scrollTop = highlightedItem.offsetTop - itemsWrapper.clientHeight / 2 + highlightedItem.offsetHeight / 2;
           }
         }
         document.addEventListener("pointerdown", onPointerDown, true);
@@ -339,13 +331,10 @@
   // or the note whose view modal was just closed). Background-only so it never
   // affects size, shape, or position.
   function flashCard(el) {
-    el.animate(
-      [
-        { backgroundColor: "var(--vscode-focusBorder)" },
-        { backgroundColor: "var(--vscode-editor-background, var(--vscode-sideBar-background))" },
-      ],
-      { duration: 500, easing: "ease" }
-    );
+    el.animate([{ backgroundColor: "var(--vscode-focusBorder)" }, { backgroundColor: "var(--vscode-editor-background, var(--vscode-sideBar-background))" }], {
+      duration: 500,
+      easing: "ease",
+    });
   }
 
   function animateFlip(prevPositions, changedIds) {
@@ -545,18 +534,10 @@
       return { value: t.id, label: t.label, badgeStart: badgeStart };
     });
     state.formTypeId = selectedTypeId != null ? selectedTypeId : (state.types[0] && state.types[0].id) || null;
-    $("f-type-container").innerHTML = renderCustomSelect(
-      "f-type-wrap",
-      "f-type-btn",
-      "f-type-menu",
-      options,
-      state.formTypeId,
-      "",
-      false,
-      "cs-wrap-full"
-    );
+    $("f-type-container").innerHTML = renderCustomSelect("f-type-wrap", "f-type-btn", "f-type-menu", options, state.formTypeId, "", false, "cs-wrap-full");
     bindCustomSelect("f-type-wrap", "f-type-btn", "f-type-menu", function (value) {
       state.formTypeId = value;
+      state.formTypeTouched = true;
     });
   }
 
@@ -564,32 +545,31 @@
     const options = state.categories.map(function (c) {
       return { value: c.id, label: c.label };
     });
-    state.formCategoryId =
-      selectedCategoryId != null ? selectedCategoryId : (state.categories[0] && state.categories[0].id) || null;
-    $("f-category-container").innerHTML = renderCustomSelect(
-      "f-category-wrap",
-      "f-category-btn",
-      "f-category-menu",
-      options,
-      state.formCategoryId,
-      "",
-      false,
-      "cs-wrap-full"
-    );
+    state.formCategoryId = selectedCategoryId != null ? selectedCategoryId : (state.categories[0] && state.categories[0].id) || null;
+    $("f-category-container").innerHTML = renderCustomSelect("f-category-wrap", "f-category-btn", "f-category-menu", options, state.formCategoryId, "", false, "cs-wrap-full");
     bindCustomSelect("f-category-wrap", "f-category-btn", "f-category-menu", function (value) {
       state.formCategoryId = value;
+      // When adding a new note, keep the type in sync with the newly picked
+      // category's default type unless the user already changed the type.
+      if (!state.editingId && !state.formTypeTouched) {
+        const cat = state.categories.find((c) => c.id === value) || null;
+        fillTypeSelect(resolveCategoryDefaultTypeId(cat, state.types, state.typeFilter !== "all" ? state.typeFilter : null));
+      }
     });
   }
 
   function openAdd() {
     closeAllModals();
     state.editingId = null;
+    state.formTypeTouched = false;
     $("modal-title").textContent = "New note";
     $("f-title").value = "";
     $("f-desc").value = "";
-    fillTypeSelect(state.typeFilter !== "all" ? state.typeFilter : state.types[0] && state.types[0].id);
     // Default to the currently filtered category when adding a note.
-    fillCategorySelect(state.categoryFilter !== "all" ? state.categoryFilter : null);
+    const catId = state.categoryFilter !== "all" ? state.categoryFilter : (state.categories[0] && state.categories[0].id) || null;
+    fillCategorySelect(catId);
+    const cat = state.categories.find((c) => c.id === catId) || null;
+    fillTypeSelect(resolveCategoryDefaultTypeId(cat, state.types, state.typeFilter !== "all" ? state.typeFilter : null));
     modalEl.hidden = false;
     $("f-title").focus();
   }
@@ -683,8 +663,7 @@
     descEl.hidden = !item.description;
     $("view-desc-content").textContent = item.description || "";
 
-    $("view-timestamps").textContent =
-      `Created: ${formatDate(item.createdAt)}\u2003\u00b7\u2003Updated: ${formatDate(item.updatedAt)}`;
+    $("view-timestamps").textContent = `Created: ${formatDate(item.createdAt)}\u2003\u00b7\u2003Updated: ${formatDate(item.updatedAt)}`;
 
     viewModalEl.hidden = false;
   }
@@ -857,6 +836,16 @@
       editBtn.addEventListener("click", () => startRenameCategory(c, label));
       row.appendChild(editBtn);
 
+      const typeBtn = document.createElement("button");
+      typeBtn.className = "icon-btn";
+      const catDefaultType = state.types.find((t) => t.id === c.defaultTypeId);
+      typeBtn.dataset.tooltip = catDefaultType ? `Default Type: ${esc(catDefaultType.label)}` : "Set Default Type";
+      typeBtn.innerHTML = `<span class="codicon ${catDefaultType ? "codicon-star-full" : "codicon-star-empty"}"></span>`;
+      typeBtn.addEventListener("click", () => {
+        vscode.postMessage({ type: "setCategoryDefaultType", id: c.id });
+      });
+      row.appendChild(typeBtn);
+
       if (!c.isDefault) {
         const delBtn = document.createElement("button");
         delBtn.className = "icon-btn danger";
@@ -970,12 +959,7 @@
       iconBtn.dataset.tooltip = "Change icon";
       iconBtn.innerHTML = `<span class="${iconClass(t.icon)}" data-type-icon="${esc(t.id)}"></span>`;
       iconBtn.addEventListener("click", () => {
-        if (
-          isIconsModalOpen() &&
-          state.iconsModalMode &&
-          state.iconsModalMode.mode === "edit" &&
-          state.iconsModalMode.typeId === t.id
-        ) {
+        if (isIconsModalOpen() && state.iconsModalMode && state.iconsModalMode.mode === "edit" && state.iconsModalMode.typeId === t.id) {
           closeIconsModal();
         } else {
           openIconsModal({ mode: "edit", typeId: t.id });
@@ -1340,16 +1324,7 @@
     if (state.types.length && !state.types.some((t) => t.id === current)) {
       state.typeFilter = "all";
     }
-    $("type-filter-container").innerHTML = renderCustomSelect(
-      "type-filter-wrap",
-      "type-filter-btn",
-      "type-filter-menu",
-      options,
-      state.typeFilter,
-      "cs-btn-toolbar",
-      false,
-      ""
-    );
+    $("type-filter-container").innerHTML = renderCustomSelect("type-filter-wrap", "type-filter-btn", "type-filter-menu", options, state.typeFilter, "cs-btn-toolbar", false, "");
     // Tooltip on the button (not the container), matching the other filters.
     $("type-filter-btn").dataset.tooltip = "Filter by type";
     bindCustomSelect("type-filter-wrap", "type-filter-btn", "type-filter-menu", function (value) {
@@ -1365,16 +1340,7 @@
       { value: "fixed", label: "Fixed Order" },
       { value: "grouped", label: "Grouped" },
     ];
-    $("view-mode-container").innerHTML = renderCustomSelect(
-      "view-mode-wrap",
-      "view-mode-btn",
-      "view-mode-menu",
-      options,
-      state.viewMode,
-      "cs-btn-toolbar",
-      false,
-      ""
-    );
+    $("view-mode-container").innerHTML = renderCustomSelect("view-mode-wrap", "view-mode-btn", "view-mode-menu", options, state.viewMode, "cs-btn-toolbar", false, "");
     // See the comment in populateCategoryFilter() above: the tooltip must go
     // on the button, not the container that also holds the dropdown menu.
     $("view-mode-btn").dataset.tooltip = "View mode";
