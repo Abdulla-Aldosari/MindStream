@@ -8,3 +8,16 @@ if git diff --cached --name-only | grep -qx "commitlint\.config\.js"; then
     node .vsenv/scripts/sync-commit-scopes.js --suppressErrors
   fi
 fi
+
+# Shield: heal the index stat for staged files that are clean in the worktree.
+# Prettier rewrites files during the hook (e.g. CRLF -> LF) and lint-staged
+# re-stages via `git update-index --again`, which does not persist stat
+# corrections on Git for Windows - the commit then reports clean files as
+# modified. Re-staging a clean file with a pathspec refreshes its stat; files
+# with real unstaged changes are skipped and stay legitimately modified.
+git diff --cached --name-only -z --diff-filter=ACM | while IFS= read -r -d '' file; do
+  if git diff --raw --quiet -- "$file"; then
+    git update-index --refresh -- "$file" || true
+  fi
+done
+
