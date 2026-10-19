@@ -1,0 +1,3 @@
+npm run lint || exit 1
+npm run typecheck || exit 1
+npm test || exit 1
