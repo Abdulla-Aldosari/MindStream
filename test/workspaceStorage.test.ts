@@ -39,7 +39,7 @@ describe("createWorkspaceStorage", () => {
       const reloaded = createWorkspaceStorage(fakeFolder(dir));
       assert.strictEqual(reloaded!.getData().items.length, 1);
       assert.strictEqual(reloaded!.getData().items[0].title, "Hello");
-      assert.ok(fs.existsSync(path.join(dir, ".mindstream", "data.json")));
+      assert.ok(fs.existsSync(path.join(dir, ".vscode", "mindstream.data.json")));
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

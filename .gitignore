@@ -1,6 +1,6 @@
 .cline/
 .vsenv/
-.mindstream/
+.vscode/mindstream.data.json
 .devdeck/
 node_modules/
 dist/

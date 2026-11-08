@@ -137,9 +137,45 @@ describe("StorageService", () => {
       assert.strictEqual(s2.getData().items.length, 1);
       assert.strictEqual(s2.getData().items[0].title, "Hello");
 
-      const file = path.join(dir, ".mindstream", "data.json");
+      const file = path.join(dir, ".vscode", "mindstream.data.json");
       assert.ok(fs.existsSync(file));
       assert.ok(!fs.existsSync(file + ".tmp"));
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+  it("forDir: falls back to the legacy .mindstream/data.json when the new file is absent", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mindstream-migrate-test-"));
+    try {
+      const legacyFile = path.join(dir, ".mindstream", "data.json");
+      fs.mkdirSync(path.dirname(legacyFile), { recursive: true });
+      const legacyData = createEmptyData();
+      legacyData.items.push({
+        id: "legacy-1",
+        typeId: "t1",
+        categoryId: GENERAL_CATEGORY_ID,
+        title: "Legacy note",
+        status: "pending",
+        statusHistory: [{ status: "pending", at: "2020-01-01T00:00:00.000Z" }],
+        archived: false,
+        createdAt: "2020-01-01T00:00:00.000Z",
+        updatedAt: "2020-01-01T00:00:00.000Z",
+      });
+      fs.writeFileSync(legacyFile, JSON.stringify(legacyData, null, 2), "utf8");
+
+      const s = StorageService.forDir(dir);
+      assert.strictEqual(s.getData().items.length, 1);
+      assert.strictEqual(s.getData().items[0].title, "Legacy note");
+
+      // Saving migrates the data into the new location.
+      s.saveData(s.getData());
+      const newFile = path.join(dir, ".vscode", "mindstream.data.json");
+      assert.ok(fs.existsSync(newFile));
+
+      // A fresh instance now reads from the new location.
+      const reloaded = StorageService.forDir(dir);
+      assert.strictEqual(reloaded.getData().items.length, 1);
+      assert.strictEqual(reloaded.getData().items[0].title, "Legacy note");
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -174,7 +210,7 @@ describe("StorageService.reloadIfExternal", () => {
       const s = StorageService.forDir(dir);
       assert.strictEqual(s.getData().items.length, 0);
 
-      const file = path.join(dir, ".mindstream", "data.json");
+      const file = path.join(dir, ".vscode", "mindstream.data.json");
       fs.mkdirSync(path.dirname(file), { recursive: true });
       const externalData = createEmptyData();
       externalData.items.push({
@@ -202,7 +238,7 @@ describe("StorageService.reloadIfExternal", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mindstream-reload-test-"));
     try {
       const s = StorageService.forDir(dir);
-      const file = path.join(dir, ".mindstream", "data.json");
+      const file = path.join(dir, ".vscode", "mindstream.data.json");
       fs.mkdirSync(path.dirname(file), { recursive: true });
       fs.writeFileSync(file, JSON.stringify(createEmptyData(), null, 2), "utf8");
 

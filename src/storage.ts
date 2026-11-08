@@ -37,9 +37,7 @@ export const DEFAULT_TYPES: Omit<MindStreamTypeDef, "id" | "createdAt">[] = [
 ];
 
 /** The built-in default category. */
-export const DEFAULT_CATEGORIES: Omit<MindStreamCategoryDef, "createdAt">[] = [
-  { id: GENERAL_CATEGORY_ID, label: "General", isDefault: true, order: 0 },
-];
+export const DEFAULT_CATEGORIES: Omit<MindStreamCategoryDef, "createdAt">[] = [{ id: GENERAL_CATEGORY_ID, label: "General", isDefault: true, order: 0 }];
 
 /** Creates the empty default structure with the ready-made default types. */
 export function createEmptyData(): MindStreamData {
@@ -63,10 +61,7 @@ export function normalizeData(raw: unknown): MindStreamData {
 
   // Ensure the built-in "General" category always exists.
   if (!categories.some((c) => c.id === GENERAL_CATEGORY_ID)) {
-    categories = [
-      { id: GENERAL_CATEGORY_ID, label: "General", isDefault: true, order: 0, createdAt: nowIso() },
-      ...categories,
-    ];
+    categories = [{ id: GENERAL_CATEGORY_ID, label: "General", isDefault: true, order: 0, createdAt: nowIso() }, ...categories];
   }
 
   // Ignore any legacy item that has no categoryId (as agreed: no migration).
@@ -103,7 +98,7 @@ function parseOrDefault(raw: string | null): MindStreamData {
 }
 
 /**
- * JSON-file based storage inside the workspace: `.mindstream/data.json`.
+ * JSON-file based storage inside the workspace: `.vscode/mindstream.data.json`.
  * Writes happen safely (temporary file then rename) to avoid data corruption.
  */
 export class StorageService implements IStorage {
@@ -119,23 +114,27 @@ export class StorageService implements IStorage {
     this.lastKnownText = raw;
   }
 
-  /** Creates a storage service bound to a given directory (writes `.mindstream/data.json` inside it). */
+  /** Creates a storage service bound to a given directory.
+   *  Reads `.vscode/mindstream.data.json` inside it, falling back to the legacy
+   *  `.mindstream/data.json` so existing installs keep their data on the first run. */
   static forDir(dirPath: string): StorageService {
-    const dir = path.join(dirPath, ".mindstream");
-    const file = path.join(dir, "data.json");
+    const file = path.join(dirPath, ".vscode", "mindstream.data.json");
+    const legacyFile = path.join(dirPath, ".mindstream", "data.json");
     return new StorageService({
       load: () => {
-        try {
-          if (fs.existsSync(file)) {
-            return fs.readFileSync(file, "utf8");
+        for (const candidate of [file, legacyFile]) {
+          try {
+            if (fs.existsSync(candidate)) {
+              return fs.readFileSync(candidate, "utf8");
+            }
+          } catch {
+            // Corrupt/unreadable files are treated as non-existent.
           }
-        } catch {
-          // Corrupt/unreadable files are treated as non-existent.
         }
         return null;
       },
       save: (text: string) => {
-        fs.mkdirSync(dir, { recursive: true });
+        fs.mkdirSync(path.dirname(file), { recursive: true });
         const tmp = file + ".tmp";
         fs.writeFileSync(tmp, text, "utf8");
         fs.renameSync(tmp, file);
