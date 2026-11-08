@@ -18,6 +18,11 @@
   // non-editable quick-insert set). Note: "❖" is listed once (deduplicated).
   const FIXED_EMOJI_SYMBOLS = ["❖", "✫", "★", "☆", "◆", "◇", "■", "□", "●", "○", "◉", "◎", "◈", "▶", "▷", "➜", "➤", "➔", "➣", "✔", "✘", "☑", "☒"];
 
+  const DEFAULT_DESCRIPTION_HEIGHT = 128;
+  const MIN_DESCRIPTION_HEIGHT = 55;
+  const MAX_DESCRIPTION_HEIGHT = 600;
+  const MODAL_GUTTER = 24;
+
   const state = {
     items: [],
     types: [],
@@ -37,6 +42,7 @@
     direction: "ltr",
     emojiPalette: [],
     emojiRecents: [],
+    descriptionHeight: DEFAULT_DESCRIPTION_HEIGHT,
     emojiTarget: null,
   };
 
@@ -47,6 +53,7 @@
   const viewModalEl = $("view-modal");
   let viewingItem = null;
   let pendingFlashId = null;
+  let appliedDescHeight = null;
 
   function persist() {
     vscode.setState({
@@ -566,6 +573,34 @@
     });
   }
 
+  function clampDescriptionHeight(value) {
+    const n = Math.round(Number(value));
+    if (!Number.isFinite(n)) {
+      return DEFAULT_DESCRIPTION_HEIGHT;
+    }
+    return Math.min(MAX_DESCRIPTION_HEIGHT, Math.max(MIN_DESCRIPTION_HEIGHT, n));
+  }
+
+  // Applies the persisted description height, clamped so the note-editor card
+  // never overflows the current viewport (e.g. a tall height saved while the
+  // sidebar was large must not overflow after reopening it small).
+  function applyDescHeight() {
+    const desc = $("f-desc");
+    const card = modalEl.querySelector(".modal-card");
+    // Drop any height the browser wrote inline during a previous manual drag so
+    // the CSS custom property below is authoritative again.
+    desc.style.removeProperty("height");
+    // Measure the card with the description collapsed to its minimum, then
+    // compute the largest height that still fits inside the viewport.
+    desc.style.setProperty("--desc-height", MIN_DESCRIPTION_HEIGHT + "px");
+    const cardAtMin = card.offsetHeight;
+    const available = modalEl.clientHeight - MODAL_GUTTER;
+    const maxDesc = Math.max(MIN_DESCRIPTION_HEIGHT, MIN_DESCRIPTION_HEIGHT + (available - cardAtMin));
+    const height = Math.max(MIN_DESCRIPTION_HEIGHT, Math.min(MAX_DESCRIPTION_HEIGHT, state.descriptionHeight, maxDesc));
+    desc.style.setProperty("--desc-height", height + "px");
+    appliedDescHeight = height;
+  }
+
   function openAdd() {
     closeAllModals();
     state.editingId = null;
@@ -579,6 +614,7 @@
     const cat = state.categories.find((c) => c.id === catId) || null;
     fillTypeSelect(resolveCategoryDefaultTypeId(cat, state.types, state.typeFilter !== "all" ? state.typeFilter : null));
     modalEl.hidden = false;
+    applyDescHeight();
     $("f-title").focus();
   }
 
@@ -591,6 +627,7 @@
     fillTypeSelect(item.typeId);
     fillCategorySelect(item.categoryId);
     modalEl.hidden = false;
+    applyDescHeight();
     $("f-title").focus();
   }
 
@@ -1450,6 +1487,7 @@
     state.direction = msg.direction === "rtl" ? "rtl" : "ltr";
     state.emojiPalette = msg.emojiPalette || [];
     state.emojiRecents = msg.emojiRecents || [];
+    state.descriptionHeight = typeof msg.descriptionHeight === "number" ? msg.descriptionHeight : DEFAULT_DESCRIPTION_HEIGHT;
     setArchiveVisible(state.includeArchived);
     populateCategoryFilter();
     populateTypeFilter();
@@ -1623,6 +1661,26 @@
 
   $("f-title").addEventListener("keydown", (e) => handleEmojiShortcut(e, $("f-title")));
   $("f-desc").addEventListener("keydown", (e) => handleEmojiShortcut(e, $("f-desc")));
+
+  // Persist the description height only when the user manually resizes the
+  // textarea (never on the programmatic apply that runs when the editor opens).
+  const descObserver = new ResizeObserver((entries) => {
+    if (modalEl.hidden) {
+      return;
+    }
+    for (const entry of entries) {
+      const h = Math.round(entry.contentRect.height);
+      if (!Number.isFinite(h) || h === appliedDescHeight) {
+        continue;
+      }
+      const clamped = clampDescriptionHeight(h);
+      if (clamped !== state.descriptionHeight) {
+        state.descriptionHeight = clamped;
+        vscode.postMessage({ type: "setDescriptionHeight", height: clamped });
+      }
+    }
+  });
+  descObserver.observe($("f-desc"));
 
   $("emoji-edit-btn").addEventListener("click", openEmojiEditModal);
   $("emoji-edit-close").addEventListener("click", closeEmojiEditModal);
