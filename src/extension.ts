@@ -15,14 +15,14 @@ import { CommandsDeps, exportJson, exportMarkdown, exportWeeklyReport, importJso
 const WATCHER_DEBOUNCE_MS = 200;
 
 /**
- * Watches `.mindstream/data.json` for changes made outside this extension
+ * Watches `.vscode/mindstream.data.json` for changes made outside this extension
  * instance (manual edits, `git checkout`/`pull`, dev scripts, another VS
  * Code window, etc.) and refreshes the sidebar when a genuine external
  * change is detected. `storage.reloadIfExternal()` ignores events that are
  * just an echo of this instance's own write.
  */
 function watchDataFile(context: vscode.ExtensionContext, folder: vscode.WorkspaceFolder, storage: IStorage, onExternalChange: () => void): void {
-  const pattern = new vscode.RelativePattern(folder, ".mindstream/data.json");
+  const pattern = new vscode.RelativePattern(folder, ".vscode/mindstream.data.json");
   const watcher = vscode.workspace.createFileSystemWatcher(pattern);
   context.subscriptions.push(watcher);
 
@@ -64,7 +64,7 @@ class NoWorkspaceProvider implements vscode.WebviewViewProvider {
     <div class="icon">🧠</div>
     <h3>MindStream</h3>
     <p>Open a folder (project) to start recording your notes and ideas.</p>
-    <p>Data is stored in <code>.mindstream/data.json</code> at the project root.</p>
+    <p>Data is stored in <code>.vscode/mindstream.data.json</code> at the project root.</p>
   </div>
 </body>
 </html>`;

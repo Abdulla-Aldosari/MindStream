@@ -10,7 +10,7 @@ const baseScopes = [
   "sidebarProvider", // src/sidebarProvider.ts: WebviewViewProvider rendering, posting state, activity-bar badge
   "webview", // media/sidebar.js and media/sidebar.css: webview UI, custom dropdowns, tooltips, modals, note cards
   "storage", // src/storage.ts: StorageService safe read/write, default data creation, normalizeData()
-  "workspaceStorage", // src/workspaceStorage.ts: binding StorageService to the open workspace's .mindstream/data.json
+  "workspaceStorage", // src/workspaceStorage.ts: binding StorageService to the open workspace's .vscode/mindstream.data.json
   "itemsStore", // src/itemsStore.ts: CRUD for notes, status history, archiving, permanent deletion
   "types", // the note-types feature/concept as a whole, when a change spans more than typesRegistry.ts alone
   "typesRegistry", // src/typesRegistry.ts: add/rename/setIcon/remove/reassign user-defined note types
