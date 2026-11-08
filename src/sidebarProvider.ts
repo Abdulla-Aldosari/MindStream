@@ -4,6 +4,7 @@ import { ItemsStore } from "./itemsStore";
 import { TypesRegistry } from "./typesRegistry";
 import { CategoriesRegistry } from "./categoriesRegistry";
 import { EmojiRegistry } from "./emojiRegistry";
+import { UiPrefsRegistry } from "./uiPrefs";
 import { WeeklyReportData } from "./report";
 import { SidebarController, SidebarUi, WebviewMessage } from "./sidebarController";
 import { getBodyClass } from "./util";
@@ -32,9 +33,10 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     private readonly types: TypesRegistry,
     private readonly categories: CategoriesRegistry,
     private readonly emoji: EmojiRegistry,
+    private readonly uiPrefs: UiPrefsRegistry,
     private readonly isDevMode: boolean = false
   ) {
-    this.controller = new SidebarController(items, types, categories, this.emoji, this);
+    this.controller = new SidebarController(items, types, categories, this.emoji, this.uiPrefs, this);
   }
 
   resolveWebviewView(webviewView: vscode.WebviewView, _context: vscode.WebviewViewResolveContext, _token: vscode.CancellationToken): void {
@@ -146,6 +148,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
       direction: this.getDirection(),
       emojiPalette: this.emoji.palette(),
       emojiRecents: this.emoji.recents(),
+      descriptionHeight: this.uiPrefs.descriptionHeight(),
     });
   }
 

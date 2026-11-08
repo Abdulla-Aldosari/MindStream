@@ -4,6 +4,7 @@ import { ItemsStore } from "./itemsStore";
 import { TypesRegistry } from "./typesRegistry";
 import { CategoriesRegistry } from "./categoriesRegistry";
 import { EmojiMemento, EmojiRegistry } from "./emojiRegistry";
+import { UiPrefsMemento, UiPrefsRegistry } from "./uiPrefs";
 import { SidebarProvider, VIEW_TYPE } from "./sidebarProvider";
 import { buildWeeklyReport } from "./report";
 import { IStorage } from "./storage";
@@ -117,8 +118,16 @@ export function activate(context: vscode.ExtensionContext): void {
   };
   const emoji = new EmojiRegistry(emojiMemento);
 
+  const uiPrefsMemento: UiPrefsMemento = {
+    get: (key, defaultValue) => context.globalState.get(key, defaultValue),
+    update: async (key, value) => {
+      await context.globalState.update(key, value);
+    },
+  };
+  const uiPrefs = new UiPrefsRegistry(uiPrefsMemento);
+
   const isDevMode = context.extensionMode === vscode.ExtensionMode.Development;
-  sidebar = new SidebarProvider(context.extensionUri, items, types, categories, emoji, isDevMode);
+  sidebar = new SidebarProvider(context.extensionUri, items, types, categories, emoji, uiPrefs, isDevMode);
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(VIEW_TYPE, sidebar, {

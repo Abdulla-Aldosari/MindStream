@@ -3,6 +3,7 @@ import { ItemsStore } from "./itemsStore";
 import { TypesRegistry } from "./typesRegistry";
 import { CategoriesRegistry } from "./categoriesRegistry";
 import { EmojiRegistry } from "./emojiRegistry";
+import { UiPrefsRegistry } from "./uiPrefs";
 
 export interface WebviewMessage {
   type:
@@ -22,7 +23,8 @@ export interface WebviewMessage {
     | "setTypeIcon"
     | "deleteType"
     | "recordEmojiUse"
-    | "updateEmojiPalette";
+    | "updateEmojiPalette"
+    | "setDescriptionHeight";
   id?: string;
   title?: string;
   description?: string;
@@ -34,6 +36,7 @@ export interface WebviewMessage {
   archived?: boolean;
   emoji?: string;
   palette?: string[];
+  height?: number;
 }
 
 /** User-facing confirmations and notices the controller needs from the host. */
@@ -56,6 +59,7 @@ export class SidebarController {
     private readonly types: TypesRegistry,
     private readonly categories: CategoriesRegistry,
     private readonly emoji: EmojiRegistry,
+    private readonly uiPrefs: UiPrefsRegistry,
     private readonly ui: SidebarUi
   ) {}
 
@@ -183,6 +187,11 @@ export class SidebarController {
       case "updateEmojiPalette":
         if (msg.palette) {
           await this.emoji.setPalette(msg.palette);
+        }
+        break;
+      case "setDescriptionHeight":
+        if (typeof msg.height === "number") {
+          await this.uiPrefs.setDescriptionHeight(msg.height);
         }
         break;
     }

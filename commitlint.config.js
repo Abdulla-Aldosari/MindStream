@@ -41,6 +41,7 @@ const baseScopes = [
   "release", // version bump and CHANGELOG.md updates for a release
   "iconClass", // media/iconClass.js: generates a safe, valid Codicon CSS class for an icon name.
   "emoji", // src/emojiRegistry.ts + media/emoji.js: global emoji palette, recent tracking, and the webview picker
+  "uiPrefs", // src/uiPrefs.ts: global per-user UI preferences (note-editor description height)
 ];
 
 // 2. Append a negative variant of every base scope prefixed with "-" (e.g. "-sidebar").

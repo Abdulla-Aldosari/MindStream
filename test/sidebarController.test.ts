@@ -5,6 +5,7 @@ import { TypesRegistry } from "../src/typesRegistry";
 import { CategoriesRegistry } from "../src/categoriesRegistry";
 import { SidebarController, SidebarUi } from "../src/sidebarController";
 import { EmojiMemento, EmojiRegistry } from "../src/emojiRegistry";
+import { DEFAULT_DESCRIPTION_HEIGHT, UiPrefsRegistry } from "../src/uiPrefs";
 import { InMemoryStorage } from "./helpers";
 
 class FakeEmojiMemento implements EmojiMemento {
@@ -59,10 +60,11 @@ function setup() {
   const types = new TypesRegistry(storage);
   const categories = new CategoriesRegistry(storage);
   const emoji = new EmojiRegistry(new FakeEmojiMemento());
+  const uiPrefs = new UiPrefsRegistry(new FakeEmojiMemento());
   const ui = new FakeUi();
-  const controller = new SidebarController(items, types, categories, emoji, ui);
+  const controller = new SidebarController(items, types, categories, emoji, uiPrefs, ui);
   const typeId = storage.getData().types[0].id;
-  return { storage, items, types, categories, emoji, ui, controller, typeId };
+  return { storage, items, types, categories, emoji, uiPrefs, ui, controller, typeId };
 }
 
 describe("SidebarController.handleMessage", () => {
@@ -235,5 +237,17 @@ describe("SidebarController.handleMessage", () => {
     const { emoji, controller } = setup();
     await controller.handleMessage({ type: "updateEmojiPalette", palette: ["✅", "📌", "✅"] });
     assert.deepStrictEqual(emoji.palette(), ["✅", "📌"]);
+  });
+
+  it("setDescriptionHeight persists the clamped height", async () => {
+    const { uiPrefs, controller } = setup();
+    await controller.handleMessage({ type: "setDescriptionHeight", height: 320 });
+    assert.strictEqual(uiPrefs.descriptionHeight(), 320);
+  });
+
+  it("setDescriptionHeight ignores a non-numeric height", async () => {
+    const { uiPrefs, controller } = setup();
+    await controller.handleMessage({ type: "setDescriptionHeight", height: undefined });
+    assert.strictEqual(uiPrefs.descriptionHeight(), DEFAULT_DESCRIPTION_HEIGHT);
   });
 });

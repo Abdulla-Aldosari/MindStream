@@ -750,6 +750,10 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   min-height: 55px;
 }
 
+#f-desc {
+  height: var(--desc-height, 128px);
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;
