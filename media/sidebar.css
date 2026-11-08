@@ -333,6 +333,7 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   color: var(--vscode-descriptionForeground);
   line-height: 1.5;
   word-break: break-word;
+  white-space: pre-wrap;
   display: -webkit-box;
   line-clamp: 2;
   -webkit-line-clamp: 2;
