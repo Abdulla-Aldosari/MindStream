@@ -19,6 +19,16 @@ export function getBodyClass(isDevMode: boolean): string {
 }
 
 /**
+ * True when the extension host was launched by `demo/scripts/make-demo.mjs`
+ * (which sets `MINDSTREAM_DEMO=1`) to capture screenshots/GIFs. Such runs
+ * must not render the `dev-mode` visual marker, so callers treat them as
+ * non-dev even though they still run through the Extension Development Host.
+ */
+export function isDemoCapture(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.MINDSTREAM_DEMO === "1";
+}
+
+/**
  * Returns a debounced wrapper around `fn`: repeated calls made within
  * `delayMs` of each other collapse into a single trailing call with the
  * arguments of the last invocation. Used to coalesce bursts of filesystem
