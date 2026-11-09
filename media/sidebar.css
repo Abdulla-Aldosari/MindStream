@@ -870,6 +870,9 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   word-break: break-word;
   white-space: pre-wrap;
 }
+.viewer-title[dir="rtl"] {
+  margin-left: auto;
+}
 
 .viewer-meta {
   display: flex;
