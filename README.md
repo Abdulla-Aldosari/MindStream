@@ -34,9 +34,10 @@ category, all from the sidebar._
 
 ## Settings
 
-| Setting                   | Type               | Default | Description                                                                                                                                                                           |
-| ------------------------- | ------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `mindstream.ui.direction` | `"ltr"` \| `"rtl"` | `"ltr"` | Reading direction for note titles and descriptions. Use `"rtl"` to read Arabic notes right-to-left; the interface keeps VS Code's default direction and all labels remain in English. |
+| Setting                           | Type               | Default | Description                                                                                                                                                                           |
+| --------------------------------- | ------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mindstream.ui.direction`         | `"ltr"` \| `"rtl"` | `"ltr"` | Reading direction for note titles and descriptions. Use `"rtl"` to read Arabic notes right-to-left; the interface keeps VS Code's default direction and all labels remain in English. |
+| `mindstream.copy.includeNoteInfo` | `boolean`          | `true`  | Include the note info section (category, type, status, and timestamps) when copying a note's content from the viewer.                                                                 |
 
 ## Storage
 

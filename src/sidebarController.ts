@@ -24,7 +24,8 @@ export interface WebviewMessage {
     | "deleteType"
     | "recordEmojiUse"
     | "updateEmojiPalette"
-    | "setDescriptionHeight";
+    | "setDescriptionHeight"
+    | "copyToClipboard";
   id?: string;
   title?: string;
   description?: string;
@@ -37,6 +38,7 @@ export interface WebviewMessage {
   emoji?: string;
   palette?: string[];
   height?: number;
+  text?: string;
 }
 
 /** User-facing confirmations and notices the controller needs from the host. */

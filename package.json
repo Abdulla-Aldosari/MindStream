@@ -206,6 +206,11 @@
           ],
           "default": "ltr",
           "description": "Reading direction for note titles and descriptions. Use 'rtl' to read Arabic notes right-to-left; the interface keeps VS Code's default direction and all labels remain in English."
+        },
+        "mindstream.copy.includeNoteInfo": {
+          "type": "boolean",
+          "default": false,
+          "description": "Include the note info section (category, type, status, and timestamps) when copying a note's content from the viewer."
         }
       }
     }
