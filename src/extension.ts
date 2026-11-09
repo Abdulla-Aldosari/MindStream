@@ -8,7 +8,7 @@ import { UiPrefsMemento, UiPrefsRegistry } from "./uiPrefs";
 import { SidebarProvider, VIEW_TYPE } from "./sidebarProvider";
 import { buildWeeklyReport } from "./report";
 import { IStorage } from "./storage";
-import { debounce } from "./util";
+import { debounce, isDemoCapture } from "./util";
 import { CommandsDeps, exportJson, exportMarkdown, exportWeeklyReport, importJson, requireWorkspace } from "./commands";
 
 /** Milliseconds to coalesce bursts of filesystem-watcher events (e.g. the
@@ -126,7 +126,7 @@ export function activate(context: vscode.ExtensionContext): void {
   };
   const uiPrefs = new UiPrefsRegistry(uiPrefsMemento);
 
-  const isDevMode = context.extensionMode === vscode.ExtensionMode.Development;
+  const isDevMode = context.extensionMode === vscode.ExtensionMode.Development && !isDemoCapture();
   sidebar = new SidebarProvider(context.extensionUri, items, types, categories, emoji, uiPrefs, isDevMode);
 
   context.subscriptions.push(

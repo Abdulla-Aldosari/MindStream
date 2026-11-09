@@ -1,5 +1,5 @@
 import * as assert from "assert";
-import { newId, nowIso, getBodyClass, debounce } from "../src/util";
+import { newId, nowIso, getBodyClass, isDemoCapture, debounce } from "../src/util";
 
 describe("util", () => {
   it("newId returns a non-empty unique string", () => {
@@ -23,6 +23,11 @@ describe("util", () => {
 
   it("getBodyClass returns an empty string for a production/VSIX-installed build", () => {
     assert.strictEqual(getBodyClass(false), "");
+  });
+
+  it("isDemoCapture returns true only when MINDSTREAM_DEMO=1", () => {
+    assert.strictEqual(isDemoCapture({ MINDSTREAM_DEMO: "1" }), true);
+    assert.strictEqual(isDemoCapture({}), false);
   });
 });
 
