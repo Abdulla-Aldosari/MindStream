@@ -206,9 +206,9 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
   <div id="view-modal" class="modal" hidden>
     <div class="modal-card viewer-card">
       <div class="modal-header viewer-header">
+        <span id="view-title" class="viewer-title"></span>
         <button id="view-close" class="icon-btn close-x-btn" data-tooltip="Close">✕</button>
-      </div>
-      <span id="view-title" class="viewer-title"></span>
+      </div>      
       <div id="view-desc" class="viewer-desc">
         <div id="view-desc-scroll" class="viewer-desc-scroll">
           <div id="view-desc-content" class="viewer-desc-content"></div>
