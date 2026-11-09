@@ -43,6 +43,7 @@
     emojiPalette: [],
     emojiRecents: [],
     descriptionHeight: DEFAULT_DESCRIPTION_HEIGHT,
+    copyIncludeNoteInfo: true,
     emojiTarget: null,
   };
 
@@ -204,6 +205,114 @@
         });
         item.insertAdjacentHTML("beforeend", csIcons.checkmark);
         onChange(item.dataset.value);
+        closeMenu();
+      });
+      item.addEventListener("mouseenter", function () {
+        menu.querySelectorAll(".cs-item").forEach(function (el) {
+          el.removeAttribute("data-highlighted");
+        });
+        item.setAttribute("data-highlighted", "");
+      });
+      item.addEventListener("mouseleave", function () {
+        item.removeAttribute("data-highlighted");
+      });
+    });
+  }
+
+  // --- Lightweight action menu (reusable) ---
+  // Renders a themed dropdown of actions (same look as the custom-select menus)
+  // without a persistent selection or checkmark. The trigger button is authored
+  // by the caller in the surrounding HTML; bindActionMenu() wires it up, and
+  // both the trigger and the menu must live inside the same positioned wrapper
+  // (position: relative) so the .cs-menu opens below the trigger.
+  // Item schema:
+  //   { action, label, icon?, tooltip?, danger? }  - a clickable action
+  //   { divider: true }                            - a horizontal separator
+  function renderActionMenu(menuId, items, extraClass) {
+    const children = items
+      .map(function (item) {
+        if (item.divider) {
+          return `<div class="cs-item-divider" role="separator"></div>`;
+        }
+        const iconHtml = item.icon ? `<span class="cs-item-badge"><span class="codicon codicon-${escapeAttr(item.icon)}"></span></span>` : "";
+        const tooltipAttr = item.tooltip ? ` data-tooltip="${escapeAttr(item.tooltip)}"` : "";
+        const dangerClass = item.danger ? " cs-item-danger" : "";
+        return `<div class="cs-item${dangerClass}" role="menuitem" tabindex="-1" data-action="${escapeAttr(item.action)}"${tooltipAttr}>
+          <span class="cs-item-label-group">${iconHtml}<span class="cs-item-label">${escapeHtml(item.label)}</span></span>
+        </div>`;
+      })
+      .join("");
+    const menuClass = `cs-menu${extraClass ? ` ${extraClass}` : ""}`;
+    return `<div class="${menuClass}" role="menu" id="${escapeAttr(menuId)}" hidden>
+      <div class="cs-menu-items-wrapper">${children}</div>
+    </div>`;
+  }
+
+  // Binds a trigger button to the action menu returned by renderActionMenu().
+  // onTrigger(action) receives the clicked item's `action` value.
+  function bindActionMenu(triggerId, menuId, onTrigger) {
+    const trigger = document.getElementById(triggerId);
+    const menu = document.getElementById(menuId);
+
+    if (!trigger || !menu) {
+      return;
+    }
+
+    const wrap = trigger.parentElement;
+
+    function closeMenu() {
+      if (!menu.hidden) {
+        menu.hidden = true;
+        trigger.setAttribute("aria-expanded", "false");
+      }
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("blur", onWindowBlur);
+    }
+
+    // Register the close function so closeAllDropdowns() can dismiss this menu
+    // atomically too (e.g. when another modal opens).
+    menuCloseHandlers[menuId] = closeMenu;
+
+    function onPointerDown(e) {
+      if (wrap && !wrap.contains(e.target)) {
+        closeMenu();
+      }
+    }
+
+    // Escaped while open: capture phase so it runs before the global Escape
+    // handler, which would otherwise close the whole modal underneath the menu.
+    function onKeyDown(e) {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        e.preventDefault();
+        closeMenu();
+      }
+    }
+
+    function onWindowBlur() {
+      closeMenu();
+    }
+
+    trigger.addEventListener("click", function (e) {
+      e.stopPropagation();
+      if (!menu.hidden) {
+        closeMenu();
+        return;
+      }
+      menu.hidden = false;
+      trigger.setAttribute("aria-expanded", "true");
+      menu.querySelectorAll(".cs-item").forEach(function (el) {
+        el.removeAttribute("data-highlighted");
+      });
+      document.addEventListener("pointerdown", onPointerDown, true);
+      document.addEventListener("keydown", onKeyDown, true);
+      window.addEventListener("blur", onWindowBlur);
+    });
+
+    menu.querySelectorAll(".cs-item[data-action]").forEach(function (item) {
+      item.addEventListener("click", function () {
+        onTrigger(item.dataset.action);
         closeMenu();
       });
       item.addEventListener("mouseenter", function () {
@@ -722,6 +831,12 @@
     viewModalEl.hidden = true;
     viewingItem = null;
 
+    // Close the viewer options menu if it is still open (it lives inside this
+    // modal and should never outlive it).
+    if (menuCloseHandlers["viewer-options-menu"]) {
+      menuCloseHandlers["viewer-options-menu"]();
+    }
+
     // Flash the card that was being viewed so the user can spot it after the
     // modal closes. The card may no longer exist (deleted or filtered out
     // while viewing), in which case this is a harmless no-op. Skipped when
@@ -732,6 +847,49 @@
       if (card) {
         flashCard(card);
       }
+    }
+  }
+
+  // Builds the formatted plain-text payload for the "Copy content" action.
+  // Layout: title, then an optional blank line + description, then (when the
+  // copy includeNoteInfo setting is enabled) a blank line + note-info footer
+  // with the note's category, type, status, and timestamps.
+  function buildNoteCopyText(item) {
+    const lines = [`# ${item.title}`];
+    if (item.description) {
+      lines.push("");
+      lines.push(item.description);
+    }
+    if (state.copyIncludeNoteInfo) {
+      const cat = state.categories.find((c) => c.id === item.categoryId);
+      const t = typeOf(item.typeId);
+      const statusLabel = state.statusLabels[item.status] || item.status;
+
+      lines.push("");
+      lines.push("# Note info :");
+      lines.push(`- Category: ${cat ? cat.label : "None"}`);
+      lines.push(`- Type: ${t.label}`);
+      lines.push(`- Status: ${statusLabel}`);
+      lines.push(`- Created: ${formatDate(item.createdAt)}`);
+      lines.push(`- Updated: ${formatDate(item.updatedAt)}`);
+    }
+    return lines.join("\n");
+  }
+
+  // Copying is delegated to the extension host (vscode.env.clipboard), since
+  // navigator.clipboard is unreliable inside VS Code webviews.
+  function copyTextToClipboard(text) {
+    vscode.postMessage({ type: "copyToClipboard", text });
+  }
+
+  function handleViewerOption(action) {
+    if (!viewingItem) {
+      return;
+    }
+    if (action === "copy-id") {
+      copyTextToClipboard(viewingItem.id);
+    } else if (action === "copy-content") {
+      copyTextToClipboard(buildNoteCopyText(viewingItem));
     }
   }
 
@@ -1488,6 +1646,7 @@
     state.emojiPalette = msg.emojiPalette || [];
     state.emojiRecents = msg.emojiRecents || [];
     state.descriptionHeight = typeof msg.descriptionHeight === "number" ? msg.descriptionHeight : DEFAULT_DESCRIPTION_HEIGHT;
+    state.copyIncludeNoteInfo = msg.copyIncludeNoteInfo !== false;
     setArchiveVisible(state.includeArchived);
     populateCategoryFilter();
     populateTypeFilter();
@@ -1631,6 +1790,21 @@
       openEdit(item);
     }
   });
+
+  // Viewer options menu: render the action menu into the header wrapper, then
+  // bind the icon-only trigger once (the header is static and never re-rendered).
+  $("viewer-options-wrap").insertAdjacentHTML(
+    "beforeend",
+    renderActionMenu(
+      "viewer-options-menu",
+      [
+        { action: "copy-id", label: "Copy ID", icon: "link" },
+        { action: "copy-content", label: "Copy content", icon: "copy" },
+      ],
+      ""
+    )
+  );
+  bindActionMenu("viewer-option-btn", "viewer-options-menu", handleViewerOption);
 
   $("categories-close").addEventListener("click", closeCategoriesModal);
   $("report-close").addEventListener("click", closeWeeklyReport);

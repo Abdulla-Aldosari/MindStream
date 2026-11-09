@@ -137,6 +137,16 @@ export function activate(context: vscode.ExtensionContext): void {
 
   watchDataFile(context, folder, storage, () => sidebar?.refresh());
 
+  // Repost state immediately when any `mindstream.*` setting changes (e.g. UI
+  // direction, copy options) so the webview reflects it without reopening.
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("mindstream")) {
+        sidebar?.refresh();
+      }
+    })
+  );
+
   context.subscriptions.push(vscode.commands.registerCommand("mindstream.addNote", () => sidebar?.openAddNote()));
   context.subscriptions.push(vscode.commands.registerCommand("mindstream.manageTypes", () => sidebar?.openTypes()));
   context.subscriptions.push(vscode.commands.registerCommand("mindstream.manageCategories", () => sidebar?.openCategories()));

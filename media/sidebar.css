@@ -179,6 +179,18 @@ body.dev-mode #toolbar {
   opacity: 0.85;
 }
 
+/* ===== Action menu items (renderActionMenu) ===== */
+.cs-item-divider {
+  height: 1px;
+  margin: 4px 8px;
+  background: var(--vscode-settings-dropdownBorder, var(--vscode-panel-border, transparent));
+}
+
+.cs-item-danger[data-highlighted],
+.cs-item-danger:hover {
+  color: var(--vscode-errorForeground);
+}
+
 /* ===== Full-width variant ===== */
 .cs-wrap-full {
   display: block;
@@ -685,7 +697,6 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 
 .icon-btn.close-x-btn {
   padding: 3px 6px 3px 6px !important;
-  margin-left: 10px;
 }
 
 .card-view-btn {
@@ -785,7 +796,17 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 }
 
 .modal-header.viewer-header {
-  /* justify-content: flex-end; */
+  gap: 8px;
+}
+
+.viewer-options-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.viewer-option-btn {
+  padding: 4px 5px 1px 5px;
+  font-size: 12px;
 }
 
 #categories-modal .modal-card {
@@ -865,13 +886,12 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 }
 
 .viewer-title {
+  flex: 1;
+  min-width: 0;
   font-size: 17px;
   font-weight: 600;
   word-break: break-word;
   white-space: pre-wrap;
-}
-.viewer-title[dir="rtl"] {
-  margin-left: auto;
 }
 
 .viewer-meta {

@@ -95,6 +95,12 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
         this.refresh();
         return;
       }
+      if (msg.type === "copyToClipboard") {
+        if (typeof msg.text === "string" && msg.text.length > 0) {
+          await vscode.env.clipboard.writeText(msg.text);
+        }
+        return;
+      }
       await this.controller.handleMessage(msg);
       this.refresh();
     } catch (err) {
@@ -149,6 +155,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
       emojiPalette: this.emoji.palette(),
       emojiRecents: this.emoji.recents(),
       descriptionHeight: this.uiPrefs.descriptionHeight(),
+      copyIncludeNoteInfo: this.getCopyIncludeNoteInfo(),
     });
   }
 
@@ -156,6 +163,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
   private getDirection(): string {
     const configured = vscode.workspace.getConfiguration("mindstream").get<string>("ui.direction");
     return configured === "rtl" ? "rtl" : "ltr";
+  }
+
+  /** Reads the copy-content setting (defaults to including the note info section). */
+  private getCopyIncludeNoteInfo(): boolean {
+    return vscode.workspace.getConfiguration("mindstream").get<boolean>("copy.includeNoteInfo", true);
   }
 
   private getHtml(webview: vscode.Webview): string {
@@ -206,6 +218,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
   <div id="view-modal" class="modal" hidden>
     <div class="modal-card viewer-card">
       <div class="modal-header viewer-header">
+        <div class="viewer-options-wrap" id="viewer-options-wrap">
+          <button id="viewer-option-btn" class="icon-btn viewer-option-btn" data-tooltip="More options" aria-haspopup="menu" aria-expanded="false">
+            <span class="codicon codicon-ellipsis"></span>
+          </button>
+        </div>
         <span id="view-title" class="viewer-title"></span>
         <button id="view-close" class="icon-btn close-x-btn" data-tooltip="Close">✕</button>
       </div>      
