@@ -38,6 +38,21 @@ describe("DEFAULT_TYPES / DEFAULT_CATEGORIES", () => {
   });
 });
 
+describe("normalizeData link", () => {
+  const base = { id: "i", typeId: "t", categoryId: "general", title: "T", status: "pending", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
+
+  it("keeps a valid link and drops unknown link fields", () => {
+    const d = normalizeData({ items: [{ ...base, link: { filePath: "src/a.ts", lineStart: 2, state: "ok", gitCommit: "abc" } }] });
+    assert.deepStrictEqual(d.items[0].link, { filePath: "src/a.ts", lineStart: 2, state: "ok" });
+  });
+
+  it("drops a link that points outside the workspace, keeping the note", () => {
+    const d = normalizeData({ items: [{ ...base, link: { filePath: "../secret.txt", lineStart: 1, state: "ok" } }] });
+    assert.strictEqual(d.items.length, 1);
+    assert.strictEqual("link" in d.items[0], false);
+  });
+});
+
 describe("normalizeData priority", () => {
   const base = { id: "i", typeId: "t", categoryId: "general", title: "T", status: "pending", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
 

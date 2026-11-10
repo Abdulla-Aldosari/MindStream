@@ -6,6 +6,8 @@ import { CategoriesRegistry } from "./categoriesRegistry";
 import { EmojiMemento, EmojiRegistry } from "./emojiRegistry";
 import { UiPrefsMemento, UiPrefsRegistry } from "./uiPrefs";
 import { SidebarProvider, VIEW_TYPE } from "./sidebarProvider";
+import { LinkTracker } from "./linkTracker";
+import { createLinkFiles, createLinkFromActiveEditor, registerLinkTracking } from "./linkIntegration";
 import { buildWeeklyReport } from "./report";
 import { IStorage } from "./storage";
 import { debounce, isDemoCapture } from "./util";
@@ -86,6 +88,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // No folder is open: show an explanatory message only, commands show an alert.
     context.subscriptions.push(vscode.window.registerWebviewViewProvider(VIEW_TYPE, new NoWorkspaceProvider()));
     context.subscriptions.push(vscode.commands.registerCommand("mindstream.addNote", () => requireWorkspace(deps)));
+    context.subscriptions.push(vscode.commands.registerCommand("mindstream.addNoteToLine", () => requireWorkspace(deps)));
     context.subscriptions.push(vscode.commands.registerCommand("mindstream.manageTypes", () => requireWorkspace(deps)));
     context.subscriptions.push(vscode.commands.registerCommand("mindstream.manageCategories", () => requireWorkspace(deps)));
     context.subscriptions.push(vscode.commands.registerCommand("mindstream.exportMarkdown", () => requireWorkspace(deps)));
@@ -127,7 +130,9 @@ export function activate(context: vscode.ExtensionContext): void {
   const uiPrefs = new UiPrefsRegistry(uiPrefsMemento);
 
   const isDevMode = context.extensionMode === vscode.ExtensionMode.Development && !isDemoCapture();
-  sidebar = new SidebarProvider(context.extensionUri, items, types, categories, emoji, uiPrefs, isDevMode);
+  const linkTracker = new LinkTracker(items, createLinkFiles(folder.uri));
+  sidebar = new SidebarProvider(context.extensionUri, items, types, categories, emoji, uiPrefs, linkTracker, isDevMode);
+  registerLinkTracking(context, folder, linkTracker, () => sidebar?.refresh());
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(VIEW_TYPE, sidebar, {
@@ -148,6 +153,14 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(vscode.commands.registerCommand("mindstream.addNote", () => sidebar?.openAddNote()));
+  context.subscriptions.push(
+    vscode.commands.registerCommand("mindstream.addNoteToLine", async () => {
+      const link = createLinkFromActiveEditor(folder);
+      if (link) {
+        await sidebar?.openAddNoteForLink(link);
+      }
+    })
+  );
   context.subscriptions.push(vscode.commands.registerCommand("mindstream.manageTypes", () => sidebar?.openTypes()));
   context.subscriptions.push(vscode.commands.registerCommand("mindstream.manageCategories", () => sidebar?.openCategories()));
   context.subscriptions.push(vscode.commands.registerCommand("mindstream.exportMarkdown", () => exportMarkdown(deps, items, types, categories)));

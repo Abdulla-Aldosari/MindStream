@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { DATA_VERSION, GENERAL_CATEGORY_ID, MindStreamCategoryDef, MindStreamData, MindStreamTypeDef } from "./models";
 import { isPriority } from "./priority";
+import { sanitizeLink } from "./linkResolver";
 import { newId, nowIso } from "./util";
 
 /** Standalone type that makes it easy to test the layer without depending on vscode. */
@@ -80,6 +81,15 @@ export function normalizeData(raw: unknown): MindStreamData {
     // than guessed, so the note reads as unassigned. A missing key is never added.
     if ("priority" in it && !isPriority(it.priority)) {
       delete it.priority;
+    }
+    // An invalid or out-of-workspace link is dropped; a valid one is rebuilt clean.
+    if ("link" in it) {
+      const link = sanitizeLink(it.link);
+      if (link) {
+        it.link = link;
+      } else {
+        delete it.link;
+      }
     }
   }
   return {

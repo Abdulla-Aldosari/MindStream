@@ -44,6 +44,12 @@ const baseScopes = [
   "uiPrefs", // src/uiPrefs.ts: global per-user UI preferences (note-editor description height)
   "priority", // src/priority.ts + media/viewOptions.js: note priority levels, the priority.style setting, and the View menu group/sort/filter rules
   "dropdownMenu", // media/dropdown-menu.js and media/dropdown-menu.css: the standalone DropdownMenu component
+  "links", // note-to-code links as a whole: linkResolver.ts, linkTracker.ts, linkIntegration.ts, and their webview badge/editor display
+  "linkResolver", // src/linkResolver.ts: pure rules to build, re-find, shift, rename, and validate note code links
+  "linkTracker", // src/linkTracker.ts: LinkTracker keeping links correct on edits, renames, deletes, and file changes
+  "linkPath", // media/linkPath.js: fitPath() picks the longest form of a file path that fits the available width (folders shortened in the middle, file name kept)
+  "saveScheduler", // src/saveScheduler.ts: SaveScheduler coalescing bursts into one delayed write with a maximum wait
+  "linkIntegration", // src/linkIntegration.ts: vscode wiring for links (cursor line, document/rename/delete/focus listeners)
 ];
 
 // 2. Append a negative variant of every base scope prefixed with "-" (e.g. "-sidebar").

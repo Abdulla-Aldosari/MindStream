@@ -174,6 +174,41 @@ describe("ItemsStore", () => {
     assert.strictEqual(items.list(true).length, 2);
   });
 
+  it("create stores a link, and update leaves it untouched", () => {
+    const { items, typeId } = setup();
+    const link = { filePath: "src/a.ts", lineStart: 3, state: "ok" as const };
+    const item = items.create({ typeId, title: "L", link });
+    assert.deepStrictEqual(item.link, link);
+    items.update(item.id, { title: "L2" });
+    assert.deepStrictEqual(items.get(item.id)?.link, link);
+  });
+
+  it("notes created without a link have no link key", () => {
+    const { items, typeId } = setup();
+    assert.strictEqual("link" in items.create({ typeId, title: "P" }), false);
+  });
+
+  it("setLink and mapLinks change links without touching updatedAt and save only on change", () => {
+    const { storage, items, typeId } = setup();
+    const a = items.create({ typeId, title: "A", link: { filePath: "a.ts", lineStart: 1, state: "ok" } });
+    const plain = items.create({ typeId, title: "P" });
+    const updatedAt = items.get(a.id)?.updatedAt;
+    const saves = storage.saved.length;
+    assert.strictEqual(
+      items.mapLinks((l) => l),
+      0
+    );
+    assert.strictEqual(storage.saved.length, saves);
+    assert.strictEqual(
+      items.mapLinks((l) => ({ ...l, lineStart: 7 })),
+      1
+    );
+    assert.strictEqual(items.get(a.id)?.link?.lineStart, 7);
+    items.setLink(plain.id, { filePath: "x.ts", lineStart: 1, state: "ok" });
+    assert.strictEqual(items.get(plain.id)?.link, undefined);
+    assert.strictEqual(items.get(a.id)?.updatedAt, updatedAt);
+  });
+
   it("list returns a stable creation order", () => {
     const { storage, items, typeId } = setup();
     const a = items.create({ typeId, title: "A" });
