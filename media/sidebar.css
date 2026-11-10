@@ -1077,13 +1077,18 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 .pc {
   --pc-color: var(--prio, var(--vscode-focusBorder));
   --pc-text: #ffffff;
+  --pc-pad: 3px;
+  --pc-gap: 3px;
+  --pc-count: 4;
   position: relative;
+  container-type: inline-size;
   display: grid;
-  grid-template-columns: repeat(var(--pc-count, 4), 1fr);
-  padding: 3px;
+  grid-template-columns: repeat(var(--pc-count), 1fr);
+  padding: var(--pc-pad);
   background: var(--vscode-input-background);
   border: 1px solid var(--vscode-input-border, var(--vscode-widget-border, transparent));
   border-radius: var(--radius);
+  gap: var(--pc-gap);
 }
 .pc[data-value="critical"] {
   --pc-color: var(--priority-critical);
@@ -1102,13 +1107,13 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 
 .pc-indicator {
   position: absolute;
-  top: 3px;
-  bottom: 3px;
-  inset-inline-start: 3px;
-  width: calc((100% - 6px) / var(--pc-count, 4));
+  top: var(--pc-pad);
+  bottom: var(--pc-pad);
+  inset-inline-start: var(--pc-pad);
+  width: calc((100% - var(--pc-pad) * 2 - var(--pc-gap) * (var(--pc-count) - 1)) / var(--pc-count));
   background: var(--vscode-toolbar-hoverBackground);
   border-radius: 3px;
-  transform: translateX(calc(100% * var(--pc-index, 0)));
+  transform: translateX(calc((100% + var(--pc-gap)) * var(--pc-index, 0)));
   transition:
     transform 0.22s cubic-bezier(0.4, 0, 0.2, 1),
     background-color 0.22s ease;
@@ -1116,7 +1121,7 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 }
 .pc[dir="rtl"] .pc-indicator,
 [dir="rtl"] .pc .pc-indicator {
-  transform: translateX(calc(-100% * var(--pc-index, 0)));
+  transform: translateX(calc(- (100% + var(--pc-gap)) * var(--pc-index, 0)));
 }
 .pc.pc-empty .pc-indicator {
   visibility: hidden;
@@ -1140,6 +1145,7 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   cursor: pointer;
   white-space: nowrap;
   transition: color 0.22s ease;
+  overflow: hidden;
 }
 .pc-option:hover:not([aria-checked="true"]) {
   background: color-mix(in srgb, var(--vscode-toolbar-hoverBackground) 70%, transparent);
@@ -1158,8 +1164,31 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   transition: background-color 0.22s ease;
 }
 
+/* The label is the only shrinkable item, so the dot never gets clipped. */
+.pc-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .pc-hint {
   color: var(--vscode-editorWarning-foreground, var(--vscode-descriptionForeground));
+}
+
+/* Very narrow container: show the colored dot only and hide the label visually
+   (still exposed to screen readers), keeping each option centered and clean. */
+@container (max-width: 140px) {
+  .pc-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
