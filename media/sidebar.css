@@ -783,6 +783,27 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   gap: 8px;
 }
 
+/* Compact "insert emoji" hint in the note editor's action bar. It doubles
+   as a button: clicking it opens the picker anchored to the last focused
+   title/description field. */
+.emoji-hint {
+  margin-right: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0.5;
+}
+.emoji-hint:hover,
+.emoji-hint:focus-visible {
+  opacity: 1;
+}
+
 .modal-card .btn.btn-primary,
 .modal-card .btn.btn-ghost {
   min-width: 65px;
@@ -1490,7 +1511,12 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 }
 
 .emoji-edit-preview-item {
-  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  font-size: 14px;
   line-height: 1;
 }
 
