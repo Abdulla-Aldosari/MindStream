@@ -42,6 +42,8 @@ const baseScopes = [
   "iconClass", // media/iconClass.js: generates a safe, valid Codicon CSS class for an icon name.
   "emoji", // src/emojiRegistry.ts + media/emoji.js: global emoji palette, recent tracking, and the webview picker
   "uiPrefs", // src/uiPrefs.ts: global per-user UI preferences (note-editor description height)
+  "priority", // src/priority.ts + media/viewOptions.js: note priority levels, the priority.style setting, and the View menu group/sort/filter rules
+  "dropdownMenu", // media/dropdown-menu.js and media/dropdown-menu.css: the standalone DropdownMenu component
 ];
 
 // 2. Append a negative variant of every base scope prefixed with "-" (e.g. "-sidebar").
