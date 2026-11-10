@@ -1,62 +1,72 @@
 // @ts-check
 "use strict";
 
-// 1. Defining the Project's Core Scope
+// 1. Defining the Project's Core Scopes
+// Each entry is a triple: [name, description, files].
+// [description, files] (Used by AI tools to determine the correct scope).
+// - name:        the exact scope string allowed in commit headers.
+// - description: what the scope covers.
+// - files:       repo-relative file paths or directory prefixes (trailing "/", means all the files in this directory)
+//                that deterministically map a changed file to this scope.
+//                An empty array means the scope has no single home file.
 const baseScopes = [
-  "extension", // src/extension.ts: activate()/deactivate(), command registration, wiring all services together
-  "commands", // src/commands.ts: command handler logic for export/import/weekly report/requireWorkspace
-  "sidebar", // sidebar feature changes that span both sidebarController.ts and sidebarProvider.ts together
-  "sidebarController", // src/sidebarController.ts: webview message-handling logic, data mutations, confirm dialogs
-  "sidebarProvider", // src/sidebarProvider.ts: WebviewViewProvider rendering, posting state, activity-bar badge
-  "webview", // media/sidebar.js and media/sidebar.css: webview UI, custom dropdowns, tooltips, modals, note cards
-  "storage", // src/storage.ts: StorageService safe read/write, default data creation, normalizeData()
-  "workspaceStorage", // src/workspaceStorage.ts: binding StorageService to the open workspace's .vscode/mindstream.data.json
-  "itemsStore", // src/itemsStore.ts: CRUD for notes, status history, archiving, permanent deletion
-  "types", // the note-types feature/concept as a whole, when a change spans more than typesRegistry.ts alone
-  "typesRegistry", // src/typesRegistry.ts: add/rename/setIcon/remove/reassign user-defined note types
-  "categories", // the categories feature/concept as a whole, when a change spans more than categoriesRegistry.ts alone
-  "categoriesRegistry", // src/categoriesRegistry.ts: manage categories, including the built-in General category
-  "models", // src/models.ts: core data types, status enum, and shared constants
-  "report", // src/report.ts: buildWeeklyReport() computing weekly created/completed/in-progress/archived counts
-  "export", // src/export.ts: buildMarkdownExport(), buildWeeklyReportText(), mergeData() pure functions
-  "import", // JSON import behavior/logic (importJson command flow), independent of export
-  "util", // src/util.ts: newId() and nowIso() helper functions
-  "helpers", // test/helpers.ts: InMemoryStorage fake shared across unit tests
-  "ui", // general visual/UX change that is not confined to a single file listed above
-  "deps", // adding, removing, or bumping a dependency in package.json/package-lock.json
-  "config", // a config file with no dedicated scope of its own, e.g. .vscodeignore or .gitignore
-  "eslint", // eslint.config.js: linting rules and configuration
-  "tsconfig", // tsconfig.json: TypeScript compiler configuration
-  "commitlint", // commitlint.config.js: commit type/scope rules for this project
-  "mocharc", // .mocharc.json: Mocha test runner configuration
-  "esbuild", // esbuild.js: the extension's build/bundle script
-  "husky", // .husky/commit-msg or .husky/pre-commit: git hook scripts
-  "vscode", // .vscode/launch.json or .vscode/tasks.json: editor/debugger configuration
-  "workflows", // .github/workflows/*.yml: CI pipelines for lint, test, audit, and CodeQL
-  "assets", // adding or replacing image/gif files used for documentation, not the README text itself
-  "readme", // changes to the text/content of README.md itself
-  "license", // changes to the LICENSE file
-  "changelog", // CHANGELOG.md content or cliff.toml changelog-generation configuration
-  "package", // package.json metadata, scripts, or dependencies
-  "release", // version bump and CHANGELOG.md updates for a release
-  "iconClass", // media/iconClass.js: generates a safe, valid Codicon CSS class for an icon name.
-  "emoji", // src/emojiRegistry.ts + media/emoji.js: global emoji palette, recent tracking, and the webview picker
-  "uiPrefs", // src/uiPrefs.ts: global per-user UI preferences (note-editor description height)
-  "priority", // src/priority.ts + media/viewOptions.js: note priority levels, the priority.style setting, and the View menu group/sort/filter rules
-  "dropdownMenu", // media/dropdown-menu.js and media/dropdown-menu.css: the standalone DropdownMenu component
-  "links", // note-to-code links as a whole: linkResolver.ts, linkTracker.ts, linkIntegration.ts, and their webview badge/editor display
-  "linkResolver", // src/linkResolver.ts: pure rules to build, re-find, shift, rename, and validate note code links
-  "linkTracker", // src/linkTracker.ts: LinkTracker keeping links correct on edits, renames, deletes, and file changes
-  "linkPath", // media/linkPath.js: fitPath() picks the longest form of a file path that fits the available width (folders shortened in the middle, file name kept)
-  "saveScheduler", // src/saveScheduler.ts: SaveScheduler coalescing bursts into one delayed write with a maximum wait
-  "linkIntegration", // src/linkIntegration.ts: vscode wiring for links (cursor line, document/rename/delete/focus listeners)
+  // Extension runtime
+  ["extension", "activate()/deactivate(), command registration, wiring all services together", ["src/extension.ts"]],
+  ["commands", "command handler logic for export, import, weekly report, and workspace requirement checks", ["src/commands.ts"]],
+  [
+    "sidebar",
+    "sidebar webview host: message handling, data mutations, confirm dialogs, view provider rendering, state posting, activity-bar badge",
+    ["src/sidebarController.ts", "src/sidebarProvider.ts"],
+  ],
+  ["webview", "sidebar webview UI scripts and styles: note cards, modals, custom dropdowns, tooltips, emoji picker, view options, icon classes", ["media/"]],
+
+  // Data and domain logic
+  [
+    "storage",
+    "safe JSON read/write, default data creation, normalization, workspace file binding, coalesced delayed saves",
+    ["src/storage.ts", "src/workspaceStorage.ts", "src/saveScheduler.ts"],
+  ],
+  [
+    "notes",
+    "note CRUD, status history, archiving, deletion, and the user-defined note types and categories registries",
+    ["src/itemsStore.ts", "src/typesRegistry.ts", "src/categoriesRegistry.ts"],
+  ],
+  [
+    "links",
+    "note-to-code links: building, re-finding, shifting, renaming, validating, tracking edits, and the vscode listeners wiring",
+    ["src/linkResolver.ts", "src/linkTracker.ts", "src/linkIntegration.ts"],
+  ],
+  ["models", "core data types, status enum, shared constants, and id/timestamp helpers", ["src/models.ts", "src/util.ts"]],
+  ["report", "weekly report computation and Markdown/text export and merge functions", ["src/report.ts", "src/export.ts"]],
+  ["priority", "note priority levels and the priority.style setting", ["src/priority.ts"]],
+  ["emoji", "global emoji palette and recent-emoji tracking", ["src/emojiRegistry.ts"]],
+  ["uiPrefs", "global per-user UI preferences such as note-editor description height", ["src/uiPrefs.ts"]],
+
+  // Tests, docs, and assets
+  ["tests", "unit tests and shared test fakes", ["test/"]],
+  ["docs", "architecture documentation, screenshots, GIFs, and extension icons", ["docs/", "icons/"]],
+  ["readme", "text and content of README.md", ["README.md"]],
+  ["license", "the LICENSE file", ["LICENSE"]],
+
+  // Tooling and infrastructure
+  [
+    "tooling",
+    "build, lint, format, TypeScript, test-runner, packaging-ignore, and editor/debugger configuration",
+    ["esbuild.js", "eslint.config.js", "tsconfig.json", ".mocharc.json", ".prettierrc", ".prettierignore", ".gitignore", ".vscodeignore", ".vscode/"],
+  ],
+  ["ci", "GitHub Actions pipelines for lint, test, audit, and CodeQL", [".github/workflows/"]],
+  ["husky", "git hook scripts that run on commit and push", [".husky/"]],
+  ["commitlint", "commit type and scope rules for this project", ["commitlint.config.js"]],
+  ["deps", "adding, removing, or bumping dependencies and package metadata or scripts", ["package.json", "package-lock.json"]],
+  ["changelog", "CHANGELOG.md content and git-cliff changelog-generation configuration", ["CHANGELOG.md", "cliff.toml"]],
+  ["release", "release commits: initial releases and version bumps", []],
 ];
 
 // 2. Append a negative variant of every base scope prefixed with "-" (e.g. "-sidebar").
 // Negative scopes are reserved for small internal feat/fix/perf commits that must be
 // excluded from the auto-generated CHANGELOG by git-cliff. The skip rule that performs
 // the exclusion lives in "cliff.toml" -> commit_parsers, in the project root.
-const allowedScopes = [...baseScopes, ...baseScopes.map((scope) => `-${scope}`)];
+const allowedScopes = [...baseScopes.map(([name]) => name), ...baseScopes.map(([name]) => `-${name}`)];
 
 // 3. Custom rule: a negative scope (e.g. "-sidebar") is reserved for small
 // internal commits and may only be used with feat, fix, or perf.
@@ -78,6 +88,7 @@ const negativeScopeTypesPlugin = {
 
 /** @type {import('@commitlint/types').UserConfig} */
 module.exports = {
+  baseScopes,
   extends: ["@commitlint/config-conventional"],
   plugins: [negativeScopeTypesPlugin],
   rules: {
