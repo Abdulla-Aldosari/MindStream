@@ -773,6 +773,29 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   min-height: 55px;
 }
 
+/* Label row inside a field: the field's caption on the left and an optional
+   action link on the far right (e.g. "Restore original emoji list"). */
+.field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Text-link-styled button used for inline, non-primary modal actions. */
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 11px;
+  color: var(--vscode-textLink-foreground);
+  cursor: pointer;
+}
+
+.link-btn:hover {
+  text-decoration: underline;
+}
+
 #f-desc {
   height: var(--desc-height, 128px);
 }

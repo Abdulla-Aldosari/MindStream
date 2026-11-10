@@ -4,7 +4,7 @@ import { ItemsStore } from "../src/itemsStore";
 import { TypesRegistry } from "../src/typesRegistry";
 import { CategoriesRegistry } from "../src/categoriesRegistry";
 import { SidebarController, SidebarUi } from "../src/sidebarController";
-import { EmojiMemento, EmojiRegistry } from "../src/emojiRegistry";
+import { DEFAULT_EMOJI_PALETTE, EmojiMemento, EmojiRegistry } from "../src/emojiRegistry";
 import { DEFAULT_DESCRIPTION_HEIGHT, UiPrefsRegistry } from "../src/uiPrefs";
 import { DEFAULT_PRIORITY } from "../src/priority";
 import { InMemoryStorage } from "./helpers";
@@ -23,11 +23,13 @@ class FakeUi implements SidebarUi {
   confirmDeleteNoteResult = true;
   confirmDeleteCategoryResult = true;
   confirmDeleteTypeResult = true;
+  confirmRestoreEmojiPaletteResult = true;
   pickTypeResult: string | undefined = undefined;
   infos: string[] = [];
   confirmedNotes: string[] = [];
   confirmedCategories: { label: string; count: number }[] = [];
   confirmedTypes: string[] = [];
+  restoreConfirmations = 0;
   pickedTypes: { id: string; label: string; icon?: string }[] = [];
 
   async confirmDeleteNote(title: string): Promise<boolean> {
@@ -43,6 +45,11 @@ class FakeUi implements SidebarUi {
   async confirmDeleteType(label: string): Promise<boolean> {
     this.confirmedTypes.push(label);
     return this.confirmDeleteTypeResult;
+  }
+
+  async confirmRestoreEmojiPalette(): Promise<boolean> {
+    this.restoreConfirmations += 1;
+    return this.confirmRestoreEmojiPaletteResult;
   }
 
   async pickType(types: { id: string; label: string; icon?: string }[]): Promise<string | undefined> {
@@ -278,6 +285,22 @@ describe("SidebarController.handleMessage", () => {
     const { emoji, controller } = setup();
     await controller.handleMessage({ type: "updateEmojiPalette", palette: ["✅", "📌", "✅"] });
     assert.deepStrictEqual(emoji.palette(), ["✅", "📌"]);
+  });
+
+  it("restoreEmojiPalette restores DEFAULT_EMOJI_PALETTE when confirmed", async () => {
+    const { emoji, ui, controller } = setup();
+    await emoji.setPalette(["✅"]);
+    await controller.handleMessage({ type: "restoreEmojiPalette" });
+    assert.strictEqual(ui.restoreConfirmations, 1);
+    assert.deepStrictEqual(emoji.palette(), DEFAULT_EMOJI_PALETTE);
+  });
+
+  it("restoreEmojiPalette keeps the palette when cancelled", async () => {
+    const { emoji, ui, controller } = setup();
+    await emoji.setPalette(["✅"]);
+    ui.confirmRestoreEmojiPaletteResult = false;
+    await controller.handleMessage({ type: "restoreEmojiPalette" });
+    assert.deepStrictEqual(emoji.palette(), ["✅"]);
   });
 
   it("setDescriptionHeight persists the clamped height", async () => {
