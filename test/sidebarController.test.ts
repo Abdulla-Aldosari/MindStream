@@ -6,6 +6,7 @@ import { CategoriesRegistry } from "../src/categoriesRegistry";
 import { SidebarController, SidebarUi } from "../src/sidebarController";
 import { EmojiMemento, EmojiRegistry } from "../src/emojiRegistry";
 import { DEFAULT_DESCRIPTION_HEIGHT, UiPrefsRegistry } from "../src/uiPrefs";
+import { DEFAULT_PRIORITY } from "../src/priority";
 import { InMemoryStorage } from "./helpers";
 
 class FakeEmojiMemento implements EmojiMemento {
@@ -54,7 +55,7 @@ class FakeUi implements SidebarUi {
   }
 }
 
-function setup() {
+function setup(priorityEnabled = true) {
   const storage = new InMemoryStorage(createEmptyData());
   const items = new ItemsStore(storage);
   const types = new TypesRegistry(storage);
@@ -62,7 +63,7 @@ function setup() {
   const emoji = new EmojiRegistry(new FakeEmojiMemento());
   const uiPrefs = new UiPrefsRegistry(new FakeEmojiMemento());
   const ui = new FakeUi();
-  const controller = new SidebarController(items, types, categories, emoji, uiPrefs, ui);
+  const controller = new SidebarController(items, types, categories, emoji, uiPrefs, ui, () => priorityEnabled);
   const typeId = storage.getData().types[0].id;
   return { storage, items, types, categories, emoji, uiPrefs, ui, controller, typeId };
 }
@@ -79,6 +80,46 @@ describe("SidebarController.handleMessage", () => {
     const { items, controller, typeId } = setup();
     await controller.handleMessage({ type: "addItem", title: "   ", typeId });
     assert.strictEqual(items.list().length, 0);
+  });
+
+  describe("priority", () => {
+    it("addItem stores the chosen priority while enabled", async () => {
+      const { items, controller, typeId } = setup(true);
+      await controller.handleMessage({ type: "addItem", title: "A", typeId, priority: "critical" });
+      assert.strictEqual(items.list()[0].priority, "critical");
+    });
+
+    it("addItem writes DEFAULT_PRIORITY when enabled and none (or an invalid one) is sent", async () => {
+      const { items, controller, typeId } = setup(true);
+      await controller.handleMessage({ type: "addItem", title: "A", typeId });
+      await controller.handleMessage({ type: "addItem", title: "B", typeId, priority: "urgent" });
+      assert.deepStrictEqual(
+        items.list().map((it) => it.priority),
+        [DEFAULT_PRIORITY, DEFAULT_PRIORITY]
+      );
+    });
+
+    it("addItem never writes a priority key while disabled", async () => {
+      const { items, controller, typeId } = setup(false);
+      await controller.handleMessage({ type: "addItem", title: "A", typeId, priority: "high" });
+      assert.strictEqual("priority" in items.list()[0], false);
+    });
+
+    it("updateItem stores an explicit choice and never adds one implicitly", async () => {
+      const { items, controller, typeId } = setup(true);
+      const item = items.create({ typeId, title: "Old note" });
+      await controller.handleMessage({ type: "updateItem", id: item.id, title: "Renamed" });
+      assert.strictEqual("priority" in items.get(item.id)!, false);
+      await controller.handleMessage({ type: "updateItem", id: item.id, priority: "medium" });
+      assert.strictEqual(items.get(item.id)!.priority, "medium");
+    });
+
+    it("updateItem keeps the stored priority while disabled", async () => {
+      const { items, controller, typeId } = setup(false);
+      const item = items.create({ typeId, title: "A", priority: "high" });
+      await controller.handleMessage({ type: "updateItem", id: item.id, title: "B", priority: "low" });
+      assert.strictEqual(items.get(item.id)!.priority, "high");
+    });
   });
 
   it("updateItem patches the provided fields", async () => {

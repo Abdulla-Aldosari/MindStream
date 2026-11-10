@@ -38,6 +38,27 @@ describe("DEFAULT_TYPES / DEFAULT_CATEGORIES", () => {
   });
 });
 
+describe("normalizeData priority", () => {
+  const base = { id: "i", typeId: "t", categoryId: "general", title: "T", status: "pending", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
+
+  it("keeps a valid priority", () => {
+    const d = normalizeData({ items: [{ ...base, priority: "critical" }] });
+    assert.strictEqual(d.items[0].priority, "critical");
+  });
+
+  it("never adds a priority key to notes without one", () => {
+    const d = normalizeData({ items: [{ ...base }] });
+    assert.strictEqual("priority" in d.items[0], false);
+  });
+
+  it("drops an unknown priority instead of guessing a level", () => {
+    for (const bad of ["urgent", "High", 2, null]) {
+      const d = normalizeData({ items: [{ ...base, priority: bad }] });
+      assert.strictEqual("priority" in d.items[0], false, String(bad));
+    }
+  });
+});
+
 describe("normalizeData", () => {
   it("returns empty data for null / non-object input", () => {
     for (const raw of [null, undefined, 42, "text", true]) {

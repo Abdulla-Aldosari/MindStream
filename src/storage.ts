@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { DATA_VERSION, GENERAL_CATEGORY_ID, MindStreamCategoryDef, MindStreamData, MindStreamTypeDef } from "./models";
+import { isPriority } from "./priority";
 import { newId, nowIso } from "./util";
 
 /** Standalone type that makes it easy to test the layer without depending on vscode. */
@@ -74,6 +75,11 @@ export function normalizeData(raw: unknown): MindStreamData {
     }
     if (typeof it.archived !== "boolean") {
       it.archived = false;
+    }
+    // An unknown priority (hand-edited file, newer format) is dropped rather
+    // than guessed, so the note reads as unassigned. A missing key is never added.
+    if ("priority" in it && !isPriority(it.priority)) {
+      delete it.priority;
     }
   }
   return {

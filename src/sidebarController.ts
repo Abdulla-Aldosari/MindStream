@@ -1,4 +1,5 @@
 import { MindStreamStatus } from "./models";
+import { DEFAULT_PRIORITY, isPriority } from "./priority";
 import { ItemsStore } from "./itemsStore";
 import { TypesRegistry } from "./typesRegistry";
 import { CategoriesRegistry } from "./categoriesRegistry";
@@ -34,6 +35,8 @@ export interface WebviewMessage {
   label?: string;
   icon?: string;
   status?: MindStreamStatus;
+  /** Raw value from the webview; only a valid level is stored (see isPriority). */
+  priority?: unknown;
   archived?: boolean;
   emoji?: string;
   palette?: string[];
@@ -62,7 +65,9 @@ export class SidebarController {
     private readonly categories: CategoriesRegistry,
     private readonly emoji: EmojiRegistry,
     private readonly uiPrefs: UiPrefsRegistry,
-    private readonly ui: SidebarUi
+    private readonly ui: SidebarUi,
+    /** Reads the live `mindstream.priority.style` setting (true unless "off"). */
+    private readonly priorityEnabled: () => boolean = () => true
   ) {}
 
   async handleMessage(msg: WebviewMessage): Promise<void> {
@@ -74,6 +79,9 @@ export class SidebarController {
             title: msg.title.trim(),
             description: msg.description,
             categoryId: msg.categoryId,
+            // Enabled: always written (the editor's default when untouched).
+            // Disabled: never written, so the note stays unassigned.
+            priority: this.priorityEnabled() ? (isPriority(msg.priority) ? msg.priority : DEFAULT_PRIORITY) : undefined,
           });
         }
         break;
@@ -84,6 +92,9 @@ export class SidebarController {
             description: msg.description,
             typeId: msg.typeId,
             categoryId: msg.categoryId,
+            // Only an explicit, valid choice is stored; while the system is
+            // disabled the stored value (or its absence) is left untouched.
+            priority: this.priorityEnabled() && isPriority(msg.priority) ? msg.priority : undefined,
           });
         }
         break;

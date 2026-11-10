@@ -211,6 +211,25 @@
           "type": "boolean",
           "default": false,
           "description": "Include the note info section (category, type, status, and timestamps) when copying a note's content from the viewer."
+        },
+        "mindstream.priority.style": {
+          "type": "string",
+          "enum": [
+            "dot",
+            "stripe",
+            "chip",
+            "typeStripe",
+            "off"
+          ],
+          "enumDescriptions": [
+            "Dot before title: a small colored dot before the note title.",
+            "Edge stripe: a colored stripe on the start edge of the card.",
+            "Footer chip: a dot and the priority name next to the status.",
+            "Stripe on type badge: a colored stripe on the end edge of the type badge.",
+            "Disable the priority system: hides the priority on cards, the editor control, and the priority options in the View menu. Stored priorities are kept."
+          ],
+          "default": "chip",
+          "description": "How note priority is shown on cards, or 'off' to disable the priority system."
         }
       }
     }

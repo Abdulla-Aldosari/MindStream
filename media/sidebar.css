@@ -6,6 +6,10 @@
   --gap: 8px;
   --status-in-progress-color: var(--vscode-charts-orange, #cd861a);
   --status-done-color: var(--vscode-charts-green, #4fb84f);
+  --priority-critical: #e81224;
+  --priority-high: #f7630c;
+  --priority-medium: #3794ff;
+  --priority-low: #8c8c8c;
   --ms-mgmt-row-hoverBackground: var(--vscode-list-activeSelectionBackground, var(--vscode-toolbar-hoverBackground));
 }
 
@@ -779,11 +783,6 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   gap: 8px;
 }
 
-/* Read-only note viewer modal */
-.modal-card.viewer-card {
-  /* max-width: min(640px, 92%); */
-}
-
 .modal-card .btn.btn-primary,
 .modal-card .btn.btn-ghost {
   min-width: 65px;
@@ -985,7 +984,204 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   user-select: none;
 }
 
-/* Grouped view: collapsible status sections */
+/* ===== Priority ===== */
+
+/* Each level sets --prio; every indicator reads it. --dm-marker-color feeds
+   the dot markers in the View menu (media/dropdown-menu.css). */
+.prio-critical {
+  --prio: var(--priority-critical);
+  --dm-marker-color: var(--priority-critical);
+}
+.prio-high {
+  --prio: var(--priority-high);
+  --dm-marker-color: var(--priority-high);
+}
+.prio-medium {
+  --prio: var(--priority-medium);
+  --dm-marker-color: var(--priority-medium);
+}
+.prio-low {
+  --prio: var(--priority-low);
+  --dm-marker-color: var(--priority-low);
+}
+
+.prio-dot {
+  flex: none;
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--prio, currentColor);
+}
+
+/* Card indicator: "dot" (before the title) */
+.card.prio-ind-dot .card-title .prio-dot {
+  margin-inline-end: 7px;
+  vertical-align: 1px;
+}
+
+/* Card indicator: "stripe" (start edge of the card) */
+.card.prio-ind-stripe {
+  box-shadow: inset 3px 0 0 var(--prio);
+  padding-left: 13px;
+}
+.card.prio-ind-stripe[dir="rtl"] {
+  box-shadow: inset -3px 0 0 var(--prio);
+  padding-left: 10px;
+  padding-right: 13px;
+}
+
+/* Card indicator: "typeStripe" (end edge of the type badge) */
+.card.prio-ind-typeStripe .card-type {
+  box-shadow: inset -3px 0 0 var(--prio);
+  padding-right: 12px;
+}
+.card.prio-ind-typeStripe[dir="rtl"] .card-type {
+  box-shadow: inset 3px 0 0 var(--prio);
+  padding-right: 9px;
+  padding-left: 12px;
+}
+
+/* Card indicator: "chip" (next to the status in the footer) */
+.prio-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  padding: 2px 8px 3px 6px;
+  border-radius: var(--radius-md);
+  color: var(--vscode-descriptionForeground);
+  background: var(--vscode-textBlockQuote-background);
+  user-select: none;
+}
+.prio-chip .prio-dot {
+  width: 7px;
+  height: 7px;
+}
+
+/* Visually hidden text that stays available to screen readers. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Note-editor priority control: a segmented radiogroup whose indicator
+   slides to the checked option (--pc-index / --pc-count are set from JS). */
+.pc {
+  --pc-color: var(--prio, var(--vscode-focusBorder));
+  --pc-text: #ffffff;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--pc-count, 4), 1fr);
+  padding: 3px;
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border, var(--vscode-widget-border, transparent));
+  border-radius: var(--radius);
+}
+.pc[data-value="critical"] {
+  --pc-color: var(--priority-critical);
+}
+.pc[data-value="high"] {
+  --pc-color: var(--priority-high);
+}
+.pc[data-value="medium"] {
+  --pc-color: var(--priority-medium);
+}
+/* White text on the gray Low color is below readable contrast. */
+.pc[data-value="low"] {
+  --pc-color: var(--priority-low);
+  --pc-text: #1e1e1e;
+}
+
+.pc-indicator {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  inset-inline-start: 3px;
+  width: calc((100% - 6px) / var(--pc-count, 4));
+  background: var(--vscode-toolbar-hoverBackground);
+  border-radius: 3px;
+  transform: translateX(calc(100% * var(--pc-index, 0)));
+  transition:
+    transform 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.22s ease;
+  pointer-events: none;
+}
+.pc[dir="rtl"] .pc-indicator,
+[dir="rtl"] .pc .pc-indicator {
+  transform: translateX(calc(-100% * var(--pc-index, 0)));
+}
+.pc.pc-empty .pc-indicator {
+  visibility: hidden;
+}
+
+.pc-option {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px 2px;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--vscode-foreground);
+  background: transparent;
+  border: 0;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.22s ease;
+}
+.pc-option:hover:not([aria-checked="true"]) {
+  background: color-mix(in srgb, var(--vscode-toolbar-hoverBackground) 70%, transparent);
+}
+.pc-option:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 1px;
+}
+
+.pc-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--prio);
+  transition: background-color 0.22s ease;
+}
+
+.pc-hint {
+  color: var(--vscode-editorWarning-foreground, var(--vscode-descriptionForeground));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pc-indicator,
+  .pc-option,
+  .pc-dot {
+    transition: none;
+  }
+}
+
+/* Toolbar "View" button (opens the DropdownMenu from media/dropdown-menu.js) */
+.view-options-btn .codicon {
+  font-size: 14px;
+}
+.view-options-btn[aria-expanded="true"] {
+  border-color: var(--vscode-focusBorder);
+}
+.view-options-filtered {
+  color: var(--vscode-focusBorder);
+}
+
+/* Grouped view: collapsible status / priority sections */
 .group {
   display: flex;
   flex-direction: column;
