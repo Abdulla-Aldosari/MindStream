@@ -237,6 +237,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
       </div>
       <label class="field"><span>Description (optional)</span><textarea id="f-desc" rows="3" placeholder="Extra details..."></textarea></label>
       <div class="modal-actions">
+        <button id="emoji-hint" class="emoji-hint" type="button">💡 Ctrl+Shift+/ inserts an emoji</button>
         <button id="modal-cancel" class="btn btn-ghost">Cancel</button>
         <button id="modal-save" class="btn btn-primary">Save</button>
       </div>

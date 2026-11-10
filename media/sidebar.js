@@ -2013,6 +2013,25 @@
   $("f-title").addEventListener("keydown", (e) => handleEmojiShortcut(e, $("f-title")));
   $("f-desc").addEventListener("keydown", (e) => handleEmojiShortcut(e, $("f-desc")));
 
+  // Track the last focused title/description field so the hint button opens
+  // the picker anchored to the right field, then inserts at its caret.
+  let lastEmojiField = null;
+  ["f-title", "f-desc"].forEach((id) => {
+    $(id).addEventListener("focus", () => {
+      lastEmojiField = $(id);
+    });
+  });
+  $("emoji-hint").addEventListener("click", () => {
+    const field = lastEmojiField && lastEmojiField.isConnected ? lastEmojiField : $("f-title");
+    openEmojiPicker(field);
+  });
+
+  // macOS uses Cmd instead of Ctrl; the keydown handler accepts both
+  // (metaKey or ctrlKey), so only the hint label differs per platform.
+  if (/Mac/i.test(navigator.platform || "") || /Macintosh/i.test(navigator.userAgent || "")) {
+    $("emoji-hint").textContent = "💡 ⌘⇧/ inserts an emoji";
+  }
+
   // Persist the description height only when the user manually resizes the
   // textarea (never on the programmatic apply that runs when the editor opens).
   const descObserver = new ResizeObserver((entries) => {
