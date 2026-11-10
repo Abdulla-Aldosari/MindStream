@@ -18,7 +18,8 @@ _A thought strikes mid-code. One shortcut later, it's a saved note, without ever
 - Category filter dropdown ("All Categories") to focus the list on one category at a time.
 - Three statuses — None / In Progress / Done — with one-click cycling, `Ctrl+Click` (or `Cmd+Click` on macOS) for direct jumps, and an append-only completion history.
 - Archiving fully independent of status (never changes a "Done" status), with a show/hide archive toggle.
-- View modes: Auto Sort / Fixed Order / Grouped (collapsible status sections with per-status counters).
+- Note priority (Critical / High / Medium / Low), shown on each card in the style you choose, or disabled entirely.
+- View menu: group by None / Status / Priority (collapsible sections with counters), sort by Date modified / Fixed order / Status / Priority, and show or hide individual priority levels.
 - Smooth reorder animations and a flash highlight on status change.
 - Export Markdown and Export JSON.
 - Import JSON with merge/replace options.
@@ -34,10 +35,11 @@ category, all from the sidebar._
 
 ## Settings
 
-| Setting                           | Type               | Default | Description                                                                                                                                                                           |
-| --------------------------------- | ------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `mindstream.ui.direction`         | `"ltr"` \| `"rtl"` | `"ltr"` | Reading direction for note titles and descriptions. Use `"rtl"` to read Arabic notes right-to-left; the interface keeps VS Code's default direction and all labels remain in English. |
-| `mindstream.copy.includeNoteInfo` | `boolean`          | `true`  | Include the note info section (category, type, status, and timestamps) when copying a note's content from the viewer.                                                                 |
+| Setting                           | Type                                                           | Default  | Description                                                                                                                                                                                                          |
+| --------------------------------- | -------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mindstream.ui.direction`         | `"ltr"` \| `"rtl"`                                             | `"ltr"`  | Reading direction for note titles and descriptions. Use `"rtl"` to read Arabic notes right-to-left; the interface keeps VS Code's default direction and all labels remain in English.                                |
+| `mindstream.copy.includeNoteInfo` | `boolean`                                                      | `true`   | Include the note info section (category, type, status, and timestamps) when copying a note's content from the viewer.                                                                                                |
+| `mindstream.priority.style`       | `"dot"` \| `"stripe"` \| `"chip"` \| `"typeStripe"` \| `"off"` | `"chip"` | How note priority is shown on cards: a dot before the title, a stripe on the card edge, a chip next to the status, or a stripe on the type badge. `"off"` disables the priority system (stored priorities are kept). |
 
 ## Storage
 
