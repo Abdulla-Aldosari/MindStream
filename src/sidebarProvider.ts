@@ -124,6 +124,15 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     return pick === "Delete";
   }
 
+  async confirmRestoreEmojiPalette(): Promise<boolean> {
+    const pick = await vscode.window.showWarningMessage(
+      "Restore the original emoji list? This resets the current list and any emoji you added will be lost.",
+      { modal: true },
+      "Restore"
+    );
+    return pick === "Restore";
+  }
+
   async pickType(types: { id: string; label: string; icon?: string }[]): Promise<string | undefined> {
     const items: (vscode.QuickPickItem & { typeId: string })[] = types.map((t) => ({
       label: t.label,
@@ -346,10 +355,13 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
         </div>
         <button id="emoji-edit-close" class="icon-btn close-x-btn" data-tooltip="Close">✕</button>
       </div>
-      <label class="field">
-        <span>Emoji</span>
+      <div class="field">
+        <div class="field-label-row">
+          <label for="f-emoji-list">Emoji</label>
+          <button id="emoji-restore-btn" class="link-btn" type="button">Restore original emoji list</button>
+        </div>
         <textarea id="f-emoji-list" rows="4" placeholder="Paste or type emoji one after another..."></textarea>
-      </label>
+      </div>
       <div id="emoji-edit-preview" class="emoji-edit-preview"></div>
       <div class="modal-actions">
         <span id="emoji-notice" class="emoji-notice" hidden></span>

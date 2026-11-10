@@ -1668,6 +1668,10 @@
     closeEmojiEditModal();
   }
 
+  function restoreEmojiPalette() {
+    vscode.postMessage({ type: "restoreEmojiPalette" });
+  }
+
   function showEmojiNotice(text) {
     const el = $("emoji-notice");
     if (!el.hidden) {
@@ -1790,6 +1794,11 @@
     state.direction = msg.direction === "rtl" ? "rtl" : "ltr";
     state.emojiPalette = msg.emojiPalette || [];
     state.emojiRecents = msg.emojiRecents || [];
+    // Keep the open emoji edit modal in sync after a server-side restore.
+    if (!$("emoji-edit-modal").hidden) {
+      $("f-emoji-list").value = state.emojiPalette.join("");
+      renderEmojiEditPreview();
+    }
     state.descriptionHeight = typeof msg.descriptionHeight === "number" ? msg.descriptionHeight : DEFAULT_DESCRIPTION_HEIGHT;
     state.copyIncludeNoteInfo = msg.copyIncludeNoteInfo !== false;
     const prevPriorityEditor = state.priority.editor;
@@ -2056,6 +2065,7 @@
   $("emoji-edit-close").addEventListener("click", closeEmojiEditModal);
   $("emoji-edit-cancel").addEventListener("click", closeEmojiEditModal);
   $("emoji-edit-save").addEventListener("click", saveEmojiEdit);
+  $("emoji-restore-btn").addEventListener("click", restoreEmojiPalette);
   $("f-emoji-list").addEventListener("input", renderEmojiEditPreview);
   $("f-emoji-list").addEventListener("paste", handleEmojiPaste);
 

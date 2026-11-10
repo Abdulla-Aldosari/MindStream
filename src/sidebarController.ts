@@ -3,7 +3,7 @@ import { DEFAULT_PRIORITY, isPriority } from "./priority";
 import { ItemsStore } from "./itemsStore";
 import { TypesRegistry } from "./typesRegistry";
 import { CategoriesRegistry } from "./categoriesRegistry";
-import { EmojiRegistry } from "./emojiRegistry";
+import { DEFAULT_EMOJI_PALETTE, EmojiRegistry } from "./emojiRegistry";
 import { UiPrefsRegistry } from "./uiPrefs";
 
 export interface WebviewMessage {
@@ -25,6 +25,7 @@ export interface WebviewMessage {
     | "deleteType"
     | "recordEmojiUse"
     | "updateEmojiPalette"
+    | "restoreEmojiPalette"
     | "setDescriptionHeight"
     | "copyToClipboard";
   id?: string;
@@ -49,6 +50,7 @@ export interface SidebarUi {
   confirmDeleteNote(title: string): Promise<boolean>;
   confirmDeleteCategory(label: string, count: number): Promise<boolean>;
   confirmDeleteType(label: string): Promise<boolean>;
+  confirmRestoreEmojiPalette(): Promise<boolean>;
   pickType(types: { id: string; label: string; icon?: string }[]): Promise<string | undefined>;
   showInfo(message: string): void;
 }
@@ -200,6 +202,11 @@ export class SidebarController {
       case "updateEmojiPalette":
         if (msg.palette) {
           await this.emoji.setPalette(msg.palette);
+        }
+        break;
+      case "restoreEmojiPalette":
+        if (await this.ui.confirmRestoreEmojiPalette()) {
+          await this.emoji.setPalette(DEFAULT_EMOJI_PALETTE);
         }
         break;
       case "setDescriptionHeight":
