@@ -1421,7 +1421,7 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 .emoji-section-label {
   font-size: 11px;
   color: var(--vscode-descriptionForeground);
-  margin-bottom: 2px;
+  margin: 0px 0px 2px 4px;
 }
 
 .emoji-recents-grid,
@@ -1435,8 +1435,9 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 }
 
 .emoji-symbols-row {
-  border-top: 1px solid var(--vscode-widget-border, #444);
-  padding-top: 8px;
+  background: color-mix(in srgb, var(--vscode-editor-background) 80%, #7d7d7d75);
+  border-radius: 6px;
+  padding: 4px;
 }
 
 .emoji-grid {
@@ -1449,8 +1450,8 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
@@ -1458,12 +1459,12 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   color: var(--vscode-foreground);
   cursor: pointer;
   flex-shrink: 0;
-  font-size: 18px;
+  font-size: 14px;
   line-height: 1;
 }
 
 .emoji-pick:hover {
-  border-color: var(--vscode-focusBorder);
+  background: color-mix(in srgb, var(--vscode-editor-background) 30%, #7d7d7d75);
 }
 
 .emoji-pick:focus-visible {

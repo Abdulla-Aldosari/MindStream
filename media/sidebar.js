@@ -1596,7 +1596,7 @@
     const rect = input.getBoundingClientRect();
     const vw = document.documentElement.clientWidth;
     const vh = document.documentElement.clientHeight;
-    const width = Math.max(220, Math.min(rect.width, vw - 16));
+    const width = Math.max(100, Math.min(rect.width, vw - 16));
     picker.style.setProperty("--picker-width", `${width}px`);
 
     let left = rect.left;
@@ -2052,6 +2052,12 @@
     if ($("emoji-picker").hidden) return;
     if ($("emoji-picker").contains(e.target)) return;
     closeEmojiPicker();
+  });
+
+  // Keep the open picker pinned to its input when the window is resized.
+  window.addEventListener("resize", () => {
+    if ($("emoji-picker").hidden) return;
+    if (state.emojiTarget) positionEmojiPicker(state.emojiTarget);
   });
 
   // Close the icons picker when clicking or focusing anywhere outside it,
