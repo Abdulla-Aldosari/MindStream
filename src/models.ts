@@ -7,12 +7,44 @@ export type MindStreamStatus = "pending" | "in-progress" | "done";
 /** Note priority levels, highest first. Constants and helpers live in `priority.ts`. */
 export type MindStreamPriority = "critical" | "high" | "medium" | "low";
 
-/** Optional link to a specific code/file location — future design, not used in the UI yet. */
+/**
+ * Snapshot of the linked code, used to re-find it after the file changes.
+ * Every string is trimmed and length-capped (see `normalizeLine` in `linkResolver.ts`).
+ */
+export interface MindStreamLinkAnchor {
+  /** The first lines of the linked range (at most `MAX_ANCHOR_LINES`). */
+  text: string[];
+  /**
+   * The last lines of the range, stored only when it is longer than
+   * `MAX_ANCHOR_LINES`. It lets the end of the range be re-found too.
+   */
+  endText?: string[];
+  /** The line right before the range ("" at the start of the file). */
+  before: string;
+  /** The line right after the range ("" at the end of the file). */
+  after: string;
+}
+
+/**
+ * - `ok`: the location was found where it was recorded (or relocated).
+ * - `changed`: the file exists but the recorded code could not be found.
+ * - `missing`: the file no longer exists at `filePath`.
+ */
+export type MindStreamLinkState = "ok" | "changed" | "missing";
+
+/**
+ * Link from a note to a code location. Created only by the editor context
+ * menu command; it is never editable from the note editor.
+ */
 export interface MindStreamLink {
+  /** Path relative to the workspace folder, always with `/` separators. */
   filePath: string;
-  lineStart?: number;
+  /** 1-based first line of the linked range. */
+  lineStart: number;
+  /** 1-based last line of the range; absent for a single line. */
   lineEnd?: number;
-  gitCommit?: string;
+  anchor?: MindStreamLinkAnchor;
+  state: MindStreamLinkState;
 }
 
 /** A single entry in the notes roadmap. */

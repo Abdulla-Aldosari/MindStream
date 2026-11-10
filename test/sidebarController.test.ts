@@ -89,6 +89,55 @@ describe("SidebarController.handleMessage", () => {
     assert.strictEqual(items.list().length, 0);
   });
 
+  describe("code link", () => {
+    const link = { filePath: "src/a.ts", lineStart: 3, state: "ok" as const };
+
+    it("addItem attaches the host's pending link only when the form was linked", async () => {
+      const { items, controller, typeId } = setup();
+      controller.setPendingLink(link);
+      await controller.handleMessage({ type: "addItem", title: "A", typeId, linked: true });
+      assert.deepStrictEqual(items.list()[0].link, link);
+    });
+
+    it("addItem ignores a pending link when the webview did not flag the form as linked", async () => {
+      const { items, controller, typeId } = setup();
+      controller.setPendingLink(link);
+      await controller.handleMessage({ type: "addItem", title: "A", typeId });
+      assert.strictEqual(items.list()[0].link, undefined);
+    });
+
+    it("addItem never trusts a link sent by the webview", async () => {
+      const { items, controller, typeId } = setup();
+      const forged = { type: "addItem", title: "A", typeId, linked: true, link: { filePath: "../x", lineStart: 1 } };
+      await controller.handleMessage(forged as never);
+      assert.strictEqual(items.list()[0].link, undefined);
+    });
+
+    it("the pending link is consumed by one addItem", async () => {
+      const { items, controller, typeId } = setup();
+      controller.setPendingLink(link);
+      await controller.handleMessage({ type: "addItem", title: "A", typeId, linked: true });
+      await controller.handleMessage({ type: "addItem", title: "B", typeId, linked: true });
+      assert.strictEqual(items.list()[1].link, undefined);
+    });
+
+    it("updateItem cannot change or remove an existing link", async () => {
+      const { items, controller, typeId } = setup();
+      const note = items.create({ typeId, title: "A", link });
+      const forged = { type: "updateItem", id: note.id, title: "B", link: { filePath: "other.ts", lineStart: 9, state: "ok" } };
+      await controller.handleMessage(forged as never);
+      assert.strictEqual(items.get(note.id)?.title, "B");
+      assert.deepStrictEqual(items.get(note.id)?.link, link);
+    });
+
+    it("updateItem cannot add a link to a plain note", async () => {
+      const { items, controller, typeId } = setup();
+      const note = items.create({ typeId, title: "A" });
+      await controller.handleMessage({ type: "updateItem", id: note.id, linked: true, title: "B" });
+      assert.strictEqual(items.get(note.id)?.link, undefined);
+    });
+  });
+
   describe("priority", () => {
     it("addItem stores the chosen priority while enabled", async () => {
       const { items, controller, typeId } = setup(true);

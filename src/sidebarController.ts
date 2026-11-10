@@ -1,4 +1,4 @@
-import { MindStreamStatus } from "./models";
+import { MindStreamLink, MindStreamStatus } from "./models";
 import { DEFAULT_PRIORITY, isPriority } from "./priority";
 import { ItemsStore } from "./itemsStore";
 import { TypesRegistry } from "./typesRegistry";
@@ -27,8 +27,15 @@ export interface WebviewMessage {
     | "updateEmojiPalette"
     | "restoreEmojiPalette"
     | "setDescriptionHeight"
-    | "copyToClipboard";
+    | "copyToClipboard"
+    | "openLink";
   id?: string;
+  /**
+   * Set by the webview on `addItem` when the open form was started from the
+   * editor context menu. The link itself never comes from the webview: the
+   * host keeps it (see `SidebarController.setPendingLink`).
+   */
+  linked?: boolean;
   title?: string;
   description?: string;
   typeId?: string;
@@ -61,6 +68,9 @@ export interface SidebarUi {
  * the injected registries and asks for confirmations through the injected `ui`.
  */
 export class SidebarController {
+  /** Link prepared by the "Add note to this line" command, consumed by the next `addItem`. */
+  private pendingLink: MindStreamLink | undefined;
+
   constructor(
     private readonly items: ItemsStore,
     private readonly types: TypesRegistry,
@@ -72,11 +82,19 @@ export class SidebarController {
     private readonly priorityEnabled: () => boolean = () => true
   ) {}
 
+  /** Sets (or clears, with `undefined`) the link the next linked note will be created with. */
+  setPendingLink(link: MindStreamLink | undefined): void {
+    this.pendingLink = link;
+  }
+
   async handleMessage(msg: WebviewMessage): Promise<void> {
     switch (msg.type) {
-      case "addItem":
+      case "addItem": {
+        const link = msg.linked === true ? this.pendingLink : undefined;
+        this.pendingLink = undefined;
         if (msg.title?.trim() && msg.typeId) {
           this.items.create({
+            link,
             typeId: msg.typeId,
             title: msg.title.trim(),
             description: msg.description,
@@ -87,6 +105,7 @@ export class SidebarController {
           });
         }
         break;
+      }
       case "updateItem":
         if (msg.id) {
           this.items.update(msg.id, {

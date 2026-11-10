@@ -75,6 +75,12 @@
         "icon": "$(add)"
       },
       {
+        "command": "mindstream.addNoteToLine",
+        "title": "Add note to this line",
+        "category": "MindStream",
+        "icon": "$(comment-add)"
+      },
+      {
         "command": "mindstream.manageTypes",
         "title": "Manage Types",
         "category": "MindStream",
@@ -130,6 +136,19 @@
       }
     ],
     "menus": {
+      "editor/context": [
+        {
+          "command": "mindstream.addNoteToLine",
+          "when": "editorTextFocus && resourceScheme == file",
+          "group": "mindstream@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "mindstream.addNoteToLine",
+          "when": "false"
+        }
+      ],
       "view/title": [
         {
           "command": "mindstream.addNote",

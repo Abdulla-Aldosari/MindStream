@@ -1550,3 +1550,66 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   color: var(--vscode-errorForeground, #f14c4c);
   align-self: center;
 }
+
+/* Read-only code link of a note (card, viewer, and note editor) */
+.card-link,
+.viewer-link {
+  display: flex;
+  min-width: 0;
+}
+
+.viewer-link {
+  padding: 0 2px 6px 2px;
+}
+
+.link-readonly {
+  display: flex;
+  min-width: 0;
+}
+
+.link-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 2px 8px 3px 6px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11px;
+  color: var(--vscode-textLink-foreground);
+  background: var(--vscode-textBlockQuote-background);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.link-badge:hover {
+  border-color: var(--vscode-textLink-foreground);
+}
+
+.link-badge:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 1px;
+}
+
+.link-badge .codicon {
+  flex-shrink: 0;
+}
+
+.link-badge-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link-badge.link-changed {
+  color: var(--vscode-editorWarning-foreground);
+}
+
+.link-badge.link-missing {
+  color: var(--vscode-descriptionForeground);
+}
+
+.link-badge.link-missing .link-badge-text {
+  text-decoration: line-through;
+}

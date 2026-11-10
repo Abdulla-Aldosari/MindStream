@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
-import { MindStreamStatus } from "./models";
+import { MindStreamLink, MindStreamStatus } from "./models";
+import { LinkTracker } from "./linkTracker";
 import { ItemsStore } from "./itemsStore";
 import { TypesRegistry } from "./typesRegistry";
 import { CategoriesRegistry } from "./categoriesRegistry";
@@ -11,6 +12,9 @@ import { getBodyClass } from "./util";
 import { DEFAULT_PRIORITY, normalizePriorityStyle, PRIORITIES, PRIORITY_LABEL, PriorityStyle, priorityFeatures } from "./priority";
 
 export const VIEW_TYPE = "mindstream.sidebar";
+
+/** Upper bound for waiting on a never-opened panel before giving up on "Add note to this line". */
+const VIEW_READY_TIMEOUT_MS = 5000;
 
 const STATUS_LABEL: Record<MindStreamStatus, string> = {
   pending: "None",
@@ -27,6 +31,10 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
   private _archiveVisible = false;
 
   private readonly controller: SidebarController;
+  private resolveViewReady: (() => void) | undefined;
+  private readonly viewReady = new Promise<void>((resolve) => {
+    this.resolveViewReady = resolve;
+  });
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -35,6 +43,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     private readonly categories: CategoriesRegistry,
     private readonly emoji: EmojiRegistry,
     private readonly uiPrefs: UiPrefsRegistry,
+    private readonly links: LinkTracker,
     private readonly isDevMode: boolean = false
   ) {
     this.controller = new SidebarController(items, types, categories, this.emoji, this.uiPrefs, this, () => this.getPriorityStyle() !== "off");
@@ -48,8 +57,14 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     };
     webviewView.webview.html = this.getHtml(webviewView.webview);
     webviewView.webview.onDidReceiveMessage((msg: WebviewMessage) => this.handleMessage(msg));
+    webviewView.onDidChangeVisibility(() => {
+      if (webviewView.visible) {
+        this.refresh();
+      }
+    });
     this.updateBadge();
     this.postState();
+    this.resolveViewReady?.();
   }
 
   refresh(): void {
@@ -59,7 +74,25 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
 
   /** Tells the webview to open the note editor modal. */
   openAddNote(): void {
+    this.controller.setPendingLink(undefined);
     this._view?.webview.postMessage({ type: "openAddNote" });
+  }
+
+  /**
+   * Opens the note editor for a note that will be linked to a code location.
+   * The link stays in the host; the webview only receives what it must display.
+   */
+  async openAddNoteForLink(link: MindStreamLink): Promise<void> {
+    await vscode.commands.executeCommand("workbench.view.extension.mindstream");
+    if (!this._view) {
+      // The panel was never opened: wait (bounded) for it to be created.
+      await Promise.race([this.viewReady, new Promise<void>((resolve) => setTimeout(resolve, VIEW_READY_TIMEOUT_MS))]);
+    }
+    if (!this._view) {
+      return;
+    }
+    this.controller.setPendingLink(link);
+    void this._view.webview.postMessage({ type: "openAddNote", link });
   }
 
   /** Tells the webview to open the categories management modal. */
@@ -102,10 +135,41 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
         }
         return;
       }
+      if (msg.type === "openLink") {
+        if (msg.id) {
+          await this.openLinkedLocation(msg.id);
+        }
+        return;
+      }
       await this.controller.handleMessage(msg);
       this.refresh();
     } catch (err) {
       void vscode.window.showErrorMessage(`MindStream: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  /** Re-finds the linked code, then opens the file at its line (or explains why it cannot). */
+  private async openLinkedLocation(id: string): Promise<void> {
+    const resolved = await this.links.resolveItem(id);
+    if (!resolved) {
+      return;
+    }
+    this.refresh();
+    const { link, outcome } = resolved;
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    if (outcome === "missing" || !root) {
+      void vscode.window.showWarningMessage(`MindStream: "${link.filePath}" no longer exists at this path. The note is kept.`);
+      return;
+    }
+    const uri = vscode.Uri.joinPath(root, ...link.filePath.split("/"));
+    const line = Math.max(0, link.lineStart - 1);
+    const lineEnd = Math.max(line, (link.lineEnd ?? link.lineStart) - 1);
+    const editor = await vscode.window.showTextDocument(uri, {
+      selection: new vscode.Range(line, 0, lineEnd, Number.MAX_SAFE_INTEGER),
+    });
+    editor.revealRange(new vscode.Range(line, 0, line, 0), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+    if (outcome === "changed") {
+      void vscode.window.showWarningMessage("MindStream: the linked code changed, so the line shown may no longer match the note.");
     }
   }
 
@@ -151,7 +215,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
   }
 
   private postState(): void {
-    if (!this._view) {
+    // A hidden panel is not rendered; it receives the latest state once it is shown again.
+    if (!this._view || !this._view.visible) {
       return;
     }
     void this._view.webview.postMessage({
@@ -195,6 +260,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "sidebar.js"));
     const iconClassUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "iconClass.js"));
     const defaultTypeUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "defaultType.js"));
+    const linkPathUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "linkPath.js"));
     const emojiUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "emoji.js"));
     const tooltipUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "tooltip.js"));
     const codiconNamesUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "codicon-names.js"));
@@ -234,6 +300,10 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
         <span id="modal-title">New note</span>
         <button id="modal-close" class="icon-btn close-x-btn" data-tooltip="Close">✕</button>
       </div>
+      <div id="f-link-field" class="field" hidden>
+        <span>Linked to code</span>
+        <div id="f-link" class="link-readonly"></div>
+      </div>
       <label class="field"><span>Title</span><input id="f-title" type="text" placeholder="Write the idea/task briefly"></label>
       <div class="field"><span>Type</span><div id="f-type-container"></div></div>
       <div class="field"><span>Category</span><div id="f-category-container"></div></div>
@@ -268,6 +338,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
           <div id="view-desc-content" class="viewer-desc-content"></div>
         </div>
       </div>
+      <div id="view-link" class="viewer-link" hidden></div>
       <div id="view-timestamps" class="viewer-timestamps"></div>
       <div class="modal-actions">
         <div class="viewer-meta">
@@ -373,6 +444,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
   <script nonce="${nonce}" src="${codiconNamesUri}"></script>
   <script nonce="${nonce}" src="${iconClassUri}"></script>
   <script nonce="${nonce}" src="${defaultTypeUri}"></script>
+  <script nonce="${nonce}" src="${linkPathUri}"></script>
   <script nonce="${nonce}" src="${emojiUri}"></script>
   <script nonce="${nonce}" src="${tooltipUri}"></script>
   <script nonce="${nonce}" src="${dropdownMenuUri}"></script>
