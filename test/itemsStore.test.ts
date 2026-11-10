@@ -38,6 +38,31 @@ describe("ItemsStore", () => {
     assert.strictEqual(item.statusHistory[0].status, "done");
   });
 
+  it("create omits the priority key entirely when none is given", () => {
+    const { storage, items, typeId } = setup();
+    const item = items.create({ typeId, title: "No priority" });
+    assert.strictEqual("priority" in item, false);
+    assert.strictEqual(JSON.stringify(storage.getData()).includes('"priority"'), false);
+  });
+
+  it("create stores a given priority", () => {
+    const { items, typeId } = setup();
+    assert.strictEqual(items.create({ typeId, title: "P", priority: "high" }).priority, "high");
+  });
+
+  it("update sets a priority and leaves it untouched when omitted", () => {
+    const { items, typeId } = setup();
+    const unassigned = items.create({ typeId, title: "A" });
+    items.update(unassigned.id, { title: "A2" });
+    assert.strictEqual("priority" in items.get(unassigned.id)!, false);
+
+    const assigned = items.create({ typeId, title: "B", priority: "critical" });
+    items.update(assigned.id, { title: "B2" });
+    assert.strictEqual(items.get(assigned.id)!.priority, "critical");
+    items.update(assigned.id, { priority: "medium" });
+    assert.strictEqual(items.get(assigned.id)!.priority, "medium");
+  });
+
   it("get returns an item or undefined", () => {
     const { items, typeId } = setup();
     const item = items.create({ typeId, title: "X" });

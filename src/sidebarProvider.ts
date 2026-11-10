@@ -8,6 +8,7 @@ import { UiPrefsRegistry } from "./uiPrefs";
 import { WeeklyReportData } from "./report";
 import { SidebarController, SidebarUi, WebviewMessage } from "./sidebarController";
 import { getBodyClass } from "./util";
+import { DEFAULT_PRIORITY, normalizePriorityStyle, PRIORITIES, PRIORITY_LABEL, PriorityStyle, priorityFeatures } from "./priority";
 
 export const VIEW_TYPE = "mindstream.sidebar";
 
@@ -36,7 +37,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     private readonly uiPrefs: UiPrefsRegistry,
     private readonly isDevMode: boolean = false
   ) {
-    this.controller = new SidebarController(items, types, categories, this.emoji, this.uiPrefs, this);
+    this.controller = new SidebarController(items, types, categories, this.emoji, this.uiPrefs, this, () => this.getPriorityStyle() !== "off");
   }
 
   resolveWebviewView(webviewView: vscode.WebviewView, _context: vscode.WebviewViewResolveContext, _token: vscode.CancellationToken): void {
@@ -156,7 +157,18 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
       emojiRecents: this.emoji.recents(),
       descriptionHeight: this.uiPrefs.descriptionHeight(),
       copyIncludeNoteInfo: this.getCopyIncludeNoteInfo(),
+      priority: {
+        ...priorityFeatures(this.getPriorityStyle()),
+        levels: PRIORITIES,
+        labels: PRIORITY_LABEL,
+        defaultValue: DEFAULT_PRIORITY,
+      },
     });
+  }
+
+  /** Reads the priority style setting (an unknown value falls back to the default). */
+  private getPriorityStyle(): PriorityStyle {
+    return normalizePriorityStyle(vscode.workspace.getConfiguration("mindstream").get<string>("priority.style"));
   }
 
   /** Reads the UI direction setting (defaults to 'ltr'). */
@@ -179,6 +191,9 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     const codiconNamesUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "codicon-names.js"));
     const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "sidebar.css"));
     const codiconCssUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "codicon.css"));
+    const dropdownMenuUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "dropdown-menu.js"));
+    const dropdownMenuCssUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "dropdown-menu.css"));
+    const viewOptionsUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "viewOptions.js"));
     const nonce = getNonce();
     return `<!DOCTYPE html>
 <html lang="en" dir="ltr">
@@ -187,6 +202,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data:; font-src ${webview.cspSource};">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link href="${codiconCssUri}" rel="stylesheet">
+  <link href="${dropdownMenuCssUri}" rel="stylesheet">
   <link href="${styleUri}?v=${Date.now()}" rel="stylesheet">
   <title>MindStream</title>
 </head>
@@ -194,7 +210,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
   <div id="toolbar" class="toolbar">
     <div id="category-filter-container"></div>
     <div id="type-filter-container"></div>
-    <div id="view-mode-container"></div>
+    <button id="view-options-btn" class="cs-btn cs-btn-toolbar view-options-btn" type="button" data-tooltip="View options">
+      <span id="view-options-icon" class="codicon codicon-list-filter" aria-hidden="true"></span>
+      <span id="view-options-label" class="cs-btn-label">View</span>
+      <span class="codicon codicon-chevron-down view-options-chevron" aria-hidden="true"></span>
+    </button>
     <button id="btn-archive-toggle" class="btn btn-ghost" data-tooltip="Show/hide archive">Archive</button>
   </div>
   <div id="empty" class="empty" hidden></div>
@@ -208,6 +228,13 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
       <label class="field"><span>Title</span><input id="f-title" type="text" placeholder="Write the idea/task briefly"></label>
       <div class="field"><span>Type</span><div id="f-type-container"></div></div>
       <div class="field"><span>Category</span><div id="f-category-container"></div></div>
+      <div id="f-priority-field" class="field" hidden>
+        <span id="f-priority-label">Priority</span>
+        <div id="f-priority" class="pc" role="radiogroup" aria-labelledby="f-priority-label">
+          <div class="pc-indicator" aria-hidden="true"></div>
+        </div>
+        <div id="f-priority-hint" class="pc-hint" hidden>No priority assigned - Select one.</div>
+      </div>
       <label class="field"><span>Description (optional)</span><textarea id="f-desc" rows="3" placeholder="Extra details..."></textarea></label>
       <div class="modal-actions">
         <button id="modal-cancel" class="btn btn-ghost">Cancel</button>
@@ -335,6 +362,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
   <script nonce="${nonce}" src="${defaultTypeUri}"></script>
   <script nonce="${nonce}" src="${emojiUri}"></script>
   <script nonce="${nonce}" src="${tooltipUri}"></script>
+  <script nonce="${nonce}" src="${dropdownMenuUri}"></script>
+  <script nonce="${nonce}" src="${viewOptionsUri}"></script>
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;

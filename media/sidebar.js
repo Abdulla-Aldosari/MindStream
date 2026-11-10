@@ -6,7 +6,6 @@
   // system (media/tooltip.js) is loaded the same way.
 
   const STATUS_CYCLE = ["pending", "in-progress", "done"];
-  const STATUS_ORDER = { pending: 0, "in-progress": 1, done: 2 };
   // Unique codicon names (one per glyph, shortest alias per glyph), generated
   // at build time from the codicons package and loaded before this script.
   const AVAILABLE_ICONS = window.CODICON_NAMES && window.CODICON_NAMES.length ? window.CODICON_NAMES : ["wrench", "edit", "star", "sync", "code", "beaker", "note", "link", "tag"];
@@ -30,8 +29,13 @@
     statusLabels: {},
     includeArchived: false,
     editingId: null,
-    viewMode: saved.viewMode || "auto",
-    collapsed: saved.collapsed || {},
+    // Group / sort / priority filter; rules live in media/viewOptions.js.
+    view: ViewOptions.restoreView(saved),
+    collapsed: ViewOptions.restoreCollapsed(saved.collapsed),
+    // Priority feature set from the host (disabled until the first state arrives).
+    priority: ViewOptions.NO_PRIORITY,
+    // Value picked in the note editor's priority control (null = none selected).
+    formPriority: null,
     categoryFilter: saved.categoryFilter || "all",
     typeFilter: saved.typeFilter || "all",
     formTypeId: null,
@@ -58,7 +62,9 @@
 
   function persist() {
     vscode.setState({
-      viewMode: state.viewMode,
+      groupBy: state.view.groupBy,
+      sortBy: state.view.sortBy,
+      hiddenPriorities: state.view.hiddenPriorities,
       collapsed: state.collapsed,
       categoryFilter: state.categoryFilter,
       typeFilter: state.typeFilter,
@@ -344,36 +350,10 @@
     return items.filter((it) => it.typeId === state.typeFilter);
   }
 
-  function byCreatedAsc(a, b) {
-    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-  }
-
-  function autoSorted() {
-    return [...filteredItems()].sort((a, b) => {
-      const s = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
-      if (s !== 0) {
-        return s;
-      }
-      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-    });
-  }
-
-  function orderedItems() {
-    if (state.viewMode === "auto") {
-      return autoSorted();
-    }
-    return [...filteredItems()].sort(byCreatedAsc); // fixed: stable creation order
-  }
-
-  function groupedByStatus() {
-    const groups = { pending: [], "in-progress": [], done: [] };
-    for (const item of filteredItems()) {
-      (groups[item.status] || groups.pending).push(item);
-    }
-    for (const key of Object.keys(groups)) {
-      groups[key].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-    }
-    return groups;
+  // Category/type filters, then the priority filter. Items arrive from the
+  // host in file order, which "Fixed order" keeps as-is.
+  function visibleItems() {
+    return ViewOptions.visibleItems(filteredItems(), state.view, state.priority);
   }
 
   function renderEmptyState() {
@@ -400,6 +380,12 @@
       return;
     }
 
+    if (visibleItems().length === 0) {
+      emptyEl.innerHTML = `<div class="empty-text">All notes here are hidden by the priority filter.</div><button type="button" class="btn btn-primary empty-show-all-btn">Show all priorities</button>`;
+      emptyEl.hidden = false;
+      return;
+    }
+
     emptyEl.hidden = true;
   }
 
@@ -409,27 +395,27 @@
     listEl.innerHTML = "";
     renderEmptyState();
 
-    if (filteredItems().length === 0) {
+    const visible = visibleItems();
+    if (visible.length === 0) {
       return;
     }
 
-    if (state.viewMode === "grouped") {
-      const groups = groupedByStatus();
-      const order = ["pending", "in-progress", "done"];
-      for (const statusKey of order) {
-        const items = groups[statusKey];
+    const sorted = ViewOptions.sortItems(visible, state.view, state.priority);
+    const groups = ViewOptions.buildGroups(sorted, state.view, state.priority, state.statusLabels);
+    if (groups) {
+      for (const group of groups) {
         const section = document.createElement("div");
         section.className = "group";
-        section.appendChild(buildGroupHeader(statusKey, items));
-        if (!state.collapsed[statusKey]) {
-          for (const item of items) {
+        section.appendChild(buildGroupHeader(group));
+        if (!state.collapsed[group.key]) {
+          for (const item of group.items) {
             section.appendChild(buildCard(item));
           }
         }
         listEl.appendChild(section);
       }
     } else {
-      for (const item of orderedItems()) {
+      for (const item of sorted) {
         listEl.appendChild(buildCard(item));
       }
     }
@@ -437,8 +423,8 @@
     // Mark cards whose description is truncated so the "view" button appears.
     markTruncatedCards();
 
-    // FLIP animation (only when order actually changes)
-    if (state.viewMode === "auto" || state.viewMode === "grouped") {
+    // FLIP animation; "Fixed order" without groups never reorders on edits.
+    if (ViewOptions.sortChain(state.view, state.priority).length > 0 || groups) {
       animateFlip(prevPositions, changedIds);
     }
   }
@@ -502,14 +488,37 @@
     const head = document.createElement("div");
     head.className = "card-head";
 
+    // Priority indicator (style chosen by the mindstream.priority.style
+    // setting). Notes without a priority get none, so unassigned notes are
+    // never shown as an implicit level.
+    const indicator = state.priority.cardIndicator;
+    const level = indicator && state.priority.levels.includes(item.priority) ? item.priority : null;
+    const levelText = level ? `Priority: ${state.priority.labels[level] || level}` : "";
+    if (level) {
+      card.classList.add(`prio-${level}`, `prio-ind-${indicator}`);
+    }
+
     const title = document.createElement("div");
     title.className = "card-title";
-    title.textContent = item.title;
+    if (level && indicator === "dot") {
+      title.appendChild(buildPriorityDot(level, levelText));
+    }
+    title.appendChild(document.createTextNode(item.title));
+    // Stripe styles are color-only; give screen readers the level as text.
+    if (level && (indicator === "stripe" || indicator === "typeStripe")) {
+      const srText = document.createElement("span");
+      srText.className = "sr-only";
+      srText.textContent = ` (${levelText})`;
+      title.appendChild(srText);
+    }
     head.appendChild(title);
 
     const typeBadge = document.createElement("span");
     typeBadge.className = "card-type";
     typeBadge.innerHTML = `<span class="${iconClass(t.icon)}"></span> ${esc(t.label)}`;
+    if (level && indicator === "typeStripe") {
+      typeBadge.dataset.tooltip = levelText;
+    }
     head.appendChild(typeBadge);
     card.appendChild(head);
 
@@ -528,9 +537,32 @@
     status.textContent = state.statusLabels[item.status] || item.status;
     footer.appendChild(status);
 
+    if (level && indicator === "chip") {
+      const chip = document.createElement("span");
+      chip.className = "prio-chip";
+      chip.appendChild(buildPriorityDot(level, ""));
+      chip.appendChild(document.createTextNode(state.priority.labels[level] || level));
+      footer.appendChild(chip);
+    }
+
     card.appendChild(footer);
 
     return card;
+  }
+
+  // Small colored dot for a priority level. With `label`, it is announced to
+  // screen readers and shows the label as a tooltip; without, it is decorative.
+  function buildPriorityDot(level, label) {
+    const dot = document.createElement("span");
+    dot.className = `prio-dot prio-${level}`;
+    if (label) {
+      dot.setAttribute("role", "img");
+      dot.setAttribute("aria-label", label);
+      dot.dataset.tooltip = label;
+    } else {
+      dot.setAttribute("aria-hidden", "true");
+    }
+    return dot;
   }
 
   function buildCard(item) {
@@ -578,26 +610,39 @@
     });
   }
 
-  function buildGroupHeader(statusKey, items) {
+  // group: { key, label, level, items } from ViewOptions.buildGroups().
+  // `key` is scoped ("status:done", "priority:high") so collapse state never
+  // leaks between grouping modes.
+  function buildGroupHeader(group) {
     const header = document.createElement("div");
-    header.className = "group-header" + (state.collapsed[statusKey] ? " collapsed" : "");
-    header.dataset.group = statusKey;
+    header.className = `group-header${state.collapsed[group.key] ? " collapsed" : ""}`;
+    header.dataset.group = group.key;
 
     const chevron = document.createElement("span");
     chevron.className = "chevron codicon codicon-chevron-down";
     header.appendChild(chevron);
 
+    if (group.level) {
+      const dot = document.createElement("span");
+      dot.className = `prio-dot prio-${group.level}`;
+      header.appendChild(dot);
+    }
+
     const label = document.createElement("span");
-    label.textContent = state.statusLabels[statusKey] || statusKey;
+    label.textContent = group.label;
     header.appendChild(label);
 
     const count = document.createElement("span");
     count.className = "group-count";
-    count.textContent = `(${items.length})`;
+    count.textContent = `(${group.items.length})`;
     header.appendChild(count);
 
     header.addEventListener("click", () => {
-      state.collapsed[statusKey] = !state.collapsed[statusKey];
+      if (state.collapsed[group.key]) {
+        delete state.collapsed[group.key];
+      } else {
+        state.collapsed[group.key] = true;
+      }
       persist();
       renderList();
     });
@@ -682,6 +727,94 @@
     });
   }
 
+  // --- Note-editor priority control (segmented radiogroup) ---
+  // Rendered only while the priority system is enabled. `value` is the
+  // level to select, or null for "no priority yet" (an existing note without
+  // a priority), which shows a hint and selects nothing until the user picks.
+  function fillPriorityControl(value) {
+    const field = $("f-priority-field");
+    const enabled = state.priority.editor;
+    field.hidden = !enabled;
+    const levels = enabled ? state.priority.levels : [];
+    state.formPriority = levels.includes(value) ? value : null;
+
+    const group = $("f-priority");
+    group.querySelectorAll(".pc-option").forEach((el) => el.remove());
+    group.style.setProperty("--pc-count", String(Math.max(levels.length, 1)));
+    for (const level of levels) {
+      const option = document.createElement("button");
+      option.type = "button";
+      option.className = `pc-option prio-${level}`;
+      option.setAttribute("role", "radio");
+      option.dataset.value = level;
+      const dot = document.createElement("span");
+      dot.className = "pc-dot";
+      dot.setAttribute("aria-hidden", "true");
+      option.appendChild(dot);
+      option.appendChild(document.createTextNode(state.priority.labels[level] || level));
+      group.appendChild(option);
+    }
+    syncPriorityControl();
+  }
+
+  // Reflects state.formPriority on the control (checked option, indicator
+  // position/color, roving tabindex, and the "no priority" hint).
+  function syncPriorityControl() {
+    const group = $("f-priority");
+    const options = [...group.querySelectorAll(".pc-option")];
+    const index = options.findIndex((el) => el.dataset.value === state.formPriority);
+    options.forEach((el, i) => {
+      const checked = i === index;
+      el.setAttribute("aria-checked", String(checked));
+      // With nothing selected, the first option is the tab stop.
+      el.tabIndex = checked || (index === -1 && i === 0) ? 0 : -1;
+    });
+    group.classList.toggle("pc-empty", index === -1);
+    group.style.setProperty("--pc-index", String(Math.max(index, 0)));
+    group.dataset.value = state.formPriority || "";
+    $("f-priority-hint").hidden = index !== -1;
+  }
+
+  function selectPriority(level, focus) {
+    if (!state.priority.levels.includes(level)) {
+      return;
+    }
+    state.formPriority = level;
+    syncPriorityControl();
+    if (focus) {
+      const option = $("f-priority").querySelector(`.pc-option[data-value="${level}"]`);
+      if (option) {
+        option.focus();
+      }
+    }
+  }
+
+  function onPriorityKeyDown(e) {
+    const levels = state.priority.levels;
+    if (!levels.length || !e.target.closest(".pc-option")) {
+      return;
+    }
+    const current = levels.indexOf(e.target.dataset.value);
+    // Arrows follow the visual order, which flips in a right-to-left layout.
+    const rtl = getComputedStyle($("f-priority")).direction === "rtl";
+    const step = { ArrowRight: rtl ? -1 : 1, ArrowDown: 1, ArrowLeft: rtl ? 1 : -1, ArrowUp: -1 }[e.key];
+    let next = -1;
+    if (step) {
+      next = (current + step + levels.length) % levels.length;
+    } else if (e.key === "Home") {
+      next = 0;
+    } else if (e.key === "End") {
+      next = levels.length - 1;
+    } else if (e.key === " " || e.key === "Enter") {
+      next = current;
+    }
+    if (next === -1) {
+      return;
+    }
+    e.preventDefault();
+    selectPriority(levels[next], true);
+  }
+
   function clampDescriptionHeight(value) {
     const n = Math.round(Number(value));
     if (!Number.isFinite(n)) {
@@ -722,6 +855,8 @@
     fillCategorySelect(catId);
     const cat = state.categories.find((c) => c.id === catId) || null;
     fillTypeSelect(resolveCategoryDefaultTypeId(cat, state.types, state.typeFilter !== "all" ? state.typeFilter : null));
+    // New notes start at the host's default priority (saved even if untouched).
+    fillPriorityControl(state.priority.defaultValue);
     modalEl.hidden = false;
     applyDescHeight();
     $("f-title").focus();
@@ -735,6 +870,8 @@
     $("f-desc").value = item.description || "";
     fillTypeSelect(item.typeId);
     fillCategorySelect(item.categoryId);
+    // A note without a priority opens with nothing selected (plus a hint).
+    fillPriorityControl(item.priority || null);
     modalEl.hidden = false;
     applyDescHeight();
     $("f-title").focus();
@@ -779,6 +916,11 @@
       typeId: state.formTypeId,
       categoryId: state.formCategoryId,
     };
+    // Only sent while the system is enabled and a level is selected; the host
+    // applies the default for new notes and leaves edits without one untouched.
+    if (state.priority.editor && state.formPriority) {
+      payload.priority = state.formPriority;
+    }
     if (isEditing) {
       payload.id = state.editingId;
     }
@@ -1647,6 +1789,14 @@
     state.emojiRecents = msg.emojiRecents || [];
     state.descriptionHeight = typeof msg.descriptionHeight === "number" ? msg.descriptionHeight : DEFAULT_DESCRIPTION_HEIGHT;
     state.copyIncludeNoteInfo = msg.copyIncludeNoteInfo !== false;
+    const prevPriorityEditor = state.priority.editor;
+    state.priority = ViewOptions.normalizeFeatures(msg.priority);
+    renderViewOptions();
+    // The setting changed while the editor is open: add or remove the control.
+    if (!modalEl.hidden && prevPriorityEditor !== state.priority.editor) {
+      const editing = state.editingId ? state.items.find((it) => it.id === state.editingId) : null;
+      fillPriorityControl(editing ? editing.priority || null : state.priority.defaultValue);
+    }
     setArchiveVisible(state.includeArchived);
     populateCategoryFilter();
     populateTypeFilter();
@@ -1753,21 +1903,36 @@
     });
   }
 
-  function initViewModeSelect() {
-    const options = [
-      { value: "auto", label: "Auto Sort" },
-      { value: "fixed", label: "Fixed Order" },
-      { value: "grouped", label: "Grouped" },
-    ];
-    $("view-mode-container").innerHTML = renderCustomSelect("view-mode-wrap", "view-mode-btn", "view-mode-menu", options, state.viewMode, "cs-btn-toolbar", false, "");
-    // See the comment in populateCategoryFilter() above: the tooltip must go
-    // on the button, not the container that also holds the dropdown menu.
-    $("view-mode-btn").dataset.tooltip = "View mode";
-    bindCustomSelect("view-mode-wrap", "view-mode-btn", "view-mode-menu", function (value) {
-      state.viewMode = value;
-      persist();
-      renderList();
-    });
+  // --- Toolbar "View" menu (group / sort / priority filter) ---
+  // DropdownMenu (media/dropdown-menu.js) is appended to <body>, so the
+  // button's own data-tooltip never wraps the menu items (unlike .cs-wrap).
+  const viewMenu = DropdownMenu.create({
+    trigger: $("view-options-btn"),
+    label: "View options",
+    entries: [],
+    onSelect(detail) {
+      const next = ViewOptions.applySelection(state.view, detail);
+      if (next) {
+        setView(next);
+      }
+    },
+  });
+  // Lets closeAllDropdowns() dismiss it together with the custom selects.
+  menuCloseHandlers["view-options-menu"] = () => viewMenu.close(false);
+
+  function setView(next) {
+    state.view = next;
+    persist();
+    renderViewOptions();
+    renderList();
+  }
+
+  function renderViewOptions() {
+    const filtered = ViewOptions.isFilterActive(state.view, state.priority);
+    $("view-options-label").textContent = ViewOptions.triggerLabel(state.view, state.priority);
+    $("view-options-icon").className = `codicon ${filtered ? "codicon-filter-filled view-options-filtered" : "codicon-list-filter"}`;
+    $("view-options-btn").dataset.tooltip = filtered ? "View options (some priorities are hidden)" : "View options";
+    viewMenu.setEntries(ViewOptions.menuEntries(state.view, state.priority));
   }
 
   $("btn-archive-toggle").addEventListener("click", () => {
@@ -1776,8 +1941,17 @@
   emptyEl.addEventListener("click", (e) => {
     if (e.target.closest(".empty-create-btn")) {
       openAdd();
+    } else if (e.target.closest(".empty-show-all-btn")) {
+      setView({ ...state.view, hiddenPriorities: [] });
     }
   });
+  $("f-priority").addEventListener("click", (e) => {
+    const option = e.target.closest(".pc-option");
+    if (option) {
+      selectPriority(option.dataset.value, false);
+    }
+  });
+  $("f-priority").addEventListener("keydown", onPriorityKeyDown);
   $("modal-close").addEventListener("click", closeModal);
   $("modal-cancel").addEventListener("click", closeModal);
   $("modal-save").addEventListener("click", saveModal);
@@ -1919,9 +2093,9 @@
   // focus handling) lives in media/tooltip.js, loaded as a global before
   // this script; see sidebarProvider.ts's getHtml().
 
-  // Initialize the custom dropdowns (view mode is static; category filter is
-  // re-rendered whenever new state arrives, so render an initial empty set).
-  initViewModeSelect();
+  // Initialize the toolbar controls (all are re-rendered whenever new state
+  // arrives, so render an initial empty set).
+  renderViewOptions();
   populateCategoryFilter();
   populateTypeFilter();
 

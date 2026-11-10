@@ -1,0 +1,171 @@
+/*-------------------------------------------------
+ * MindStream — VS Code Extension
+ * Copyright (c) 2026 Abdulla Aldosari
+ * Licensed under MIT
+ * See LICENSE in the project root for details.
+ *-------------------------------------------------*/
+
+/* DropdownMenu styles. Paired with dropdown-menu.js; together they are the
+   whole component. Every value is a --dm-* custom property that falls back to
+   VS Code theme colors, so a host page can restyle the menu by overriding the
+   properties on .dm-menu (or :root) without touching these rules.
+
+   Runtime-only values (--dm-left, --dm-top, --dm-max-height,
+   --dm-trigger-width) are set by the script through style.setProperty(). */
+
+.dm-menu {
+  --dm-bg: var(--vscode-menu-background, var(--vscode-editorWidget-background, #252526));
+  --dm-fg: var(--vscode-menu-foreground, var(--vscode-foreground, #cccccc));
+  --dm-border: var(--vscode-menu-border, var(--vscode-widget-border, #454545));
+  --dm-shadow: var(--vscode-widget-shadow, rgba(0, 0, 0, 0.36));
+  --dm-highlight-bg: var(--vscode-menu-selectionBackground, var(--vscode-list-activeSelectionBackground, #04395e));
+  --dm-highlight-fg: var(--vscode-menu-selectionForeground, var(--vscode-list-activeSelectionForeground, #ffffff));
+  --dm-highlight-border: var(--vscode-menu-selectionBorder, transparent);
+  --dm-separator: var(--vscode-menu-separatorBackground, var(--vscode-widget-border, #454545));
+  --dm-label-fg: var(--vscode-descriptionForeground, #9d9d9d);
+  --dm-disabled-fg: var(--vscode-disabledForeground, rgba(204, 204, 204, 0.5));
+  --dm-radius: 6px;
+  --dm-item-radius: 4px;
+  --dm-min-width: 180px;
+  --dm-z-index: 900;
+
+  position: fixed;
+  left: var(--dm-left, 0);
+  top: var(--dm-top, 0);
+  z-index: var(--dm-z-index);
+  box-sizing: border-box;
+  min-width: max(var(--dm-min-width), var(--dm-trigger-width, 0px));
+  max-width: calc(100vw - 8px);
+  max-height: var(--dm-max-height, none);
+  overflow-y: auto;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  background: var(--dm-bg);
+  color: var(--dm-fg);
+  border: 1px solid var(--dm-border);
+  border-radius: var(--dm-radius);
+  box-shadow: 0 2px 8px var(--dm-shadow);
+  font-family: var(--vscode-font-family, system-ui, sans-serif);
+  font-size: var(--vscode-font-size, 13px);
+  line-height: 1.4;
+  user-select: none;
+  outline: none;
+}
+
+.dm-menu[hidden] {
+  display: none;
+}
+
+.dm-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.dm-label {
+  padding: 4px 8px 2px 28px;
+  font-size: 0.85em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--dm-label-fg);
+}
+
+.dm-separator {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--dm-separator);
+}
+
+.dm-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  padding: 0 12px 0 4px;
+  border: 1px solid transparent;
+  border-radius: var(--dm-item-radius);
+  cursor: pointer;
+  white-space: nowrap;
+  outline: none;
+}
+
+.dm-item[data-highlighted] {
+  background: var(--dm-highlight-bg);
+  color: var(--dm-highlight-fg);
+  border-color: var(--dm-highlight-border);
+}
+
+.dm-item[aria-disabled="true"] {
+  color: var(--dm-disabled-fg);
+  cursor: default;
+}
+
+/* A disabled item can still be highlighted (so its hint is reachable), but
+   only with a faint outline, never the "can activate" fill. */
+.dm-item[aria-disabled="true"][data-highlighted] {
+  background: transparent;
+  color: var(--dm-disabled-fg);
+  border-color: var(--dm-separator);
+}
+
+.dm-indicator {
+  flex: 0 0 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+}
+
+.dm-check {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.dm-radio-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.dm-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dm-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dm-marker {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dm-marker-color, currentColor);
+}
+
+.dm-item[aria-disabled="true"] .dm-marker {
+  opacity: 0.5;
+}
+
+@media (forced-colors: active) {
+  .dm-item[data-highlighted] {
+    outline: 1px solid Highlight;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dm-item {
+    transition: background-color 80ms ease-out;
+  }
+}

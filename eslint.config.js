@@ -36,7 +36,7 @@ module.exports = [
   {
     // media/*.js webview scripts have no ES module exports, so importing
     // their side-effect-free logic for unit tests requires require().
-    files: ["test/sidebarIconClass.test.ts", "test/tooltip.test.ts", "test/defaultType.test.ts", "test/emoji.test.ts"],
+    files: ["test/sidebarIconClass.test.ts", "test/tooltip.test.ts", "test/defaultType.test.ts", "test/emoji.test.ts", "test/dropdownMenu.test.ts", "test/viewOptions.test.ts"],
     rules: {
       "@typescript-eslint/no-require-imports": "off",
     },
@@ -55,7 +55,7 @@ module.exports = [
     },
   },
   {
-    // Functions defined in media/iconClass.js and media/defaultType.js, loaded
+    // Globals defined in the side-effect-free media/*.js files, loaded
     // as globals before sidebar.js (see sidebarProvider.ts's getHtml()).
     files: ["media/sidebar.js"],
     languageOptions: {
@@ -64,13 +64,15 @@ module.exports = [
         resolveCategoryDefaultTypeId: "readonly",
         splitEmojis: "readonly",
         isEmoji: "readonly",
+        DropdownMenu: "readonly",
+        ViewOptions: "readonly",
       },
     },
   },
   {
     // Side-effect-free media/*.js files also expose their functions to
     // Node-based unit tests via a guarded `module.exports` block.
-    files: ["media/iconClass.js", "media/tooltip.js", "media/defaultType.js", "media/emoji.js"],
+    files: ["media/iconClass.js", "media/tooltip.js", "media/defaultType.js", "media/emoji.js", "media/dropdown-menu.js", "media/viewOptions.js"],
     languageOptions: {
       globals: {
         module: "readonly",

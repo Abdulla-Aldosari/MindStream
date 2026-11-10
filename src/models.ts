@@ -4,6 +4,9 @@
 
 export type MindStreamStatus = "pending" | "in-progress" | "done";
 
+/** Note priority levels, highest first. Constants and helpers live in `priority.ts`. */
+export type MindStreamPriority = "critical" | "high" | "medium" | "low";
+
 /** Optional link to a specific code/file location — future design, not used in the UI yet. */
 export interface MindStreamLink {
   filePath: string;
@@ -22,6 +25,12 @@ export interface MindStreamItem {
   title: string;
   description?: string;
   status: MindStreamStatus;
+  /**
+   * Absent on notes created while the priority system was disabled (or before
+   * it existed). The key is only written once a priority is chosen, so an
+   * absent key always means "unassigned", never an implicit default.
+   */
+  priority?: MindStreamPriority;
   /** Append-only history of all status changes; preserves the completion sequence. */
   statusHistory: { status: MindStreamStatus; at: string }[];
   /** Archiving is fully independent of status — it never changes `status`. */

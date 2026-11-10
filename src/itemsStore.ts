@@ -1,4 +1,4 @@
-import { GENERAL_CATEGORY_ID, MindStreamItem, MindStreamStatus } from "./models";
+import { GENERAL_CATEGORY_ID, MindStreamItem, MindStreamPriority, MindStreamStatus } from "./models";
 import { IStorage } from "./storage";
 import { newId, nowIso } from "./util";
 
@@ -9,6 +9,8 @@ export interface NewItemInput {
   categoryId?: string;
   tags?: string[];
   status?: MindStreamStatus;
+  /** Omitted when the priority system is disabled: the key is then not written at all. */
+  priority?: MindStreamPriority;
 }
 
 export interface UpdateItemInput {
@@ -17,6 +19,8 @@ export interface UpdateItemInput {
   typeId?: string;
   categoryId?: string;
   tags?: string[];
+  /** Omitted leaves the stored priority untouched (including an absent one). */
+  priority?: MindStreamPriority;
 }
 
 /**
@@ -59,6 +63,9 @@ export class ItemsStore {
       createdAt: now,
       updatedAt: now,
     };
+    if (input.priority !== undefined) {
+      item.priority = input.priority;
+    }
     data.items.push(item);
     this.storage.saveData(data);
     return item;
@@ -84,6 +91,9 @@ export class ItemsStore {
     }
     if (patch.tags !== undefined) {
       item.tags = patch.tags;
+    }
+    if (patch.priority !== undefined) {
+      item.priority = patch.priority;
     }
     item.updatedAt = nowIso();
     this.storage.saveData(data);
