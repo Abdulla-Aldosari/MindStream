@@ -4,7 +4,7 @@
 .devdeck/
 .vsenv/
 .vscode/
-docs/architecture
+docs/
 src/
 media/
 test/
