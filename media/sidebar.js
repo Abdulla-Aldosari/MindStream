@@ -751,7 +751,10 @@
       dot.className = "pc-dot";
       dot.setAttribute("aria-hidden", "true");
       option.appendChild(dot);
-      option.appendChild(document.createTextNode(state.priority.labels[level] || level));
+      const label = document.createElement("span");
+      label.className = "pc-label";
+      label.textContent = state.priority.labels[level] || level;
+      option.appendChild(label);
       group.appendChild(option);
     }
     syncPriorityControl();
