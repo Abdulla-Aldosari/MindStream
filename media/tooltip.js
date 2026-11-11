@@ -311,11 +311,7 @@ if (typeof document !== "undefined") {
         return;
       }
       const tip = ensureTooltip();
-      tip.innerHTML = buildTooltipHtml(
-        target.dataset.tooltipHeader,
-        target.dataset.tooltip,
-        target.dataset.tooltipFooter
-      );
+      tip.innerHTML = buildTooltipHtml(target.dataset.tooltipHeader, target.dataset.tooltip, target.dataset.tooltipFooter);
       tip.classList.add("visible");
       positionTooltip(target);
       trackTarget();
