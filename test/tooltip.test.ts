@@ -178,10 +178,7 @@ describe("computeTooltipPosition", () => {
 
 describe("buildTooltipHtml", () => {
   it("renders only the body when header and footer are absent", () => {
-    assert.strictEqual(
-      buildTooltipHtml(undefined, "Body text", undefined),
-      '<div class="tooltip-body">Body text</div>'
-    );
+    assert.strictEqual(buildTooltipHtml(undefined, "Body text", undefined), '<div class="tooltip-body">Body text</div>');
   });
 
   it("renders header, body, and footer with a divider before the footer", () => {
@@ -192,10 +189,7 @@ describe("buildTooltipHtml", () => {
   });
 
   it("omits the divider and footer section when footer is absent", () => {
-    assert.strictEqual(
-      buildTooltipHtml("Header", "Body", undefined),
-      '<div class="tooltip-header">Header</div><div class="tooltip-body">Body</div>'
-    );
+    assert.strictEqual(buildTooltipHtml("Header", "Body", undefined), '<div class="tooltip-header">Header</div><div class="tooltip-body">Body</div>');
   });
 
   it("returns an empty string when nothing is provided", () => {

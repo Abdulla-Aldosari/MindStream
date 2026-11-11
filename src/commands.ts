@@ -17,42 +17,25 @@ export interface CommandsDeps {
   joinPath(basePath: string, fileName: string): UriLike;
   showSaveDialog(defaultUri: UriLike | undefined, filters: Record<string, string[]>): Promise<UriLike | undefined>;
   showOpenDialog(): Promise<UriLike[] | undefined>;
-  showWarningMessage(
-    message: string,
-    options: { modal: boolean } | undefined,
-    ...items: string[]
-  ): Promise<string | undefined>;
+  showWarningMessage(message: string, options: { modal: boolean } | undefined, ...items: string[]): Promise<string | undefined>;
   showInformationMessage(message: string): Promise<unknown>;
   showErrorMessage(message: string): Promise<unknown>;
   executeCommand(command: string): Promise<unknown>;
 }
 
-async function saveDialog(
-  deps: CommandsDeps,
-  fileName: string,
-  filters: Record<string, string[]>
-): Promise<UriLike | undefined> {
+async function saveDialog(deps: CommandsDeps, fileName: string, filters: Record<string, string[]>): Promise<UriLike | undefined> {
   const defaultUri = deps.workspacePath ? deps.joinPath(deps.workspacePath, fileName) : undefined;
   return deps.showSaveDialog(defaultUri, filters);
 }
 
 export async function requireWorkspace(deps: CommandsDeps): Promise<void> {
-  const pick = await deps.showWarningMessage(
-    "MindStream: Open a folder (project) first to start recording notes.",
-    undefined,
-    "Open Folder"
-  );
+  const pick = await deps.showWarningMessage("MindStream: Open a folder (project) first to start recording notes.", undefined, "Open Folder");
   if (pick === "Open Folder") {
     await deps.executeCommand("vscode.openFolder");
   }
 }
 
-export async function exportMarkdown(
-  deps: CommandsDeps,
-  items: ItemsStore,
-  types: TypesRegistry,
-  categories: CategoriesRegistry
-): Promise<void> {
+export async function exportMarkdown(deps: CommandsDeps, items: ItemsStore, types: TypesRegistry, categories: CategoriesRegistry): Promise<void> {
   const all = items.list(true);
   if (all.length === 0) {
     await deps.showInformationMessage("MindStream: There are no notes to export.");
@@ -85,9 +68,7 @@ export async function importJson(deps: CommandsDeps, storage: IStorage, refresh:
   try {
     parsed = JSON.parse(fs.readFileSync(uris[0].fsPath, "utf8"));
   } catch (err) {
-    await deps.showErrorMessage(
-      `MindStream: Could not read the selected file: ${err instanceof Error ? err.message : String(err)}`
-    );
+    await deps.showErrorMessage(`MindStream: Could not read the selected file: ${err instanceof Error ? err.message : String(err)}`);
     return;
   }
   const incoming = normalizeData(parsed);

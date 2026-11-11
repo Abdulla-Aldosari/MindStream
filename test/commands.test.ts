@@ -7,15 +7,7 @@ import { ItemsStore } from "../src/itemsStore";
 import { TypesRegistry } from "../src/typesRegistry";
 import { CategoriesRegistry } from "../src/categoriesRegistry";
 import { GENERAL_CATEGORY_ID } from "../src/models";
-import {
-  CommandsDeps,
-  UriLike,
-  exportJson,
-  exportMarkdown,
-  exportWeeklyReport,
-  importJson,
-  requireWorkspace,
-} from "../src/commands";
+import { CommandsDeps, UriLike, exportJson, exportMarkdown, exportWeeklyReport, importJson, requireWorkspace } from "../src/commands";
 import { InMemoryStorage } from "./helpers";
 
 class FakeDeps implements CommandsDeps {
