@@ -24,6 +24,7 @@ _A thought strikes mid-code. One shortcut later, it's a saved note, without ever
 - Export Markdown and Export JSON.
 - Import JSON with merge/replace options.
 - Weekly Report modal, plus Export Weekly Report (Markdown).
+- Work pause note: before you step away for a long time, write where you stopped and what comes next. While work is paused, the whole panel is locked and shows only that note, until you resume from the **More** (`...`) menu.
 
 ## Organize & Customize
 
@@ -35,11 +36,11 @@ category, all from the sidebar._
 
 ## Settings
 
-| Setting                           | Type                                                           | Default  | Description                                                                                                                                                                                                          |
-| --------------------------------- | -------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `mindstream.ui.direction`         | `"ltr"` \| `"rtl"`                                             | `"ltr"`  | Reading direction for note titles and descriptions. Use `"rtl"` to read Arabic notes right-to-left; the interface keeps VS Code's default direction and all labels remain in English.                                |
-| `mindstream.copy.includeNoteInfo` | `boolean`                                                      | `true`   | Include the note info section (category, type, status, and timestamps) when copying a note's content from the viewer.                                                                                                |
-| `mindstream.priority.style`       | `"dot"` \| `"stripe"` \| `"chip"` \| `"typeStripe"` \| `"off"` | `"chip"` | How note priority is shown on cards: a dot before the title, a stripe on the card edge, a chip next to the status, or a stripe on the type badge. `"off"` disables the priority system (stored priorities are kept). |
+| Setting                           | Type                                                           | Default  | Description                                                                                                                                                                                                                                                           |
+| --------------------------------- | -------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mindstream.ui.direction`         | `"ltr"` \| `"rtl"`                                             | `"ltr"`  | Reading direction for note titles and descriptions. Use `"rtl"` to read Arabic notes right-to-left; the interface keeps VS Code's default direction and all labels remain in English. The work pause note ignores it and picks its own direction from its first line. |
+| `mindstream.copy.includeNoteInfo` | `boolean`                                                      | `true`   | Include the note info section (category, type, status, and timestamps) when copying a note's content from the viewer.                                                                                                                                                 |
+| `mindstream.priority.style`       | `"dot"` \| `"stripe"` \| `"chip"` \| `"typeStripe"` \| `"off"` | `"chip"` | How note priority is shown on cards: a dot before the title, a stripe on the card edge, a chip next to the status, or a stripe on the type badge. `"off"` disables the priority system (stored priorities are kept).                                                  |
 
 ## Storage
 
@@ -60,6 +61,9 @@ A single JSON file inside the workspace: `.vscode/mindstream.data.json`. Because
 - `MindStream: Import JSON`
 - `MindStream: Weekly Report`
 - `MindStream: Export Weekly Report`
+- `MindStream: Pause work and show note`
+
+While work is paused, every command above is unavailable; resume with `✓ Work paused - click to resume` in the **More** menu.
 
 ## Requirements
 

@@ -41,6 +41,11 @@ const baseScopes = [
   ["priority", "note priority levels and the priority.style setting", ["src/priority.ts"]],
   ["emoji", "global emoji palette and recent-emoji tracking", ["src/emojiRegistry.ts"]],
   ["uiPrefs", "global per-user UI preferences such as note-editor description height", ["src/uiPrefs.ts"]],
+  [
+    "workPause",
+    "Work Pause note: the single hand-off note stored in the data file, its lock rules, the lock guard, and its store (the webview parts live under media/)",
+    ["src/workPause.ts", "src/workPauseStore.ts"],
+  ],
 
   // Tests, docs, and assets
   ["tests", "unit tests and shared test fakes", ["test/"]],

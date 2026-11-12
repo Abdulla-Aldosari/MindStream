@@ -7,6 +7,7 @@ import { SidebarController, SidebarUi } from "../src/sidebarController";
 import { DEFAULT_EMOJI_PALETTE, EmojiMemento, EmojiRegistry } from "../src/emojiRegistry";
 import { DEFAULT_DESCRIPTION_HEIGHT, UiPrefsRegistry } from "../src/uiPrefs";
 import { DEFAULT_PRIORITY } from "../src/priority";
+import { WorkPauseStore } from "../src/workPauseStore";
 import { InMemoryStorage } from "./helpers";
 
 class FakeEmojiMemento implements EmojiMemento {
@@ -52,6 +53,19 @@ class FakeUi implements SidebarUi {
     return this.confirmRestoreEmojiPaletteResult;
   }
 
+  confirmDiscardWorkPauseDraftResult = true;
+  discardConfirmations = 0;
+  discardAnswers: boolean[] = [];
+
+  async confirmDiscardWorkPauseDraft(): Promise<boolean> {
+    this.discardConfirmations += 1;
+    return this.confirmDiscardWorkPauseDraftResult;
+  }
+
+  answerWorkPauseDiscard(discard: boolean): void {
+    this.discardAnswers.push(discard);
+  }
+
   async pickType(types: { id: string; label: string; icon?: string }[]): Promise<string | undefined> {
     this.pickedTypes = types;
     return this.pickTypeResult;
@@ -70,9 +84,10 @@ function setup(priorityEnabled = true) {
   const emoji = new EmojiRegistry(new FakeEmojiMemento());
   const uiPrefs = new UiPrefsRegistry(new FakeEmojiMemento());
   const ui = new FakeUi();
-  const controller = new SidebarController(items, types, categories, emoji, uiPrefs, ui, () => priorityEnabled);
+  const workPause = new WorkPauseStore(storage);
+  const controller = new SidebarController(items, types, categories, emoji, uiPrefs, workPause, ui, () => priorityEnabled);
   const typeId = storage.getData().types[0].id;
-  return { storage, items, types, categories, emoji, uiPrefs, ui, controller, typeId };
+  return { storage, items, types, categories, emoji, uiPrefs, workPause, ui, controller, typeId };
 }
 
 describe("SidebarController.handleMessage", () => {
@@ -362,5 +377,96 @@ describe("SidebarController.handleMessage", () => {
     const { uiPrefs, controller } = setup();
     await controller.handleMessage({ type: "setDescriptionHeight", height: undefined });
     assert.strictEqual(uiPrefs.descriptionHeight(), DEFAULT_DESCRIPTION_HEIGHT);
+  });
+});
+
+describe("SidebarController Work Pause", () => {
+  it("saveWorkPauseNote stores the text without pausing by default", async () => {
+    const { workPause, controller } = setup();
+    await controller.handleMessage({ type: "saveWorkPauseNote", text: "Stopped at line 84" });
+    assert.strictEqual(workPause.get().text, "Stopped at line 84");
+    assert.strictEqual(workPause.isPaused(), false);
+  });
+
+  it("saveWorkPauseNote with pause true locks once the text is saved", async () => {
+    const { workPause, controller } = setup();
+    await controller.handleMessage({ type: "saveWorkPauseNote", text: "Go home", pause: true });
+    assert.strictEqual(workPause.isPaused(), true);
+  });
+
+  it("saveWorkPauseNote never pauses on blank or non-string text", async () => {
+    const { workPause, controller, storage } = setup();
+    await controller.handleMessage({ type: "saveWorkPauseNote", text: "   ", pause: true });
+    await controller.handleMessage({ type: "saveWorkPauseNote", text: undefined, pause: true });
+    assert.strictEqual(workPause.isPaused(), false);
+    assert.strictEqual(storage.saved.length, 0);
+  });
+
+  it("confirmDiscardWorkPauseDraft asks the host and relays the answer, either way", async () => {
+    const { controller, ui } = setup();
+    await controller.handleMessage({ type: "confirmDiscardWorkPauseDraft" });
+    ui.confirmDiscardWorkPauseDraftResult = false;
+    await controller.handleMessage({ type: "confirmDiscardWorkPauseDraft" });
+    assert.strictEqual(ui.discardConfirmations, 2);
+    assert.deepStrictEqual(ui.discardAnswers, [true, false]);
+  });
+
+  it("the discard question still works while work is paused", async () => {
+    const { controller, ui } = setup();
+    await controller.handleMessage({ type: "saveWorkPauseNote", text: "Locked", pause: true });
+    await controller.handleMessage({ type: "confirmDiscardWorkPauseDraft" });
+    assert.deepStrictEqual(ui.discardAnswers, [true]);
+  });
+
+  it("only a literal true pauses", async () => {
+    const { workPause, controller } = setup();
+    await controller.handleMessage({ type: "saveWorkPauseNote", text: "x", pause: "yes" as unknown as boolean });
+    assert.strictEqual(workPause.isPaused(), false);
+  });
+
+  describe("while work is paused", () => {
+    async function locked() {
+      const ctx = setup();
+      await ctx.controller.handleMessage({ type: "saveWorkPauseNote", text: "Locked", pause: true });
+      ctx.storage.saved.length = 0;
+      return ctx;
+    }
+
+    it("ignores every note, category, type, emoji and preference mutation", async () => {
+      const { controller, storage, items, typeId } = await locked();
+      const id = items.create({ typeId, title: "keep" }).id;
+      storage.saved.length = 0;
+      const messages = [
+        { type: "addItem", title: "New", typeId },
+        { type: "updateItem", id, title: "Changed" },
+        { type: "deleteItem", id },
+        { type: "changeStatus", id, status: "done" },
+        { type: "toggleArchive", id, archived: true },
+        { type: "addCategory", label: "C" },
+        { type: "addType", label: "T" },
+        { type: "recordEmojiUse", emoji: "✅" },
+        { type: "setDescriptionHeight", height: 300 },
+      ] as const;
+      for (const m of messages) {
+        await controller.handleMessage(m);
+      }
+      assert.strictEqual(storage.saved.length, 0);
+      assert.strictEqual(items.get(id)?.title, "keep");
+      assert.strictEqual(items.list().length, 1);
+    });
+
+    it("still lets the note itself be edited", async () => {
+      const { controller, workPause } = await locked();
+      await controller.handleMessage({ type: "saveWorkPauseNote", text: "Updated" });
+      assert.strictEqual(workPause.get().text, "Updated");
+      assert.strictEqual(workPause.isPaused(), true);
+    });
+
+    it("resumes normal handling once work is resumed", async () => {
+      const { controller, workPause, items, typeId } = await locked();
+      workPause.resume();
+      await controller.handleMessage({ type: "addItem", title: "After", typeId });
+      assert.strictEqual(items.list().length, 1);
+    });
   });
 });

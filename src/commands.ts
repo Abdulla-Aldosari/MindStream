@@ -59,7 +59,16 @@ export async function exportJson(deps: CommandsDeps, storage: IStorage): Promise
   await deps.showInformationMessage("MindStream: Exported data to JSON.");
 }
 
+/**
+ * Imports a JSON data file. `Merge` adds missing types/categories/notes and
+ * keeps the current Work Pause note; `Replace` swaps in the file's data,
+ * including its Work Pause note (always imported as not paused). Does nothing
+ * while the Work Pause lock is on.
+ */
 export async function importJson(deps: CommandsDeps, storage: IStorage, refresh: () => void): Promise<void> {
+  if (storage.getData().workPauseNote?.paused === true) {
+    return;
+  }
   const uris = await deps.showOpenDialog();
   if (!uris || uris.length === 0) {
     return;
@@ -72,6 +81,10 @@ export async function importJson(deps: CommandsDeps, storage: IStorage, refresh:
     return;
   }
   const incoming = normalizeData(parsed);
+  // An import never turns the lock on: the user must not be locked out by a file.
+  if (incoming.workPauseNote) {
+    incoming.workPauseNote = { ...incoming.workPauseNote, paused: false };
+  }
   const current = storage.getData();
   const report = [
     "MindStream - Import JSON",

@@ -100,12 +100,26 @@ export interface MindStreamCategoryDef {
   createdAt: string;
 }
 
+/**
+ * The single "Work Pause" note: a hand-off note written before stepping away
+ * for a long time. While `paused` is true the whole UI is locked and shows
+ * only this note. It lives beside the notes, never inside `items`.
+ */
+export interface MindStreamWorkPauseNote {
+  text: string;
+  /** ISO time of the last text change ("" until the first save). */
+  updatedAt: string;
+  paused: boolean;
+}
+
 /** The full structure of the persisted file. */
 export interface MindStreamData {
   version: number;
   types: MindStreamTypeDef[];
   categories: MindStreamCategoryDef[];
   items: MindStreamItem[];
+  /** Absent until the Work Pause note is first saved. */
+  workPauseNote?: MindStreamWorkPauseNote;
 }
 
 export const DATA_VERSION = 1;

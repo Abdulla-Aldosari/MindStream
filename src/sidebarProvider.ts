@@ -10,6 +10,8 @@ import { WeeklyReportData } from "./report";
 import { SidebarController, SidebarUi, WebviewMessage } from "./sidebarController";
 import { getBodyClass } from "./util";
 import { DEFAULT_PRIORITY, normalizePriorityStyle, PRIORITIES, PRIORITY_LABEL, PriorityStyle, priorityFeatures } from "./priority";
+import { WorkPauseStore } from "./workPauseStore";
+import { WORK_PAUSE_CONTEXT_KEY, isAllowedDuringWorkPause } from "./workPause";
 
 export const VIEW_TYPE = "mindstream.sidebar";
 
@@ -43,10 +45,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     private readonly categories: CategoriesRegistry,
     private readonly emoji: EmojiRegistry,
     private readonly uiPrefs: UiPrefsRegistry,
+    private readonly workPause: WorkPauseStore,
     private readonly links: LinkTracker,
     private readonly isDevMode: boolean = false
   ) {
-    this.controller = new SidebarController(items, types, categories, this.emoji, this.uiPrefs, this, () => this.getPriorityStyle() !== "off");
+    this.controller = new SidebarController(items, types, categories, this.emoji, this.uiPrefs, this.workPause, this, () => this.getPriorityStyle() !== "off");
   }
 
   resolveWebviewView(webviewView: vscode.WebviewView, _context: vscode.WebviewViewResolveContext, _token: vscode.CancellationToken): void {
@@ -68,8 +71,39 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
   }
 
   refresh(): void {
+    this.syncWorkPauseContext();
     this.updateBadge();
     this.postState();
+  }
+
+  /**
+   * Publishes the Work Pause lock as a VS Code context key, which the
+   * `when` clauses in package.json use to hide the title-bar buttons and the
+   * More items. Runs on every refresh, so changes made outside this window
+   * (a file edit, git) are picked up too.
+   */
+  private syncWorkPauseContext(): void {
+    void vscode.commands.executeCommand("setContext", WORK_PAUSE_CONTEXT_KEY, this.workPause.isPaused());
+  }
+
+  /**
+   * "Pause work and show note" in the More menu. With a saved note it locks at
+   * once; with none it first opens the editor, and the lock only turns on once a
+   * note is saved.
+   */
+  pauseWork(): void {
+    if (this.workPause.get().text.trim()) {
+      this.workPause.pause();
+      this.refresh();
+      return;
+    }
+    void this._view?.webview.postMessage({ type: "openWorkPauseEditor" });
+  }
+
+  /** "✓ Work paused - click to resume" in the More menu: the only way out of the lock. */
+  resumeWork(): void {
+    this.workPause.resume();
+    this.refresh();
   }
 
   /** Tells the webview to open the note editor modal. */
@@ -120,6 +154,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
 
   private async handleMessage(msg: WebviewMessage): Promise<void> {
     try {
+      // The lock is enforced here as well as in the controller, because the
+      // messages handled below never reach the controller.
+      if (this.workPause.isPaused() && !isAllowedDuringWorkPause(msg.type)) {
+        return;
+      }
       if (msg.type === "refresh") {
         this.postState();
         return;
@@ -210,6 +249,15 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     return pick?.typeId;
   }
 
+  async confirmDiscardWorkPauseDraft(): Promise<boolean> {
+    const pick = await vscode.window.showWarningMessage("Discard your unsaved changes to the note?", { modal: true }, "Discard");
+    return pick === "Discard";
+  }
+
+  answerWorkPauseDiscard(discard: boolean): void {
+    void this._view?.webview.postMessage({ type: "workPauseDiscardAnswer", discard });
+  }
+
   showInfo(message: string): void {
     void vscode.window.showInformationMessage(message);
   }
@@ -219,8 +267,15 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     if (!this._view || !this._view.visible) {
       return;
     }
+    const workPauseNote = this.workPause.get();
+    if (workPauseNote.paused) {
+      // Locked: the page shows only the note, so nothing else is sent to draw.
+      void this._view.webview.postMessage({ type: "state", workPause: workPauseNote });
+      return;
+    }
     void this._view.webview.postMessage({
       type: "state",
+      workPause: workPauseNote,
       items: this.items.list(this._archiveVisible),
       types: this.types.list().map((t) => ({ ...t, count: this.types.countItems(t.id) })),
       categories: this.categories.list().map((c) => ({ ...c, count: this.categories.countItems(c.id) })),
@@ -269,6 +324,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     const dropdownMenuUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "dropdown-menu.js"));
     const dropdownMenuCssUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "dropdown-menu.css"));
     const viewOptionsUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "viewOptions.js"));
+    const workPauseUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "workPause.js"));
     const nonce = getNonce();
     return `<!DOCTYPE html>
 <html lang="en" dir="ltr">
@@ -441,6 +497,42 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
       </div>
     </div>
   </div>
+  <div id="work-pause" class="work-pause" role="dialog" aria-modal="true" aria-labelledby="work-pause-title" hidden>
+    <svg class="work-pause-defs" width="0" height="0" focusable="false" aria-hidden="true">
+      <defs>
+        <clipPath id="work-pause-sheet-shape" clipPathUnits="objectBoundingBox">
+          <path d="M0,0 Q0.5,0.02 1,0 Q0.98,0.5 1,1 Q0.5,0.98 0,1 Q0.02,0.5 0,0 Z" />
+        </clipPath>
+      </defs>
+    </svg>
+    <section id="work-pause-card" class="work-pause-card">
+      <span class="work-pause-shadow" aria-hidden="true"></span>
+      <span class="work-pause-tape" aria-hidden="true"></span>
+      <div class="work-pause-sheet">
+        <header class="work-pause-header">
+          <span class="work-pause-badge" aria-hidden="true"><span class="codicon codicon-pinned"></span></span>
+          <div class="work-pause-heading">
+            <h2 id="work-pause-title" class="work-pause-title">Pick up where you left off</h2>
+            <p class="work-pause-subtitle">A note to your future self</p>
+          </div>
+          <button id="work-pause-edit" class="work-pause-edit" type="button" aria-label="Edit note" data-tooltip="Edit note">
+            <span class="codicon codicon-edit" aria-hidden="true"></span>
+          </button>
+        </header>
+        <div class="work-pause-body">
+          <div id="work-pause-view" class="work-pause-text" tabindex="0"></div>
+          <textarea id="work-pause-input" class="work-pause-input" hidden aria-label="Note text" maxlength="10000" placeholder="What were you doing? Where did you stop? What is the next step?"></textarea>
+        </div>
+        <footer class="work-pause-footer">
+          <span id="work-pause-updated" class="work-pause-updated"></span>
+          <div id="work-pause-actions" class="work-pause-actions" hidden>
+            <button id="work-pause-cancel" class="btn btn-ghost" type="button">Cancel</button>
+            <button id="work-pause-save" class="btn btn-primary" type="button">Save</button>
+          </div>
+        </footer>
+      </div>
+    </section>
+  </div>
   <script nonce="${nonce}" src="${codiconNamesUri}"></script>
   <script nonce="${nonce}" src="${iconClassUri}"></script>
   <script nonce="${nonce}" src="${defaultTypeUri}"></script>
@@ -449,6 +541,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
   <script nonce="${nonce}" src="${tooltipUri}"></script>
   <script nonce="${nonce}" src="${dropdownMenuUri}"></script>
   <script nonce="${nonce}" src="${viewOptionsUri}"></script>
+  <script nonce="${nonce}" src="${workPauseUri}"></script>
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;
