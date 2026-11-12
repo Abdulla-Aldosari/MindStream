@@ -4,6 +4,7 @@ import { DATA_VERSION, GENERAL_CATEGORY_ID, MindStreamCategoryDef, MindStreamDat
 import { isPriority } from "./priority";
 import { sanitizeLink } from "./linkResolver";
 import { newId, nowIso } from "./util";
+import { normalizeWorkPauseNote } from "./workPause";
 
 /** Standalone type that makes it easy to test the layer without depending on vscode. */
 export interface StorageBackend {
@@ -92,11 +93,14 @@ export function normalizeData(raw: unknown): MindStreamData {
       }
     }
   }
+  const workPauseNote = normalizeWorkPauseNote(obj.workPauseNote);
   return {
     version: typeof obj.version === "number" ? obj.version : DATA_VERSION,
     types,
     categories,
     items,
+    // Last key of the file; never added when absent.
+    ...(workPauseNote ? { workPauseNote } : {}),
   };
 }
 

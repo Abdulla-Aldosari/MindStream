@@ -12,6 +12,8 @@ import { buildWeeklyReport } from "./report";
 import { IStorage } from "./storage";
 import { debounce, isDemoCapture } from "./util";
 import { CommandsDeps, exportJson, exportMarkdown, exportWeeklyReport, importJson, requireWorkspace } from "./commands";
+import { WorkPauseStore } from "./workPauseStore";
+import { WORK_PAUSE_CONTEXT_KEY, guardWhenWorkPaused } from "./workPause";
 
 /** Milliseconds to coalesce bursts of filesystem-watcher events (e.g. the
  *  temp-file-then-rename write in `StorageService`) into a single reload. */
@@ -97,6 +99,8 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(vscode.commands.registerCommand("mindstream.weeklyReport", () => requireWorkspace(deps)));
     context.subscriptions.push(vscode.commands.registerCommand("mindstream.exportWeeklyReport", () => requireWorkspace(deps)));
     context.subscriptions.push(vscode.commands.registerCommand("mindstream.refresh", () => requireWorkspace(deps)));
+    context.subscriptions.push(vscode.commands.registerCommand("mindstream.workPause.pause", () => requireWorkspace(deps)));
+    context.subscriptions.push(vscode.commands.registerCommand("mindstream.workPause.resume", () => requireWorkspace(deps)));
     context.subscriptions.push(
       vscode.commands.registerCommand("mindstream.showSidebar", async () => {
         await vscode.commands.executeCommand("workbench.view.extension.mindstream");
@@ -131,7 +135,12 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const isDevMode = context.extensionMode === vscode.ExtensionMode.Development && !isDemoCapture();
   const linkTracker = new LinkTracker(items, createLinkFiles(folder.uri));
-  sidebar = new SidebarProvider(context.extensionUri, items, types, categories, emoji, uiPrefs, linkTracker, isDevMode);
+  const workPause = new WorkPauseStore(storage);
+  // Set before the view exists so global entry points (editor menu, keybinding)
+  // already see the lock after a restart. The sidebar keeps it in sync afterwards.
+  void vscode.commands.executeCommand("setContext", WORK_PAUSE_CONTEXT_KEY, workPause.isPaused());
+  const unlessWorkPaused = guardWhenWorkPaused(() => workPause.isPaused());
+  sidebar = new SidebarProvider(context.extensionUri, items, types, categories, emoji, uiPrefs, workPause, linkTracker, isDevMode);
   registerLinkTracking(context, folder, linkTracker, () => sidebar?.refresh());
 
   context.subscriptions.push(
@@ -152,28 +161,79 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
-  context.subscriptions.push(vscode.commands.registerCommand("mindstream.addNote", () => sidebar?.openAddNote()));
+  // Every command except the Work Pause pair and `showSidebar` is a no-op while the
+  // lock is on. package.json hides them in the UI; this covers running them by id.
   context.subscriptions.push(
-    vscode.commands.registerCommand("mindstream.addNoteToLine", async () => {
-      const link = createLinkFromActiveEditor(folder);
-      if (link) {
-        await sidebar?.openAddNoteForLink(link);
-      }
-    })
+    vscode.commands.registerCommand(
+      "mindstream.addNote",
+      unlessWorkPaused(() => sidebar?.openAddNote())
+    )
   );
-  context.subscriptions.push(vscode.commands.registerCommand("mindstream.manageTypes", () => sidebar?.openTypes()));
-  context.subscriptions.push(vscode.commands.registerCommand("mindstream.manageCategories", () => sidebar?.openCategories()));
-  context.subscriptions.push(vscode.commands.registerCommand("mindstream.exportMarkdown", () => exportMarkdown(deps, items, types, categories)));
-  context.subscriptions.push(vscode.commands.registerCommand("mindstream.exportJson", () => exportJson(deps, storage)));
-  context.subscriptions.push(vscode.commands.registerCommand("mindstream.importJson", () => importJson(deps, storage, () => sidebar?.refresh())));
-  context.subscriptions.push(vscode.commands.registerCommand("mindstream.weeklyReport", () => sidebar?.openWeeklyReport(buildWeeklyReport(items))));
-  context.subscriptions.push(vscode.commands.registerCommand("mindstream.exportWeeklyReport", () => exportWeeklyReport(deps, items)));
   context.subscriptions.push(
-    vscode.commands.registerCommand("mindstream.refresh", () => {
-      storage.reloadIfExternal();
-      sidebar?.refresh();
-    })
+    vscode.commands.registerCommand(
+      "mindstream.addNoteToLine",
+      unlessWorkPaused(async () => {
+        const link = createLinkFromActiveEditor(folder);
+        if (link) {
+          await sidebar?.openAddNoteForLink(link);
+        }
+      })
+    )
   );
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "mindstream.manageTypes",
+      unlessWorkPaused(() => sidebar?.openTypes())
+    )
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "mindstream.manageCategories",
+      unlessWorkPaused(() => sidebar?.openCategories())
+    )
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "mindstream.exportMarkdown",
+      unlessWorkPaused(() => exportMarkdown(deps, items, types, categories))
+    )
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "mindstream.exportJson",
+      unlessWorkPaused(() => exportJson(deps, storage))
+    )
+  );
+  // importJson also checks the lock itself, so it stays safe when called directly.
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "mindstream.importJson",
+      unlessWorkPaused(() => importJson(deps, storage, () => sidebar?.refresh()))
+    )
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "mindstream.weeklyReport",
+      unlessWorkPaused(() => sidebar?.openWeeklyReport(buildWeeklyReport(items)))
+    )
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "mindstream.exportWeeklyReport",
+      unlessWorkPaused(() => exportWeeklyReport(deps, items))
+    )
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "mindstream.refresh",
+      unlessWorkPaused(() => {
+        storage.reloadIfExternal();
+        sidebar?.refresh();
+      })
+    )
+  );
+  context.subscriptions.push(vscode.commands.registerCommand("mindstream.workPause.pause", () => sidebar?.pauseWork()));
+  context.subscriptions.push(vscode.commands.registerCommand("mindstream.workPause.resume", () => sidebar?.resumeWork()));
   context.subscriptions.push(
     vscode.commands.registerCommand("mindstream.showSidebar", async () => {
       await vscode.commands.executeCommand("workbench.view.extension.mindstream");

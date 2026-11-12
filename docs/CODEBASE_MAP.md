@@ -136,7 +136,8 @@ src/
   extension.ts          Entry point: activate()/deactivate(), command registration,
                          wiring of all services, builds the injected CommandsDeps.
   models.ts              Core data types: MindStreamItem, MindStreamLink, MindStreamTypeDef,
-                         MindStreamCategoryDef, MindStreamData, status enum, constants.
+                         MindStreamCategoryDef, MindStreamWorkPauseNote, MindStreamData,
+                         status enum, constants.
   storage.ts              StorageService (IStorage impl): loads/saves the JSON file
                          safely (write to .tmp then rename), default data creation,
                          normalizeData() for legacy/incomplete data,
@@ -170,6 +171,11 @@ src/
   uiPrefs.ts              UiPrefsRegistry: global (per-user, all workspaces) UI
                          preferences (the note-editor description height) behind
                          a UiPrefsMemento adapter over context.globalState.
+  workPause.ts             Pure Work Pause rules: normalizeWorkPauseNote(), the
+                         context key name, the messages allowed while locked,
+                         and guardWhenWorkPaused(). See §10.
+  workPauseStore.ts        WorkPauseStore: reads/writes the single Work Pause note
+                         (data key workPauseNote) through IStorage. See §10.
   sidebarController.ts    SidebarController: sidebar message-handling logic, extracted
                          from the provider so it is unit-testable without vscode.
                          Mutates data and asks for confirmations via SidebarUi
@@ -185,6 +191,7 @@ src/
                          skips posting while hidden, and waits for the view when first used.
   commands.ts             Command handlers (export/import Markdown/JSON, weekly report,
                          requireWorkspace) with an injected CommandsDeps I/O surface.
+                         importJson does nothing while the Work Pause lock is on.
   export.ts               Pure functions: buildMarkdownExport(), buildWeeklyReportText(),
                          mergeData() (merge imported JSON into current data by id).
   report.ts                buildWeeklyReport(): computes weekly created/completed/
@@ -218,6 +225,9 @@ media/
                           See section 9.
   viewOptions.js          ViewOptions: group/sort/priority-filter rules and the
                           View menu entries (pure, no DOM). See §7.
+  workPause.js             WorkPause: view/edit/cancel rules of the Work Pause note
+                          (pure, no DOM, loaded as a global before sidebar.js).
+                          See §10.
 
 
 
@@ -260,6 +270,9 @@ test/
    `affectsConfiguration("mindstream")` reports a change, it calls
    `sidebar?.refresh()` so settings (e.g. UI direction, copy options) reach the
    webview immediately, without reopening the panel.
+7. `SidebarProvider.refresh()` also publishes the Work Pause lock as the VS Code
+   context key `mindstream.workPaused`, so the title-bar buttons and the
+   More menu follow it (see §10).
 
 ### Key conventions to keep in mind
 
@@ -299,6 +312,9 @@ test/
 - **Note-editor description height is global, not workspace data.** It lives in
   VS Code `globalState` (key `mindstream.ui`), managed by `UiPrefsRegistry`
   behind a `UiPrefsMemento` adapter. See §6.
+- **The Work Pause note is project data, kept beside the notes.** It is the
+  `workPauseNote` key of `.vscode/mindstream.data.json`, never inside `items`, and
+  while work is paused the whole UI is locked. See §10.
 
 ### `renderCustomSelect()` — Option Item Schema
 
@@ -356,7 +372,9 @@ tooltip; no per-element JS wiring is required at the call site.
   `isLayoutInducedHover()` helper.
 - **Keyboard support.** `focusin`/`focusout` on `document` show/hide the
   tooltip when the element receives focus via Tab, matching VS Code's own
-  hover behavior.
+  hover behavior. Any focus counts, including `element.focus()` from a script,
+  so never move focus programmatically onto an element that has a
+  `data-tooltip` unless showing that tooltip is intended.
 - **Show delay / instant hide.** Showing is delayed 500ms (mirrors VS Code's
   hover timing); hiding is immediate.
 - **Dismissal.** The tooltip hides on any `pointerdown` anywhere (capture
@@ -808,3 +826,124 @@ carry the full location. The line range is measured together with the path.
 Tracking never changes a note's `updatedAt`. `normalizeData()` runs every link
 through `sanitizeLink()`: paths that are absolute, contain `..`, `\`, or empty
 segments are dropped (the note is kept).
+
+## 10. Work Pause note
+
+A hand-off note written before stepping away for a long time ("where I stopped,
+what is next"). It is not a regular note: while work is **paused** the whole UI is
+locked and the sidebar shows nothing but this note.
+
+### Data
+
+`MindStreamData.workPauseNote?: { text, updatedAt, paused }` is the last key of
+`.vscode/mindstream.data.json`. It is absent until the first save and is never
+added by `normalizeData()`; it is not part of `items`, so it never appears in a
+note list, filter, or Markdown export.
+
+- `text` is trimmed and capped at `MAX_WORK_PAUSE_TEXT` (10000 characters).
+  `updatedAt` only moves when the text changes; the note shows it as
+  `Updated: <date>` at the bottom.
+- `normalizeWorkPauseNote()` drops a value that is not a plain object and falls
+  back to empty values for wrong field types. Work is never paused without
+  text, so a hand-edited file cannot lock the user in with an empty note.
+- `WorkPauseStore` (`src/workPauseStore.ts`) is the only writer: `save(text,
+pause?)`, `pause()` (refuses without text), `resume()` (keeps the text),
+  `isPaused()`. It uses `IStorage`, so it follows the same external-change reload
+  as the notes.
+
+### Turning it on and off
+
+Only the More menu (`...` in the view title) changes the lock:
+
+| State | More shows                                               | Command                       |
+| ----- | -------------------------------------------------------- | ----------------------------- |
+| off   | `Pause work and show note` (and the export/import items) | `mindstream.workPause.pause`  |
+| on    | `✓ Work paused - click to resume` only                   | `mindstream.workPause.resume` |
+
+VS Code has no checked state for a contributed command, so the pair of commands
+with opposite `when` clauses on the context key `mindstream.workPaused`
+provides the check mark. The titles state the action and the way out in plain
+words. `pause` ("Pause work and show note") with a saved note locks at once; with
+no note it opens the editor first (`openWorkPauseEditor`), and the lock turns on
+only when the user saves text (`saveWorkPauseNote` with `pause: true`).
+
+### The lock (two layers)
+
+1. **UI.** `SidebarProvider.refresh()` sets the context key from
+   `WorkPauseStore.isPaused()` (also at startup and after any external file
+   change). `package.json` adds `!mindstream.workPaused` to the `when` of
+   every title-bar button, every More item except the two Work Pause commands,
+   the editor context item, the Command Palette entries, and the
+   `Ctrl+Alt+M` keybinding. `mindstream.showSidebar` stays available so the
+   note can be reached.
+2. **Code.** Commands run through `guardWhenWorkPaused()` and do nothing
+   while locked, so running one by id has no effect either. `importJson`
+   checks the lock itself. Webview messages go through
+   `isAllowedDuringWorkPause()` in both `SidebarProvider.handleMessage()` and
+   `SidebarController.handleMessage()`: only `refresh`, `saveWorkPauseNote`, and
+   `confirmDiscardWorkPauseDraft` are processed.
+
+`importJson` never imports a paused state: `Replace` takes the file's note
+(not paused) and `Merge` keeps the current note.
+
+### Webview
+
+- While locked, `postState()` sends only `{ workPause }`: nothing else is drawn.
+  `body.work-pause-locked` also hides every other top-level element, and the
+  webview ignores every message except `state` and the two Work Pause answers.
+- `#work-pause` is the solid overlay (the sidebar background) with the card; it
+  uses `--work-pause-*` variables (the accent is a fixed `#8189a9`).
+- The card's drop shadow is a separate `.work-pause-shadow` element (a copy of
+  the sheet shape), never a `filter` on `.work-pause-card`: a filter on the
+  tilted card makes the note text blurry.
+- **Text direction is automatic** and ignores `mindstream.ui.direction`.
+  `WorkPause.directionFor()` returns `rtl` when the first non-empty line of the
+  saved text contains an Arabic letter (digits and Arabic punctuation do not
+  count), otherwise `ltr`. It sets `dir` on the note text and the editor only,
+  and only while the note is shown: it changes when the note is saved, never
+  while typing. The header, buttons, and date never flip.
+- The edit button keeps its `data-tooltip`. Focus is not moved back to it after
+  Save/Cancel, because `tooltip.js` shows the tooltip of any element that
+  receives focus, even from a script.
+- **View mode applies light formatting** through `WorkPause.renderNoteHtml()` (in
+  `media/workPause.js`). The processed HTML is set via `innerHTML`; plain text
+  would escape every character, so each line is escaped first. Three patterns
+  are recognized at the start of a line only:
+  - `[x]` / `[ ]` (with optional `- ` / `* ` prefix and leading whitespace): a
+    display-only checkbox (`span.work-pause-check`) coloured with
+    `--vscode-checkbox-*` tokens.
+  - `# ` followed by text (one hash, a space, then the rest): a heading
+    (`span.work-pause-h1`) — larger, bold, tinted with the theme link color.
+    `##` is never treated as a heading.
+  - `---` (exactly three dashes, nothing else on the line): a light dashed
+    divider (`span.work-pause-divider`).
+  - `` `code` `` inside any line (plain text, checkbox text, heading) becomes inline
+    code (`code.work-pause-code`: editor font, the ink mixed into the paper for its
+    background). It is applied after
+    escaping, so the span content is escaped too; an unclosed pair stays literal and a
+    span never crosses lines.
+  - The heading and the divider are block elements that fill their own line, so no
+    `\n` is emitted after them; inside `pre-wrap` that newline would render as an
+    extra blank line. A blank line the user typed after them is kept.
+  - A group is a run of consecutive checkbox lines. Its first line is wrapped in
+    `span.work-pause-list-start` (a block with a 10px top margin) so the group is
+    spaced from the line above; like the heading, it gets no trailing `\n`. The very
+    first line of the note and a line right after a blank line are not wrapped.
+- View mode shows the text and an edit button. Edit mode shows a textarea with
+  Cancel/Save; Save is disabled for blank text.
+- Cancel and `Esc` share one path (`requestWorkPauseCancel`): `WorkPause.cancelAction()`
+  returns `leave` when the draft equals the saved text, otherwise `confirm`, which
+  sends `confirmDiscardWorkPauseDraft`. The host asks with a modal
+  `showWarningMessage` (`SidebarUi.confirmDiscardWorkPauseDraft`) and answers with
+  `workPauseDiscardAnswer { discard }`.
+- A `state` message that arrives while editing (an external file change) never
+  replaces the draft (`WorkPause.shouldReplaceDraft`); the saved text and date are
+  refreshed underneath.
+
+### Messages
+
+- `saveWorkPauseNote` (`text`, `pause?`) → `WorkPauseStore.save`.
+- `confirmDiscardWorkPauseDraft` → host confirmation, answered by `workPauseDiscardAnswer`.
+- Host → webview: `openWorkPauseEditor`, `workPauseDiscardAnswer`, and `state.workPause`.
+
+The discard question is a modal `showWarningMessage` ("Discard your unsaved changes to the note?").

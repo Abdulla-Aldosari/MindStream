@@ -203,6 +203,59 @@ describe("importJson", () => {
     assert.ok(deps.infos.some((m) => m.includes("merged")));
   });
 
+  describe("Work Pause note", () => {
+    const note = { text: "Imported note", updatedAt: "2020-01-01T00:00:00.000Z", paused: true };
+
+    it("does nothing at all while the lock is on (no dialog, no change)", async () => {
+      const deps = new FakeDeps();
+      const storage = new InMemoryStorage({ ...createEmptyData(), workPauseNote: { text: "Locked", updatedAt: "", paused: true } });
+      deps.openUris = [{ fsPath: makeImportFile(incomingData("imported-1")) }];
+      deps.warningResult = "Replace";
+      let refreshed = false;
+
+      await importJson(deps, storage, () => (refreshed = true));
+
+      assert.strictEqual(deps.warningMessages.length, 0);
+      assert.strictEqual(deps.errors.length, 0);
+      assert.strictEqual(refreshed, false);
+      assert.strictEqual(storage.saved.length, 0);
+      assert.strictEqual(storage.getData().items.length, 0);
+    });
+
+    it("Merge keeps the current note and ignores the imported one", async () => {
+      const deps = new FakeDeps();
+      const storage = new InMemoryStorage({ ...createEmptyData(), workPauseNote: { text: "Mine", updatedAt: "", paused: false } });
+      deps.openUris = [{ fsPath: makeImportFile({ ...incomingData("imported-1"), workPauseNote: note }) }];
+      deps.warningResult = "Merge";
+
+      await importJson(deps, storage, () => {});
+
+      assert.strictEqual(storage.getData().workPauseNote?.text, "Mine");
+    });
+
+    it("Replace brings in the imported note but never as active", async () => {
+      const deps = new FakeDeps();
+      const storage = new InMemoryStorage(createEmptyData());
+      deps.openUris = [{ fsPath: makeImportFile({ ...incomingData("imported-1"), workPauseNote: note }) }];
+      deps.warningResult = "Replace";
+
+      await importJson(deps, storage, () => {});
+
+      assert.deepStrictEqual(storage.getData().workPauseNote, { ...note, paused: false });
+    });
+
+    it("Replace with a file that has no note removes the current one", async () => {
+      const deps = new FakeDeps();
+      const storage = new InMemoryStorage({ ...createEmptyData(), workPauseNote: { text: "Old", updatedAt: "", paused: false } });
+      deps.openUris = [{ fsPath: makeImportFile(incomingData("imported-1")) }];
+      deps.warningResult = "Replace";
+
+      await importJson(deps, storage, () => {});
+
+      assert.ok(!("workPauseNote" in storage.getData()));
+    });
+  });
+
   it("replaces the data on Replace", async () => {
     const deps = new FakeDeps();
     const storage = new InMemoryStorage(createEmptyData());

@@ -5,6 +5,8 @@ import { TypesRegistry } from "./typesRegistry";
 import { CategoriesRegistry } from "./categoriesRegistry";
 import { DEFAULT_EMOJI_PALETTE, EmojiRegistry } from "./emojiRegistry";
 import { UiPrefsRegistry } from "./uiPrefs";
+import { WorkPauseStore } from "./workPauseStore";
+import { isAllowedDuringWorkPause } from "./workPause";
 
 export interface WebviewMessage {
   type:
@@ -28,8 +30,12 @@ export interface WebviewMessage {
     | "restoreEmojiPalette"
     | "setDescriptionHeight"
     | "copyToClipboard"
-    | "openLink";
+    | "openLink"
+    | "saveWorkPauseNote"
+    | "confirmDiscardWorkPauseDraft";
   id?: string;
+  /** `saveWorkPauseNote` only: also pause work (lock the UI) once saved. */
+  pause?: boolean;
   /**
    * Set by the webview on `addItem` when the open form was started from the
    * editor context menu. The link itself never comes from the webview: the
@@ -58,6 +64,10 @@ export interface SidebarUi {
   confirmDeleteCategory(label: string, count: number): Promise<boolean>;
   confirmDeleteType(label: string): Promise<boolean>;
   confirmRestoreEmojiPalette(): Promise<boolean>;
+  /** Asks before throwing away an unsaved Work Pause draft (Cancel or Esc while editing). */
+  confirmDiscardWorkPauseDraft(): Promise<boolean>;
+  /** Sends the user's answer to that question back to the webview. */
+  answerWorkPauseDiscard(discard: boolean): void;
   pickType(types: { id: string; label: string; icon?: string }[]): Promise<string | undefined>;
   showInfo(message: string): void;
 }
@@ -77,6 +87,7 @@ export class SidebarController {
     private readonly categories: CategoriesRegistry,
     private readonly emoji: EmojiRegistry,
     private readonly uiPrefs: UiPrefsRegistry,
+    private readonly workPause: WorkPauseStore,
     private readonly ui: SidebarUi,
     /** Reads the live `mindstream.priority.style` setting (true unless "off"). */
     private readonly priorityEnabled: () => boolean = () => true
@@ -88,7 +99,17 @@ export class SidebarController {
   }
 
   async handleMessage(msg: WebviewMessage): Promise<void> {
+    // While work is paused, the note is the only thing that may change.
+    if (this.workPause.isPaused() && !isAllowedDuringWorkPause(msg.type)) {
+      return;
+    }
     switch (msg.type) {
+      case "saveWorkPauseNote":
+        this.workPause.save(msg.text, msg.pause === true);
+        break;
+      case "confirmDiscardWorkPauseDraft":
+        this.ui.answerWorkPauseDiscard(await this.ui.confirmDiscardWorkPauseDraft());
+        break;
       case "addItem": {
         const link = msg.linked === true ? this.pendingLink : undefined;
         this.pendingLink = undefined;

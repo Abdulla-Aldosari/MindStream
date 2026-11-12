@@ -44,6 +44,7 @@ module.exports = [
       "test/emoji.test.ts",
       "test/dropdownMenu.test.ts",
       "test/viewOptions.test.ts",
+      "test/workPauseWebview.test.ts",
     ],
     rules: {
       "@typescript-eslint/no-require-imports": "off",
@@ -75,13 +76,23 @@ module.exports = [
         isEmoji: "readonly",
         DropdownMenu: "readonly",
         ViewOptions: "readonly",
+        WorkPause: "readonly",
       },
     },
   },
   {
     // Side-effect-free media/*.js files also expose their functions to
     // Node-based unit tests via a guarded `module.exports` block.
-    files: ["media/iconClass.js", "media/tooltip.js", "media/defaultType.js", "media/linkPath.js", "media/emoji.js", "media/dropdown-menu.js", "media/viewOptions.js"],
+    files: [
+      "media/iconClass.js",
+      "media/tooltip.js",
+      "media/defaultType.js",
+      "media/linkPath.js",
+      "media/emoji.js",
+      "media/dropdown-menu.js",
+      "media/viewOptions.js",
+      "media/workPause.js",
+    ],
     languageOptions: {
       globals: {
         module: "readonly",

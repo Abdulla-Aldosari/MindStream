@@ -26,6 +26,32 @@ describe("createEmptyData", () => {
   });
 });
 
+describe("normalizeData workPauseNote", () => {
+  it("never adds the key when the file has none", () => {
+    assert.ok(!("workPauseNote" in normalizeData({ items: [] })));
+    assert.ok(!("workPauseNote" in createEmptyData()));
+  });
+
+  it("keeps a valid note as the last key", () => {
+    const note = { text: "Stopped here", updatedAt: "2026-11-11T10:00:00.000Z", paused: true };
+    const data = normalizeData({ version: 1, types: [], categories: [], items: [], workPauseNote: note });
+    assert.deepStrictEqual(data.workPauseNote, note);
+    assert.strictEqual(Object.keys(data).pop(), "workPauseNote");
+  });
+
+  it("drops a key of the wrong shape and fixes an active note without text", () => {
+    assert.ok(!("workPauseNote" in normalizeData({ workPauseNote: "oops" })));
+    assert.ok(!("workPauseNote" in normalizeData({ workPauseNote: [] })));
+    assert.strictEqual(normalizeData({ workPauseNote: { text: "", paused: true } }).workPauseNote?.paused, false);
+  });
+
+  it("round-trips through StorageService", () => {
+    const text = JSON.stringify({ version: 1, types: [], categories: [], items: [], workPauseNote: { text: "A", updatedAt: "", paused: false } });
+    const storage = StorageService.fromText(text);
+    assert.strictEqual(storage.getData().workPauseNote?.text, "A");
+  });
+});
+
 describe("DEFAULT_TYPES / DEFAULT_CATEGORIES", () => {
   it("ships 11 default types", () => {
     assert.strictEqual(DEFAULT_TYPES.length, 11);
