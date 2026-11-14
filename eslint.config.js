@@ -64,10 +64,13 @@ module.exports = [
     },
   },
   {
-    // Globals defined in the side-effect-free media/*.js files, loaded
-    // as globals before sidebar.js (see sidebarProvider.ts's getHtml()).
-    files: ["media/sidebar.js"],
+    // The sidebar app (media/sidebar/) is ES modules, bundled by esbuild into
+    // dist/media/sidebar.js. It also reads the globals defined by the
+    // side-effect-free media/*.js files, loaded before the bundle (see
+    // sidebarProvider.ts's getHtml()).
+    files: ["media/sidebar/**/*.js"],
     languageOptions: {
+      sourceType: "module",
       globals: {
         iconClass: "readonly",
         resolveCategoryDefaultTypeId: "readonly",
