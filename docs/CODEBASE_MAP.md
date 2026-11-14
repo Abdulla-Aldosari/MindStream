@@ -201,12 +201,32 @@ src/
   util.ts                  newId() (crypto.randomUUID), nowIso(), debounce().
 
 media/
-  sidebar.js / *.css     Webview UI: custom select/dropdown system
-                         (renderCustomSelect/bindCustomSelect — see rule:
-                         no native <select>), a reusable action menu
-                         (renderActionMenu/bindActionMenu), modals, note
-                         cards, and the viewer options menu (Copy ID /
-                         Copy content, sent to the host as copyToClipboard).
+  sidebar/                The webview app: ES modules bundled by esbuild into
+                          dist/media/sidebar.js (see "Webview app" below).
+    main.js               Entry point: calls each module's init*() in a fixed
+                          order, the Esc router, first render, "refresh".
+    core.js               vscode API handle, `state`, persisted view choices,
+                          `$`, main elements, persist(), typeOf(), esc().
+    customSelect.js       renderCustomSelect/bindCustomSelect (see rule: no
+                          native <select>), renderActionMenu/bindActionMenu,
+                          menuCloseHandlers, closeAllDropdowns().
+    overlays.js           closeAllModals(): one overlay open at a time.
+    toolbar.js            Category/type filters, the View menu (DropdownMenu),
+                          the archive toggle.
+    list.js               Filtering, empty state, groups, FLIP animation.
+    card.js               Note cards and their footer actions.
+    linkBadge.js          Code-link badge and its fit-to-width observer (§9).
+    noteEditor.js         New/edit note modal and the Save round trip.
+    priorityControl.js    The editor's priority radiogroup (§7).
+    noteViewer.js         Read-only viewer and its options menu (Copy ID /
+                          Copy content, sent to the host as copyToClipboard).
+    categoriesModal.js    "Manage Categories" modal.
+    typesModal.js         "Manage Types" modal and the icons picker.
+    weeklyReport.js       Weekly report modal.
+    emojiPicker.js        Emoji picker, shortcuts, palette editor (§5).
+    workPausePanel.js     Work Pause note panel (§10).
+    messages.js           Host messages: state updates and open requests.
+  sidebar.css             Webview styles (§4).
   tooltip.js              Reusable data-tooltip system (see §3 below),
                           loaded as a global before sidebar.js.
   iconClass.js            iconClass(): builds a safe codicon CSS class from
@@ -245,6 +265,35 @@ e2e/
 
 playwright.config.ts      Playwright config: testDir e2e, one worker, HTML report.
 ```
+
+### Webview app (`media/sidebar/`)
+
+- `esbuild.js` bundles `media/sidebar/main.js` into `dist/media/sidebar.js`
+  (`format: "iife"`, `platform: "browser"`, a sourcemap outside
+  `--production`); `--watch` rebuilds it too. `getHtml()` loads that one file
+  after the global helper scripts. `copyMedia()` copies only top-level `media/`
+  files, so the module sources never reach `dist/` or the VSIX.
+- The modules use `import`/`export` (eslint `sourceType: "module"`, strict
+  mode). They also read the globals of the classic `media/*.js` helpers
+  (`iconClass`, `ViewOptions`, `WorkPause`, `DropdownMenu`, ...), listed in
+  `eslint.config.js`.
+- **A module only declares things at load.** Listeners, `DropdownMenu.create()`
+  and other startup work go in the module's `init*()` function, and only
+  `main.js` calls those, in a fixed order: the emoji picker's document
+  listeners before the icons picker's, the View menu's close handler before
+  the viewer menu's, and the Esc router last. Allowed at load: the `vscode`
+  handle and saved state in `core.js`, element lookups, and the link-row
+  `ResizeObserver` in `linkBadge.js`.
+- **Mutable state stays in its module.** A `let` that another module needs is
+  read or changed through a function (`takePendingFlashId()`,
+  `isWorkPaused()`, `handleWorkPauseDiscardAnswer()`), never imported. Shared
+  UI state lives in `state` (`core.js`).
+- **Logic that needs unit tests goes in a classic `media/*.js` file** (one
+  global plus a guarded `module.exports`, like `viewOptions.js`): Mocha runs
+  the tests as CommonJS and cannot load the ES modules.
+- Import paths are lowercase and relative (`./core.js`): two spellings of one
+  path create two module instances, and `acquireVsCodeApi()` throws when it
+  is called twice.
 
 ### End-to-end tests (`e2e/`)
 
@@ -288,7 +337,7 @@ real VS Code window. `npm test` never runs them (Mocha's spec is
    share the same in-memory `MindStreamData` and persist to the same
    `.vscode/mindstream.data.json`.
 3. `SidebarProvider` is constructed with those three registries and renders
-   the webview; it receives messages from `media/sidebar.js` via
+   the webview; it receives messages from the webview app (`media/sidebar/`) via
    `webview.onDidReceiveMessage`, delegates data mutations to
    `SidebarController` (which asks for confirmations through `SidebarUi`),
    then calls `postState()` to push the updated state back to the webview.
@@ -322,7 +371,7 @@ real VS Code window. `npm test` never runs them (Mocha's spec is
 - **Stable ids, not labels.** Items reference `typeId` / `categoryId`;
   renaming a type/category never breaks existing items.
 - **No native `<select>` in the webview.** Always use
-  `renderCustomSelect()` / `bindCustomSelect()` from `media/sidebar.js` for a
+  `renderCustomSelect()` / `bindCustomSelect()` from `media/sidebar/customSelect.js` for a
   single-value select; use `DropdownMenu` (`media/dropdown-menu.js`, §8) for a
   menu of grouped options, toggles, or actions.
 - **Priority is optional per note.** An absent `priority` key means
@@ -381,7 +430,7 @@ nothing at all, and its message alone explains it.
 
 - **Category default types.** A category may carry an optional
   `defaultTypeId`. When the "New note" form opens (or the category changes
-  there), `media/sidebar.js` pre-selects that type via
+  there), `media/sidebar/noteEditor.js` pre-selects that type via
   `resolveCategoryDefaultTypeId()` in `media/defaultType.js`, which falls
   back to the active type filter and then to the first registered type
   ("General" by convention). The "Manage Categories" modal sets it through a
@@ -399,7 +448,7 @@ nothing at all, and its message alone explains it.
 
 ### `renderCustomSelect()` — Option Item Schema
 
-All dropdowns use `renderCustomSelect()` + `bindCustomSelect()` from `media/sidebar.js`.
+All dropdowns use `renderCustomSelect()` + `bindCustomSelect()` from `media/sidebar/customSelect.js`.
 
 Each element in the `options` array passed to `renderCustomSelect()` supports the following keys:
 
@@ -423,7 +472,7 @@ tooltip; no per-element JS wiring is required at the call site.
 
 ### Where it lives
 
-`media/tooltip.js` is loaded as a global `<script>` before `media/sidebar.js`
+`media/tooltip.js` is loaded as a global `<script>` before the webview app bundle (`dist/media/sidebar.js`)
 (see `sidebarProvider.ts`'s `getHtml()`), the same pattern used for
 `media/iconClass.js` and `media/defaultType.js`.
 
@@ -516,7 +565,7 @@ Rule for where to put `data-tooltip` around a custom select:
 | The `#{wrapperId}` container (`.cs-wrap`)           | Never                       | It is a shared ancestor of both the button and every menu item; `closest()` would pick it up while hovering menu items                                                                                           |
 
 See `populateCategoryFilter()` and `populateTypeFilter()` in
-`media/sidebar.js` for the applied pattern (tooltip set on `#{btnId}` right
+`media/sidebar/toolbar.js` for the applied pattern (tooltip set on `#{btnId}` right
 after `renderCustomSelect()` returns its HTML). `DropdownMenu` (§8) appends its
 menu to `<body>`, so a `data-tooltip` on its trigger never wraps the menu items.
 
@@ -531,7 +580,7 @@ block, following the same pattern as `media/iconClass.js`. They are
 unit-tested in `test/tooltip.test.ts` without any DOM/vscode stubbing. The
 DOM-wiring part of the file only runs inside a real webview (guarded by
 `typeof document !== 'undefined'`) and is not covered by unit tests,
-consistent with the rest of the interactive code in `media/sidebar.js`.
+consistent with the rest of the interactive code in `media/sidebar/`.
 
 ---
 
@@ -617,8 +666,8 @@ duplicating rules under `.category-*`/`.type-*` names:
 concept). `.type-icon-btn` stays type-only (the change-icon button embedded
 in the row). Both are layered on top of `.mgmt-row` rather than duplicated.
 
-`media/sidebar.js`'s `renderCategories()`/`renderTypes()` and
-`startRenameCategory()`/`startRenameType()` assign these shared class names
+`renderCategories()`/`startRenameCategory()` (`media/sidebar/categoriesModal.js`)
+and `renderTypes()`/`startRenameType()` (`media/sidebar/typesModal.js`) assign these shared class names
 when building each row.
 
 ---
@@ -661,7 +710,7 @@ flag, and a heart.
   (`#f-desc`) fields:
   - `Ctrl+Shift+/` (`Cmd+Shift+/` on macOS) opens the emoji picker.
   - `Ctrl+/` (`Cmd+/` on macOS) inserts the most-recent emoji directly (no popup).
-- `media/sidebar.js` matches these via a `keydown` listener using
+- `media/sidebar/emojiPicker.js` matches these via a `keydown` listener using
   `e.code === "Slash"` (layout-independent) with a Ctrl/Cmd modifier, then
   inserts at the caret (`selectionStart`/`setSelectionRange`) and records the
   use.
@@ -687,7 +736,7 @@ flag, and a heart.
 
 ### `media/emoji.js` — `splitEmojis()` and `isEmoji()`
 
-Two side-effect-free helpers (loaded as globals before `sidebar.js`, and
+Two side-effect-free helpers (loaded as globals before the webview app bundle, and
 required directly by Mocha tests):
 
 - `splitEmojis(text)` splits a plain string into individual emoji using
@@ -733,7 +782,7 @@ the registry into `SidebarProvider` → `SidebarController`.
 
 ### Webview flow
 
-- `postState()` includes `descriptionHeight`; `media/sidebar.js` stores it in
+- `postState()` includes `descriptionHeight`; `media/sidebar/messages.js` stores it in
   `state.descriptionHeight`.
 - When the note editor opens (`openAdd`/`openEdit`), `applyDescHeight()` sets a
   `--desc-height` CSS custom property consumed by `#f-desc { height:
@@ -902,7 +951,7 @@ next `refreshAll()`/`resolveItem()` re-finds the code. While the sidebar is hidd
 
 ### Showing the path
 
-The badge always keeps the file name visible. `fitLinkRow()` (in `sidebar.js`)
+The badge always keeps the file name visible. `fitLinkRow()` (in `media/sidebar/linkBadge.js`)
 runs from one `ResizeObserver` over every link row (card, viewer, editor) and asks
 `fitPath()` (`media/linkPath.js`) for the longest candidate whose canvas-measured
 width fits the row: the full path when there is room, then the first folder plus

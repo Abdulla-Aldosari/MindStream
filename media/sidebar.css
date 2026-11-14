@@ -1453,7 +1453,7 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 
 /* Emoji picker (floating popup anchored to the focused title/description
    field). Positioned via --picker-* custom properties computed at runtime in
-   sidebar.js (the only sanctioned use of style.setProperty). */
+   media/sidebar/emojiPicker.js (the only sanctioned use of style.setProperty). */
 .emoji-picker {
   position: fixed;
   top: var(--picker-top, 0);
