@@ -48,7 +48,7 @@ const baseScopes = [
   ],
 
   // Tests, docs, and assets
-  ["tests", "unit tests and shared test fakes", ["test/"]],
+  ["tests", "unit tests, shared test fakes, and the Playwright end-to-end tests that drive a real VS Code window", ["test/", "e2e/"]],
   ["docs", "architecture documentation, screenshots, GIFs, and extension icons", ["docs/", "icons/"]],
   ["readme", "text and content of README.md", ["README.md"]],
   ["license", "the LICENSE file", ["LICENSE"]],
@@ -57,7 +57,7 @@ const baseScopes = [
   [
     "tooling",
     "build, lint, format, TypeScript, test-runner, packaging-ignore, and editor/debugger configuration",
-    ["esbuild.js", "eslint.config.js", "tsconfig.json", ".mocharc.json", ".prettierrc", ".prettierignore", ".gitignore", ".vscodeignore", ".vscode/"],
+    ["esbuild.js", "eslint.config.js", "tsconfig.json", "playwright.config.ts", ".mocharc.json", ".prettierrc", ".prettierignore", ".gitignore", ".vscodeignore", ".vscode/"],
   ],
   ["ci", "GitHub Actions pipelines for lint, test, audit, and CodeQL", [".github/workflows/"]],
   ["husky", "git hook scripts that run on commit and push", [".husky/"]],
