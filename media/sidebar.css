@@ -309,7 +309,7 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 .card {
   background: var(--vscode-editor-background, var(--vscode-sideBar-background));
   border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, #333));
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   padding: 10px;
   display: flex;
   flex-direction: column;
