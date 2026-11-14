@@ -77,19 +77,24 @@ function buildCardBase(item) {
   const footer = document.createElement("div");
   footer.className = "card-footer";
 
+  // Status + priority chip travel together on the left side.
+  const meta = document.createElement("div");
+  meta.className = "card-meta";
+
   const status = document.createElement("span");
   status.className = "status " + item.status;
   status.textContent = state.statusLabels[item.status] || item.status;
-  footer.appendChild(status);
+  meta.appendChild(status);
 
   if (level && indicator === "chip") {
     const chip = document.createElement("span");
     chip.className = "prio-chip";
     chip.appendChild(buildPriorityDot(level, ""));
     chip.appendChild(document.createTextNode(state.priority.labels[level] || level));
-    footer.appendChild(chip);
+    meta.appendChild(chip);
   }
 
+  footer.appendChild(meta);
   card.appendChild(footer);
 
   return card;
@@ -119,16 +124,18 @@ export function buildCard(item) {
 
   const footer = card.querySelector(".card-footer");
 
-  const spacer = document.createElement("span");
-  spacer.className = "spacer";
-  footer.appendChild(spacer);
+  // The four card actions travel together on the right side.
+  const actions = document.createElement("div");
+  actions.className = "card-actions";
 
   const viewBtn = btnIcon("codicon-eye", "View note", () => openView(item));
   viewBtn.classList.add("card-view-btn");
-  footer.appendChild(viewBtn);
-  footer.appendChild(btnIcon("codicon-edit", "Edit", () => openEdit(item)));
-  footer.appendChild(btnIcon("codicon-archive", item.archived ? "Unarchive" : "Archive", () => toggleArchive(item)));
-  footer.appendChild(btnIcon("codicon-trash", "Delete permanently", () => deleteItem(item), true));
+  actions.appendChild(viewBtn);
+  actions.appendChild(btnIcon("codicon-edit", "Edit", () => openEdit(item)));
+  actions.appendChild(btnIcon("codicon-archive", item.archived ? "Unarchive" : "Archive", () => toggleArchive(item)));
+  actions.appendChild(btnIcon("codicon-trash", "Delete permanently", () => deleteItem(item), true));
+
+  footer.appendChild(actions);
 
   card.addEventListener("dblclick", (e) => {
     if (e.target.closest("button, .status")) {

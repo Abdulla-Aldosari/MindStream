@@ -366,9 +366,25 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 
 .card-footer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: 6px;
   margin-top: 2px;
+}
+
+/* Left group: status label + optional priority chip. */
+.card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Right group: the card's four action buttons. */
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .card.archived {
@@ -383,6 +399,7 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   cursor: pointer;
   border: 1px solid transparent;
   user-select: none;
+  white-space: nowrap;
 }
 
 /* Shared data-tooltip system (media/tooltip.js): positioned and clamped via
@@ -677,10 +694,6 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 .viewer-card .status.in-progress {
   padding: 4px 7px 5px 7px;
   border-radius: var(--radius-sm);
-}
-
-.spacer {
-  flex: 1;
 }
 
 .icon-btn {
