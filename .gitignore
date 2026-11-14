@@ -9,3 +9,5 @@ dist/
 .vscode/runbox.*
 .vscode/settings.json
 demo/
+test-results/
+playwright-report/
