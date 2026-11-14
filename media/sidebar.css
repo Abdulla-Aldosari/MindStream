@@ -684,11 +684,11 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 
 .status.in-progress {
   color: var(--status-in-progress-color);
-  border-color: var(--status-in-progress-color);
+  border-color: color-mix(in srgb, var(--status-in-progress-color) 40%, transparent);
 }
 .status.done {
   color: var(--status-done-color);
-  border-color: var(--status-done-color);
+  border-color: color-mix(in srgb, var(--status-done-color) 40%, transparent);
 }
 
 .viewer-card .status.in-progress {
