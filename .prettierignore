@@ -1,2 +1,4 @@
 package-lock.json
 **/*.html
+test-results/
+playwright-report/
