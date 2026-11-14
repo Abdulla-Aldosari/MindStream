@@ -4,7 +4,7 @@ const globals = require("globals");
 
 module.exports = [
   {
-    ignores: ["dist/**", "demo/**", "out/**", "node_modules/**", "*.vsix"],
+    ignores: ["dist/**", "demo/**", "floorplan/**", "out/**", "node_modules/**", "*.vsix"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
