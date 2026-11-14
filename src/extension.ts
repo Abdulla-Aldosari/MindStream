@@ -9,7 +9,7 @@ import { SidebarProvider, VIEW_TYPE } from "./sidebarProvider";
 import { LinkTracker } from "./linkTracker";
 import { createLinkFiles, createLinkFromActiveEditor, registerLinkTracking } from "./linkIntegration";
 import { buildWeeklyReport } from "./report";
-import { IStorage } from "./storage";
+import { IStorage, StorageProblem, describeStorageTransition } from "./storage";
 import { debounce, isDemoCapture } from "./util";
 import { CommandsDeps, exportJson, exportMarkdown, exportWeeklyReport, importJson, requireWorkspace } from "./commands";
 import { WorkPauseStore } from "./workPauseStore";
@@ -20,11 +20,32 @@ import { WORK_PAUSE_CONTEXT_KEY, guardWhenWorkPaused } from "./workPause";
 const WATCHER_DEBOUNCE_MS = 200;
 
 /**
+ * Shows a notification whenever the data file becomes unusable (saving is then
+ * refused) or usable again. Call `check()` after every reload.
+ */
+function createStorageNotifier(storage: IStorage): { check(): void } {
+  let last: StorageProblem | undefined;
+  return {
+    check() {
+      const current = storage.getProblem();
+      const notice = describeStorageTransition(last, current);
+      last = current;
+      if (notice?.level === "warning") {
+        void vscode.window.showWarningMessage(notice.message);
+      } else if (notice) {
+        void vscode.window.showInformationMessage(notice.message);
+      }
+    },
+  };
+}
+
+/**
  * Watches `.vscode/mindstream.data.json` for changes made outside this extension
  * instance (manual edits, `git checkout`/`pull`, dev scripts, another VS
  * Code window, etc.) and refreshes the sidebar when a genuine external
  * change is detected. `storage.reloadIfExternal()` ignores events that are
- * just an echo of this instance's own write.
+ * just an echo of this instance's own write. Deleting the file is watched too,
+ * so removing a broken file turns saving back on at once.
  */
 function watchDataFile(context: vscode.ExtensionContext, folder: vscode.WorkspaceFolder, storage: IStorage, onExternalChange: () => void): void {
   const pattern = new vscode.RelativePattern(folder, ".vscode/mindstream.data.json");
@@ -39,6 +60,7 @@ function watchDataFile(context: vscode.ExtensionContext, folder: vscode.Workspac
 
   context.subscriptions.push(watcher.onDidChange(handle));
   context.subscriptions.push(watcher.onDidCreate(handle));
+  context.subscriptions.push(watcher.onDidDelete(handle));
 }
 
 let sidebar: SidebarProvider | undefined;
@@ -116,6 +138,8 @@ export function activate(context: vscode.ExtensionContext): void {
   const types = new TypesRegistry(storage);
   const items = new ItemsStore(storage);
   const categories = new CategoriesRegistry(storage);
+  const storageNotifier = createStorageNotifier(storage);
+  storageNotifier.check();
 
   const emojiMemento: EmojiMemento = {
     get: (key, defaultValue) => context.globalState.get(key, defaultValue),
@@ -149,7 +173,20 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
-  watchDataFile(context, folder, storage, () => sidebar?.refresh());
+  watchDataFile(context, folder, storage, () => {
+    storageNotifier.check();
+    sidebar?.refresh();
+  });
+  // Returning to the window re-reads the file, so a problem fixed elsewhere (a
+  // lock released, a file restored) is picked up even without a watcher event.
+  context.subscriptions.push(
+    vscode.window.onDidChangeWindowState((state) => {
+      if (state.focused && storage.getProblem() && storage.reloadIfExternal()) {
+        storageNotifier.check();
+        sidebar?.refresh();
+      }
+    })
+  );
 
   // Repost state immediately when any `mindstream.*` setting changes (e.g. UI
   // direction, copy options) so the webview reflects it without reopening.
@@ -228,6 +265,7 @@ export function activate(context: vscode.ExtensionContext): void {
       "mindstream.refresh",
       unlessWorkPaused(() => {
         storage.reloadIfExternal();
+        storageNotifier.check();
         sidebar?.refresh();
       })
     )

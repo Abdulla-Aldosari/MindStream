@@ -61,6 +61,10 @@
   let viewingItem = null;
   let pendingFlashId = null;
   let appliedDescHeight = null;
+  // The note editor's Save waiting for the host's answer ({ id, isEditing }), or
+  // null. The editor closes only once the host confirms the note was stored.
+  let pendingNoteSave = null;
+  let nextNoteSaveId = 1;
 
   function persist() {
     vscode.setState({
@@ -968,6 +972,7 @@
   // context menu ("Add note to this line").
   function openAdd(link) {
     closeAllModals();
+    clearPendingNoteSave();
     state.editingId = null;
     state.formTypeTouched = false;
     renderFormLink(link ? { id: null, link } : null);
@@ -988,6 +993,7 @@
 
   function openEdit(item) {
     closeAllModals();
+    clearPendingNoteSave();
     state.editingId = item.id;
     renderFormLink(item);
     $("modal-title").textContent = "Edit note";
@@ -1002,9 +1008,29 @@
     $("f-title").focus();
   }
 
+  // Forgets a Save that is still waiting, so a late answer cannot close a newer form.
+  function clearPendingNoteSave() {
+    pendingNoteSave = null;
+    $("modal-save").disabled = false;
+  }
+
+  // The host's answer to the editor's Save: close on success; otherwise keep
+  // everything the user typed so nothing is lost (the host shows the reason).
+  function handleNoteSaveResult(msg) {
+    if (!pendingNoteSave || msg.saveId !== pendingNoteSave.id) {
+      return;
+    }
+    const isEditing = pendingNoteSave.isEditing;
+    clearPendingNoteSave();
+    if (msg.ok) {
+      closeModal(isEditing ? { deferFlash: true } : undefined);
+    }
+  }
+
   function closeModal(options) {
     const deferFlash = !!(options && options.deferFlash);
     const itemId = state.editingId;
+    clearPendingNoteSave();
     modalEl.hidden = true;
     $("emoji-picker").hidden = true;
     $("emoji-edit-modal").hidden = true;
@@ -1028,14 +1054,19 @@
   }
 
   function saveModal() {
+    if (pendingNoteSave) {
+      return;
+    }
     const title = $("f-title").value.trim();
     if (!title) {
       $("f-title").focus();
       return;
     }
     const isEditing = !!state.editingId;
+    pendingNoteSave = { id: nextNoteSaveId++, isEditing: isEditing };
     const payload = {
       type: isEditing ? "updateItem" : "addItem",
+      saveId: pendingNoteSave.id,
       title: title,
       description: $("f-desc").value,
       typeId: state.formTypeId,
@@ -1052,8 +1083,9 @@
       // Only a flag: the host owns the link and attaches it itself.
       payload.linked = true;
     }
+    // Stays open until the host answers with "noteSaveResult".
+    $("modal-save").disabled = true;
     vscode.postMessage(payload);
-    closeModal(isEditing ? { deferFlash: true } : undefined);
   }
 
   function formatDate(value) {
@@ -2018,6 +2050,10 @@
       if (!wp.note.paused) {
         openWorkPauseEditor();
       }
+      return;
+    }
+    if (msg.type === "noteSaveResult") {
+      handleNoteSaveResult(msg);
       return;
     }
     // Locked: only state messages (which carry the note) are processed.

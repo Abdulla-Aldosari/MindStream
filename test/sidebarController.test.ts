@@ -8,7 +8,8 @@ import { DEFAULT_EMOJI_PALETTE, EmojiMemento, EmojiRegistry } from "../src/emoji
 import { DEFAULT_DESCRIPTION_HEIGHT, UiPrefsRegistry } from "../src/uiPrefs";
 import { DEFAULT_PRIORITY } from "../src/priority";
 import { WorkPauseStore } from "../src/workPauseStore";
-import { InMemoryStorage } from "./helpers";
+import { BLOCKED, InMemoryStorage } from "./helpers";
+import { StorageError } from "../src/storage";
 
 class FakeEmojiMemento implements EmojiMemento {
   private store = new Map<string, unknown>();
@@ -73,6 +74,12 @@ class FakeUi implements SidebarUi {
 
   showInfo(message: string): void {
     this.infos.push(message);
+  }
+
+  saveAnswers: { saveId: number | undefined; ok: boolean }[] = [];
+
+  answerNoteSave(saveId: number | undefined, ok: boolean): void {
+    this.saveAnswers.push({ saveId, ok });
   }
 }
 
@@ -468,5 +475,56 @@ describe("SidebarController Work Pause", () => {
       await controller.handleMessage({ type: "addItem", title: "After", typeId });
       assert.strictEqual(items.list().length, 1);
     });
+  });
+});
+
+describe("SidebarController note editor save answer", () => {
+  it("answers ok with the save id when the note is stored", async () => {
+    const { controller, ui, typeId, items } = setup();
+    await controller.handleMessage({ type: "addItem", title: "A", typeId, saveId: 7 });
+    assert.deepStrictEqual(ui.saveAnswers, [{ saveId: 7, ok: true }]);
+    await controller.handleMessage({ type: "updateItem", id: items.list()[0].id, title: "B", saveId: 8 });
+    assert.deepStrictEqual(ui.saveAnswers[1], { saveId: 8, ok: true });
+  });
+
+  it("answers not ok and re-throws when the storage refuses, changing nothing", async () => {
+    const { controller, ui, typeId, items, storage } = setup();
+    const note = items.create({ typeId, title: "Kept" });
+    storage.problem = BLOCKED;
+    await assert.rejects(controller.handleMessage({ type: "addItem", title: "New", typeId, saveId: 1 }), StorageError);
+    await assert.rejects(controller.handleMessage({ type: "updateItem", id: note.id, title: "Changed", saveId: 2 }), StorageError);
+    assert.deepStrictEqual(ui.saveAnswers, [
+      { saveId: 1, ok: false },
+      { saveId: 2, ok: false },
+    ]);
+    assert.strictEqual(items.list().length, 1);
+    assert.strictEqual(items.get(note.id)?.title, "Kept");
+  });
+
+  it("keeps the pending code link when the save is refused, so the retry still links", async () => {
+    const { controller, typeId, items, storage } = setup();
+    const link = { filePath: "src/a.ts", lineStart: 3, state: "ok" as const };
+    controller.setPendingLink(link);
+    storage.problem = BLOCKED;
+    await assert.rejects(controller.handleMessage({ type: "addItem", title: "A", typeId, linked: true, saveId: 1 }));
+    storage.problem = undefined;
+    await controller.handleMessage({ type: "addItem", title: "A", typeId, linked: true, saveId: 2 });
+    assert.deepStrictEqual(items.list()[0].link, link);
+  });
+
+  it("answers not ok while work is paused, so the editor keeps its text", async () => {
+    const { controller, ui, typeId, items } = setup();
+    await controller.handleMessage({ type: "saveWorkPauseNote", text: "Locked", pause: true });
+    await controller.handleMessage({ type: "addItem", title: "A", typeId, saveId: 3 });
+    assert.deepStrictEqual(ui.saveAnswers, [{ saveId: 3, ok: false }]);
+    assert.strictEqual(items.list().length, 0);
+  });
+
+  it("refuseNoteSave answers only note editor saves", () => {
+    const { controller, ui } = setup();
+    controller.refuseNoteSave({ type: "changeStatus", id: "x" });
+    assert.strictEqual(ui.saveAnswers.length, 0);
+    controller.refuseNoteSave({ type: "updateItem", id: "x", saveId: 4 });
+    assert.deepStrictEqual(ui.saveAnswers, [{ saveId: 4, ok: false }]);
   });
 });

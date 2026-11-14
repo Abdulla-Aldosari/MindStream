@@ -8,7 +8,7 @@ import { TypesRegistry } from "../src/typesRegistry";
 import { CategoriesRegistry } from "../src/categoriesRegistry";
 import { GENERAL_CATEGORY_ID } from "../src/models";
 import { CommandsDeps, UriLike, exportJson, exportMarkdown, exportWeeklyReport, importJson, requireWorkspace } from "../src/commands";
-import { InMemoryStorage } from "./helpers";
+import { BLOCKED, InMemoryStorage } from "./helpers";
 
 class FakeDeps implements CommandsDeps {
   workspacePath = "/fake/ws";
@@ -273,6 +273,53 @@ describe("importJson", () => {
     assert.strictEqual(storage.getData().items[0].id, "imported-1");
     assert.strictEqual(refreshed, true);
     assert.ok(deps.infos.some((m) => m.includes("Replaced")));
+  });
+
+  describe("while the storage refuses saves", () => {
+    it("explains why before opening any dialog, and changes nothing", async () => {
+      const deps = new FakeDeps();
+      const storage = new InMemoryStorage(createEmptyData());
+      storage.problem = BLOCKED;
+      deps.openUris = [{ fsPath: makeImportFile(incomingData("imported-1")) }];
+      deps.warningResult = "Replace";
+      let refreshed = false;
+
+      await importJson(deps, storage, () => (refreshed = true));
+
+      assert.strictEqual(deps.errors.length, 1);
+      assert.ok(deps.errors[0].includes(BLOCKED.message));
+      assert.ok(deps.errors[0].includes("Nothing was changed."));
+      assert.strictEqual(deps.warningMessages.length, 0);
+      assert.strictEqual(refreshed, false);
+      assert.strictEqual(storage.getData().items.length, 0);
+    });
+
+    it("a save refused after the dialog shows the reason and leaves the data untouched", async () => {
+      const deps = new FakeDeps();
+      const storage = new InMemoryStorage(createEmptyData());
+      const items = new ItemsStore(storage);
+      items.create({ typeId: storage.getData().types[0].id, title: "Local", categoryId: GENERAL_CATEGORY_ID });
+      deps.openUris = [{ fsPath: makeImportFile(incomingData("imported-1")) }];
+      deps.warningResult = "Merge";
+      // The file breaks while the Merge/Replace dialog is open.
+      deps.showWarningMessage = async (message: string) => {
+        deps.warningMessages.push(message);
+        storage.problem = BLOCKED;
+        return "Merge";
+      };
+      let refreshed = false;
+
+      await importJson(deps, storage, () => (refreshed = true));
+
+      assert.strictEqual(deps.errors.length, 1);
+      assert.ok(deps.errors[0].includes("Not saved:"));
+      assert.strictEqual(refreshed, false);
+      assert.strictEqual(deps.infos.length, 0);
+      assert.deepStrictEqual(
+        storage.getData().items.map((it) => it.title),
+        ["Local"]
+      );
+    });
   });
 
   it("leaves the data untouched when the user cancels", async () => {

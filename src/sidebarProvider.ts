@@ -93,7 +93,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
    */
   pauseWork(): void {
     if (this.workPause.get().text.trim()) {
-      this.workPause.pause();
+      this.reportFailure(() => this.workPause.pause());
       this.refresh();
       return;
     }
@@ -102,8 +102,17 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
 
   /** "✓ Work paused - click to resume" in the More menu: the only way out of the lock. */
   resumeWork(): void {
-    this.workPause.resume();
+    this.reportFailure(() => this.workPause.resume());
     this.refresh();
+  }
+
+  /** Runs a user action and shows why it failed (a refused save changes nothing). */
+  private reportFailure(action: () => void): void {
+    try {
+      action();
+    } catch (err) {
+      void vscode.window.showErrorMessage(`MindStream: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   /** Tells the webview to open the note editor modal. */
@@ -157,6 +166,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
       // The lock is enforced here as well as in the controller, because the
       // messages handled below never reach the controller.
       if (this.workPause.isPaused() && !isAllowedDuringWorkPause(msg.type)) {
+        this.controller.refuseNoteSave(msg);
         return;
       }
       if (msg.type === "refresh") {
@@ -183,6 +193,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
       await this.controller.handleMessage(msg);
       this.refresh();
     } catch (err) {
+      // A refused save restored the data, so the view is brought back in line too.
+      this.refresh();
       void vscode.window.showErrorMessage(`MindStream: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
@@ -256,6 +268,10 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
 
   answerWorkPauseDiscard(discard: boolean): void {
     void this._view?.webview.postMessage({ type: "workPauseDiscardAnswer", discard });
+  }
+
+  answerNoteSave(saveId: number | undefined, ok: boolean): void {
+    void this._view?.webview.postMessage({ type: "noteSaveResult", saveId, ok });
   }
 
   showInfo(message: string): void {

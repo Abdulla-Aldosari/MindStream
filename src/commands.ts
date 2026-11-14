@@ -2,7 +2,7 @@ import * as fs from "fs";
 import { ItemsStore } from "./itemsStore";
 import { TypesRegistry } from "./typesRegistry";
 import { CategoriesRegistry } from "./categoriesRegistry";
-import { IStorage, normalizeData } from "./storage";
+import { IStorage, StorageError, normalizeData } from "./storage";
 import { buildMarkdownExport, buildWeeklyReportText, mergeData } from "./export";
 import { buildWeeklyReport } from "./report";
 
@@ -63,10 +63,16 @@ export async function exportJson(deps: CommandsDeps, storage: IStorage): Promise
  * Imports a JSON data file. `Merge` adds missing types/categories/notes and
  * keeps the current Work Pause note; `Replace` swaps in the file's data,
  * including its Work Pause note (always imported as not paused). Does nothing
- * while the Work Pause lock is on.
+ * while the Work Pause lock is on. While the data file cannot be saved, it
+ * explains why and changes nothing.
  */
 export async function importJson(deps: CommandsDeps, storage: IStorage, refresh: () => void): Promise<void> {
   if (storage.getData().workPauseNote?.paused === true) {
+    return;
+  }
+  const problem = storage.getProblem();
+  if (problem) {
+    await deps.showErrorMessage(`MindStream: Import is not possible right now. ${problem.message} Nothing was changed. ${problem.howToFix}`);
     return;
   }
   const uris = await deps.showOpenDialog();
@@ -93,16 +99,27 @@ export async function importJson(deps: CommandsDeps, storage: IStorage, refresh:
     `Imported: ${incoming.items.length} notes, ${incoming.types.length} types, ${incoming.categories.length} categories`,
   ].join("\n");
   const choice = await deps.showWarningMessage(report, { modal: true }, "Merge", "Replace");
-  if (choice === "Merge") {
-    mergeData(current, incoming);
-    storage.saveData(current);
-    refresh();
-    await deps.showInformationMessage("MindStream: Imported and merged data.");
-  } else if (choice === "Replace") {
-    storage.saveData(incoming);
-    refresh();
-    await deps.showInformationMessage("MindStream: Replaced data with the imported file.");
+  if (choice !== "Merge" && choice !== "Replace") {
+    return;
   }
+  try {
+    if (choice === "Merge") {
+      // Read again: the data may have been reloaded while the dialog was open.
+      const latest = storage.getData();
+      mergeData(latest, incoming);
+      storage.saveData(latest);
+    } else {
+      storage.saveData(incoming);
+    }
+  } catch (err) {
+    if (err instanceof StorageError) {
+      await deps.showErrorMessage(`MindStream: ${err.message}`);
+      return;
+    }
+    throw err;
+  }
+  refresh();
+  await deps.showInformationMessage(choice === "Merge" ? "MindStream: Imported and merged data." : "MindStream: Replaced data with the imported file.");
 }
 
 export async function exportWeeklyReport(deps: CommandsDeps, items: ItemsStore): Promise<void> {

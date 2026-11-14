@@ -42,6 +42,8 @@ export interface WebviewMessage {
    * host keeps it (see `SidebarController.setPendingLink`).
    */
   linked?: boolean;
+  /** `addItem`/`updateItem`: id of the editor's Save, echoed back by `SidebarUi.answerNoteSave`. */
+  saveId?: number;
   title?: string;
   description?: string;
   typeId?: string;
@@ -70,6 +72,12 @@ export interface SidebarUi {
   answerWorkPauseDiscard(discard: boolean): void;
   pickType(types: { id: string; label: string; icon?: string }[]): Promise<string | undefined>;
   showInfo(message: string): void;
+  /**
+   * Tells the webview whether the note editor's Save (`addItem`/`updateItem`)
+   * was stored. The editor closes only on success, so a refused save never
+   * loses what the user typed.
+   */
+  answerNoteSave(saveId: number | undefined, ok: boolean): void;
 }
 
 /**
@@ -98,9 +106,28 @@ export class SidebarController {
     this.pendingLink = link;
   }
 
+  /** Answers a note editor Save that is ignored (work paused), so the editor keeps its text. */
+  refuseNoteSave(msg: WebviewMessage): void {
+    if (msg.type === "addItem" || msg.type === "updateItem") {
+      this.ui.answerNoteSave(msg.saveId, false);
+    }
+  }
+
+  /** Runs the note editor's write and answers the webview; a failure is re-thrown for the host to show. */
+  private saveNote(msg: WebviewMessage, write: () => void): void {
+    try {
+      write();
+    } catch (err) {
+      this.ui.answerNoteSave(msg.saveId, false);
+      throw err;
+    }
+    this.ui.answerNoteSave(msg.saveId, true);
+  }
+
   async handleMessage(msg: WebviewMessage): Promise<void> {
     // While work is paused, the note is the only thing that may change.
     if (this.workPause.isPaused() && !isAllowedDuringWorkPause(msg.type)) {
+      this.refuseNoteSave(msg);
       return;
     }
     switch (msg.type) {
@@ -111,34 +138,45 @@ export class SidebarController {
         this.ui.answerWorkPauseDiscard(await this.ui.confirmDiscardWorkPauseDraft());
         break;
       case "addItem": {
-        const link = msg.linked === true ? this.pendingLink : undefined;
+        const previousLink = this.pendingLink;
+        const link = msg.linked === true ? previousLink : undefined;
         this.pendingLink = undefined;
-        if (msg.title?.trim() && msg.typeId) {
-          this.items.create({
-            link,
-            typeId: msg.typeId,
-            title: msg.title.trim(),
-            description: msg.description,
-            categoryId: msg.categoryId,
-            // Enabled: always written (the editor's default when untouched).
-            // Disabled: never written, so the note stays unassigned.
-            priority: this.priorityEnabled() ? (isPriority(msg.priority) ? msg.priority : DEFAULT_PRIORITY) : undefined,
+        try {
+          this.saveNote(msg, () => {
+            if (msg.title?.trim() && msg.typeId) {
+              this.items.create({
+                link,
+                typeId: msg.typeId,
+                title: msg.title.trim(),
+                description: msg.description,
+                categoryId: msg.categoryId,
+                // Enabled: always written (the editor's default when untouched).
+                // Disabled: never written, so the note stays unassigned.
+                priority: this.priorityEnabled() ? (isPriority(msg.priority) ? msg.priority : DEFAULT_PRIORITY) : undefined,
+              });
+            }
           });
+        } catch (err) {
+          // The editor stays open with its link, so the next Save still has it.
+          this.pendingLink = previousLink;
+          throw err;
         }
         break;
       }
       case "updateItem":
-        if (msg.id) {
-          this.items.update(msg.id, {
-            title: msg.title,
-            description: msg.description,
-            typeId: msg.typeId,
-            categoryId: msg.categoryId,
-            // Only an explicit, valid choice is stored; while the system is
-            // disabled the stored value (or its absence) is left untouched.
-            priority: this.priorityEnabled() && isPriority(msg.priority) ? msg.priority : undefined,
-          });
-        }
+        this.saveNote(msg, () => {
+          if (msg.id) {
+            this.items.update(msg.id, {
+              title: msg.title,
+              description: msg.description,
+              typeId: msg.typeId,
+              categoryId: msg.categoryId,
+              // Only an explicit, valid choice is stored; while the system is
+              // disabled the stored value (or its absence) is left untouched.
+              priority: this.priorityEnabled() && isPriority(msg.priority) ? msg.priority : undefined,
+            });
+          }
+        });
         break;
       case "deleteItem":
         if (msg.id) {
