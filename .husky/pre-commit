@@ -1,14 +1,6 @@
 npx lint-staged || exit 1
 npm run lint || exit 1
 
-if git diff --cached --name-only | grep -qx "commitlint\.config\.js"; then
-  # Updates the accepted commit scopes, used only for commit message
-  # generation. Missing script file is harmless, so skip silently.
-  if [ -f ".vsenv/scripts/sync-commit-scopes.js" ]; then
-    node .vsenv/scripts/sync-commit-scopes.js --suppressErrors
-  fi
-fi
-
 # ---------------------------- Index stat Shield --------------------------------------
 # Shield: heal the index stat for staged files that are clean in the worktree.
 # Prettier rewrites files during the hook (e.g. CRLF -> LF) and lint-staged
@@ -16,10 +8,12 @@ fi
 # corrections on Git for Windows - the commit then reports clean files as
 # modified. Re-staging a clean file with a pathspec refreshes its stat; files
 # with real unstaged changes are skipped and stay legitimately modified.
-git diff --cached --name-only -z --diff-filter=ACM | while IFS= read -r -d '' file; do
-  if git diff --raw --quiet -- "$file"; then
-    git update-index --refresh -- "$file" || true
-  fi
-done
+
+# git diff --cached --name-only -z --diff-filter=ACM | while IFS= read -r -d '' file; do
+#   if git diff --raw --quiet -- "$file"; then
+#     git update-index --refresh -- "$file" || true
+#   fi
+# done
+
 # --------------------------------------------------------------------------------------
 
