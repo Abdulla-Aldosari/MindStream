@@ -1,6 +1,7 @@
 import { ItemsStore } from "./itemsStore";
 import { MindStreamLink } from "./models";
 import { LineEdit, markLinkMissingForPath, normalizeLines, renameLinkPath, resolveLink, ResolvedLink, shiftLinkForEdits } from "./linkResolver";
+import { StorageError } from "./storage";
 
 /** Reads a workspace file as lines (`null` when it does not exist). Injected so the tracker stays free of `vscode`. */
 export interface LinkFiles {
@@ -9,6 +10,22 @@ export interface LinkFiles {
 
 function sameLink(a: MindStreamLink, b: MindStreamLink): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/**
+ * Runs a write that the tracker makes on its own (no one asked for it). When
+ * the storage refuses it, nothing was changed and the failure is dropped
+ * silently: the next re-check re-finds the code anyway. Returns false then.
+ */
+function background(write: () => boolean): boolean {
+  try {
+    return write();
+  } catch (err) {
+    if (err instanceof StorageError) {
+      return false;
+    }
+    throw err;
+  }
 }
 
 /**
@@ -43,27 +60,36 @@ export class LinkTracker {
     return changed;
   }
 
-  /** Writes pending in-memory shifts. Returns whether a write happened. */
+  /**
+   * Writes pending in-memory shifts. Returns whether a write happened. When the
+   * storage refuses the write, the shifts are dropped (memory goes back to the
+   * saved state) and false is returned.
+   */
   flush(): boolean {
     if (!this.dirty) {
       return false;
     }
     this.dirty = false;
-    this.items.save();
-    return true;
+    return background(() => {
+      this.items.save();
+      return true;
+    });
   }
 
   /** Follows a file/folder rename or move. */
   applyRename(oldPath: string, newPath: string): boolean {
-    return this.items.mapLinks((link) => renameLinkPath(link, oldPath, newPath)) > 0;
+    return background(() => this.items.mapLinks((link) => renameLinkPath(link, oldPath, newPath)) > 0);
   }
 
   /** Marks links under a deleted file/folder as missing (the note itself is never touched). */
   applyDelete(removedPath: string): boolean {
-    return this.items.mapLinks((link) => markLinkMissingForPath(link, removedPath)) > 0;
+    return background(() => this.items.mapLinks((link) => markLinkMissingForPath(link, removedPath)) > 0);
   }
 
-  /** Re-resolves one note's link against the current file content and stores the result. */
+  /**
+   * Re-resolves one note's link against the current file content and stores the
+   * result. The resolved location is returned even when it cannot be stored.
+   */
   async resolveItem(id: string): Promise<ResolvedLink | undefined> {
     const link = this.items.get(id)?.link;
     if (!link) {
@@ -77,7 +103,10 @@ export class LinkTracker {
     }
     const resolved = resolveLink(current, lines);
     if (!sameLink(resolved.link, current)) {
-      this.items.setLink(id, resolved.link);
+      background(() => {
+        this.items.setLink(id, resolved.link);
+        return true;
+      });
     }
     return resolved;
   }
@@ -101,7 +130,14 @@ export class LinkTracker {
       const file = cache.get(path) ?? null;
       const resolved = resolveLink(current, file ? file.lines : null, file ? file.norm : undefined);
       if (!sameLink(resolved.link, current)) {
-        this.items.setLink(item.id, resolved.link);
+        const stored = background(() => {
+          this.items.setLink(item.id, resolved.link);
+          return true;
+        });
+        if (!stored) {
+          // The storage refuses writes: every other link would be refused too.
+          return changed;
+        }
         changed = true;
       }
     }

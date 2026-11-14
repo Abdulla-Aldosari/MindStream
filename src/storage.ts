@@ -8,21 +8,61 @@ import { normalizeWorkPauseNote } from "./workPause";
 
 /** Standalone type that makes it easy to test the layer without depending on vscode. */
 export interface StorageBackend {
+  /** The file text, or `null` when no file exists. Throws when a file exists but cannot be read. */
   load(): string | null;
   save(text: string): void;
+}
+
+/** Shown to the user in every storage message. */
+export const DATA_FILE_LABEL = ".vscode/mindstream.data.json";
+
+/**
+ * Why the data file cannot be used. While a problem is set, every save is
+ * refused, so a file that could not be read or understood is never replaced.
+ */
+export interface StorageProblem {
+  kind: "unreadable" | "invalid";
+  /** What is wrong, as a full sentence. */
+  message: string;
+  /** How the user resolves it, as a full sentence. */
+  howToFix: string;
+}
+
+export type StorageErrorCode = "STORAGE_BLOCKED" | "WRITE_FAILED";
+
+/**
+ * Thrown by `saveData()` when nothing could be saved. Its message is complete
+ * and safe to show as is, to the user or to an automated caller: it states the
+ * reason, that nothing was changed, and how to resolve it.
+ */
+export class StorageError extends Error {
+  constructor(
+    readonly code: StorageErrorCode,
+    message: string
+  ) {
+    super(message);
+    this.name = "StorageError";
+  }
 }
 
 /** Generic interface for reading/writing MindStream data. */
 export interface IStorage {
   getData(): MindStreamData;
+  /**
+   * Persists `data`. Throws a `StorageError` when it cannot: the file is then
+   * untouched and the in-memory data is restored to the last saved state, so a
+   * caller that mutated `getData()` in place changes nothing either.
+   */
   saveData(data: MindStreamData): void;
   /**
    * Re-reads the backend and, only if its content differs from what this
    * instance itself last wrote (i.e. the change came from outside this
    * instance), replaces the in-memory data with the freshly parsed/
-   * normalized version. Returns whether a reload actually happened.
+   * normalized version. Returns whether the data or the problem state changed.
    */
   reloadIfExternal(): boolean;
+  /** The current reason saving is refused, or `undefined` when saving works. */
+  getProblem(): StorageProblem | undefined;
 }
 
 export const DEFAULT_TYPES: Omit<MindStreamTypeDef, "id" | "createdAt">[] = [
@@ -104,60 +144,134 @@ export function normalizeData(raw: unknown): MindStreamData {
   };
 }
 
-/** Parses raw backend text into valid `MindStreamData`, falling back to a fresh default structure for `null`/corrupt input. */
-function parseOrDefault(raw: string | null): MindStreamData {
-  let parsed: unknown = null;
-  if (raw) {
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      parsed = null;
-    }
+function errorDetail(err: unknown): string {
+  return (err instanceof Error ? err.message : String(err)).replace(/\.+$/, "");
+}
+
+export function unreadableProblem(err: unknown): StorageProblem {
+  return {
+    kind: "unreadable",
+    message: `MindStream cannot read its data file (${DATA_FILE_LABEL}): ${errorDetail(err)}.`,
+    howToFix: `Close any program that may be locking the file, then return to VS Code or run "MindStream: Refresh".`,
+  };
+}
+
+function invalidProblem(detail: string): StorageProblem {
+  return {
+    kind: "invalid",
+    message: `MindStream's data file (${DATA_FILE_LABEL}) is not valid: ${detail}.`,
+    howToFix: "Fix or restore the file (for example from Git). MindStream reloads it as soon as it changes.",
+  };
+}
+
+/** The message of a save refused because of `problem`. */
+export function blockedSaveMessage(problem: StorageProblem): string {
+  return `Not saved: ${problem.message} Nothing was changed. ${problem.howToFix}`;
+}
+
+/** The message of a save that failed while writing. */
+export function writeFailedMessage(err: unknown): string {
+  return `Not saved: MindStream could not write its data file (${DATA_FILE_LABEL}): ${errorDetail(err)}. Nothing was changed. Check that the folder is writable and the disk has free space, then try again.`;
+}
+
+/**
+ * Parses raw backend text. No file and an empty file both mean a new project
+ * (fresh default data). Anything that is not a JSON object is a problem, never
+ * a reason to start over: replacing it would destroy the user's notes.
+ */
+export function parseDataText(raw: string | null): { data: MindStreamData } | { problem: StorageProblem } {
+  // A byte order mark (added by some editors) is not part of the JSON.
+  const text = raw === null ? "" : raw.replace(/^\uFEFF/, "");
+  if (text.trim() === "") {
+    return { data: createEmptyData() };
   }
-  return parsed ? normalizeData(parsed) : createEmptyData();
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch (err) {
+    return { problem: invalidProblem(`it is not valid JSON (${errorDetail(err)})`) };
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return { problem: invalidProblem("it does not contain a MindStream data object") };
+  }
+  return { data: normalizeData(parsed) };
+}
+
+/**
+ * The notification to show when the storage problem state changes, or
+ * `undefined` when nothing needs to be said.
+ */
+export function describeStorageTransition(before: StorageProblem | undefined, after: StorageProblem | undefined): { level: "warning" | "info"; message: string } | undefined {
+  // Compared by kind: a file being hand-edited fails with a new detail on every
+  // save, which must not raise a new warning each time.
+  if (after && after.kind !== before?.kind) {
+    return {
+      level: "warning",
+      message: `MindStream: ${after.message} Saving is turned off until this is fixed, so the file is never overwritten. ${after.howToFix}`,
+    };
+  }
+  if (before && !after) {
+    return { level: "info", message: "MindStream: The data file can be read again. Saving is back on." };
+  }
+  return undefined;
+}
+
+/** Reads a file, returning `null` only when it does not exist. Any other failure is thrown. */
+function readIfExists(file: string): string | null {
+  try {
+    return fs.readFileSync(file, "utf8");
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      return null;
+    }
+    throw err;
+  }
 }
 
 /**
  * JSON-file based storage inside the workspace: `.vscode/mindstream.data.json`.
  * Writes happen safely (temporary file then rename) to avoid data corruption.
+ *
+ * A file that exists but cannot be read, or does not hold valid data, sets a
+ * `StorageProblem`: the last good data stays in memory and every save is
+ * refused until the file is fixed, so the user's notes are never replaced.
  */
 export class StorageService implements IStorage {
   private data: MindStreamData;
   /** Raw text of the backend content as of the last successful load/save, used to
    *  detect whether a later `reloadIfExternal()` call sees a genuinely external
    *  change or just an echo of this instance's own write. */
-  private lastKnownText: string | null;
+  private lastKnownText: string | null = null;
+  /** Serialized form of the data that matches the file; restored when a save fails. */
+  private committedText: string;
+  private problem: StorageProblem | undefined;
 
   private constructor(private readonly backend: StorageBackend) {
-    const raw = backend.load();
-    this.data = parseOrDefault(raw);
-    this.lastKnownText = raw;
+    this.data = createEmptyData();
+    this.committedText = JSON.stringify(this.data);
+    this.reloadIfExternal();
   }
 
   /** Creates a storage service bound to a given directory.
    *  Reads `.vscode/mindstream.data.json` inside it, falling back to the legacy
-   *  `.mindstream/data.json` so existing installs keep their data on the first run. */
+   *  `.mindstream/data.json` (only when the new file does not exist) so existing
+   *  installs keep their data on the first run. */
   static forDir(dirPath: string): StorageService {
     const file = path.join(dirPath, ".vscode", "mindstream.data.json");
     const legacyFile = path.join(dirPath, ".mindstream", "data.json");
     return new StorageService({
-      load: () => {
-        for (const candidate of [file, legacyFile]) {
-          try {
-            if (fs.existsSync(candidate)) {
-              return fs.readFileSync(candidate, "utf8");
-            }
-          } catch {
-            // Corrupt/unreadable files are treated as non-existent.
-          }
-        }
-        return null;
-      },
+      load: () => readIfExists(file) ?? readIfExists(legacyFile),
       save: (text: string) => {
         fs.mkdirSync(path.dirname(file), { recursive: true });
-        const tmp = file + ".tmp";
-        fs.writeFileSync(tmp, text, "utf8");
-        fs.renameSync(tmp, file);
+        const tmp = `${file}.tmp`;
+        try {
+          fs.writeFileSync(tmp, text, "utf8");
+          fs.renameSync(tmp, file);
+        } catch (err) {
+          // Leave nothing behind: the original file is untouched.
+          fs.rmSync(tmp, { force: true });
+          throw err;
+        }
       },
     });
   }
@@ -176,23 +290,76 @@ export class StorageService implements IStorage {
     return this.data;
   }
 
+  getProblem(): StorageProblem | undefined {
+    return this.problem;
+  }
+
   saveData(data: MindStreamData): void {
-    this.data = data;
+    if (this.problem) {
+      this.restore();
+      throw new StorageError("STORAGE_BLOCKED", blockedSaveMessage(this.problem));
+    }
     const text = JSON.stringify(data, null, 2);
+    try {
+      this.backend.save(text);
+    } catch (err) {
+      this.restore();
+      throw new StorageError("WRITE_FAILED", writeFailedMessage(err));
+    }
+    this.data = data;
     this.lastKnownText = text;
-    this.backend.save(text);
+    this.committedText = text;
   }
 
   reloadIfExternal(): boolean {
-    const raw = this.backend.load();
+    let raw: string | null;
+    try {
+      raw = this.backend.load();
+    } catch (err) {
+      return this.setProblem(unreadableProblem(err));
+    }
+    if (raw === null) {
+      // No file (not created yet, or deleted): the data in memory is kept and
+      // written by the next save, so deleting the file never wipes the notes.
+      // When the deleted file was the broken one, saving works again.
+      const hadProblem = this.problem !== undefined;
+      this.problem = undefined;
+      this.lastKnownText = null;
+      return hadProblem;
+    }
     if (raw === this.lastKnownText) {
       // Identical to what this instance last read/wrote: either nothing
       // changed, or this is just an echo of our own write (e.g. a
-      // FileSystemWatcher event firing for a save we just performed).
+      // FileSystemWatcher event firing for a save we just performed). The data
+      // in memory matches it, so a problem left over (a file that was briefly
+      // locked) is over.
+      if (this.problem) {
+        this.problem = undefined;
+        return true;
+      }
       return false;
     }
-    this.data = parseOrDefault(raw);
+    const parsed = parseDataText(raw);
+    if ("problem" in parsed) {
+      // The last good data stays in memory; nothing is saved until this is fixed.
+      return this.setProblem(parsed.problem);
+    }
+    this.data = parsed.data;
     this.lastKnownText = raw;
+    this.committedText = JSON.stringify(parsed.data);
+    this.problem = undefined;
     return true;
+  }
+
+  /** Returns whether the problem differs from the current one. */
+  private setProblem(problem: StorageProblem): boolean {
+    const changed = problem.message !== this.problem?.message;
+    this.problem = problem;
+    return changed;
+  }
+
+  /** Puts the in-memory data back to the last saved (or loaded) state. */
+  private restore(): void {
+    this.data = JSON.parse(this.committedText) as MindStreamData;
   }
 }

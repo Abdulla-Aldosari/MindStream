@@ -841,6 +841,12 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   white-space: nowrap;
 }
 
+/* The note editor's Save while it waits for the host's answer. */
+.modal-card .btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .modal-header.viewer-header {
   gap: 8px;
 }

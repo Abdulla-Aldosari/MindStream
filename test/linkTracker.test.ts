@@ -3,7 +3,7 @@ import { createEmptyData } from "../src/storage";
 import { ItemsStore } from "../src/itemsStore";
 import { LinkFiles, LinkTracker } from "../src/linkTracker";
 import { MindStreamLink } from "../src/models";
-import { InMemoryStorage } from "./helpers";
+import { BLOCKED, InMemoryStorage } from "./helpers";
 
 const SOURCE = ["a", "function f() {", "  return 1;", "}", "b"];
 
@@ -111,5 +111,41 @@ describe("LinkTracker", () => {
     files.files.delete("src/a.ts");
     assert.strictEqual(await tracker.refreshAll(), true);
     assert.ok(items.list().every((it) => it.link?.state === "missing"));
+  });
+
+  describe("while the storage refuses saves", () => {
+    it("every background write is dropped silently and changes nothing", async () => {
+      const { storage, items, files, tracker, note } = setup();
+      const before = JSON.stringify(storage.getData());
+      storage.problem = BLOCKED;
+
+      tracker.applyEdits("src/a.ts", [{ startLine: 0, endLine: 0, addedLines: 1 }]);
+      assert.strictEqual(tracker.flush(), false);
+      assert.strictEqual(tracker.applyRename("src", "lib"), false);
+      assert.strictEqual(tracker.applyDelete("src/a.ts"), false);
+      files.files.delete("src/a.ts");
+      assert.strictEqual(await tracker.refreshAll(), false);
+
+      assert.strictEqual(JSON.stringify(storage.getData()), before);
+      assert.strictEqual(items.get(note.id)?.link?.lineStart, 3);
+    });
+
+    it("resolveItem still returns where the code is, without storing it", async () => {
+      const { storage, items, files, tracker, note } = setup();
+      storage.problem = BLOCKED;
+      files.files.set("src/a.ts", ["new", "new", ...SOURCE]);
+      const r = await tracker.resolveItem(note.id);
+      assert.strictEqual(r?.link.lineStart, 5);
+      assert.strictEqual(items.get(note.id)?.link?.lineStart, 3);
+    });
+
+    it("works normally again once saving is back", () => {
+      const { storage, items, tracker, note } = setup();
+      storage.problem = BLOCKED;
+      assert.strictEqual(tracker.applyRename("src", "lib"), false);
+      storage.problem = undefined;
+      assert.strictEqual(tracker.applyRename("src", "lib"), true);
+      assert.strictEqual(items.get(note.id)?.link?.filePath, "lib/a.ts");
+    });
   });
 });

@@ -141,7 +141,8 @@ src/
   storage.ts              StorageService (IStorage impl): loads/saves the JSON file
                          safely (write to .tmp then rename), default data creation,
                          normalizeData() for legacy/incomplete data,
-                         reloadIfExternal() to pick up out-of-process changes.
+                         reloadIfExternal() to pick up out-of-process changes, and
+                         the save guard (StorageProblem, StorageError, getProblem()).
   workspaceStorage.ts     Thin helper: binds a StorageService to the open workspace
                          folder (.vscode/mindstream.data.json at the project root).
   itemsStore.ts           ItemsStore: CRUD for notes, status history (append-only),
@@ -182,6 +183,7 @@ src/
                          (confirm dialogs and a type QuickPick via pickType). Holds the pending code
                          link set by the host (setPendingLink); addItem attaches it only when the
                          webview sends linked true, and updateItem never touches a link.
+                         Answers every note editor Save through SidebarUi.answerNoteSave.
   sidebarProvider.ts      SidebarProvider (WebviewViewProvider): renders the sidebar
                          webview, posts state to the UI, updates the activity-bar
                          badge, implements SidebarUi for confirm dialogs and the
@@ -256,7 +258,7 @@ test/
    export and JSON import.
 5. `extension.ts`'s `watchDataFile()` registers a `vscode.FileSystemWatcher`
    on `.vscode/mindstream.data.json` inside the open workspace folder. Every
-   `onDidChange`/`onDidCreate` event goes through a `debounce()`-wrapped
+   `onDidChange`/`onDidCreate`/`onDidDelete` event goes through a `debounce()`-wrapped
    handler (200ms, `util.ts`) that calls `storage.reloadIfExternal()` and
    only calls `sidebar?.refresh()` when that returns `true`. This keeps the
    sidebar in sync when `mindstream.data.json` is edited outside this extension
@@ -297,6 +299,44 @@ test/
   filesystem-watcher events arrive. When the text matches, it is either no
   change at all or an echo of this same instance's own write, and
   `reloadIfExternal()` returns `false` without touching `this.data`.
+- **The data file is never overwritten when it cannot be trusted.** See
+  "Save guard" below.
+
+### Save guard (`storage.ts`)
+
+Not every write comes from the user: background link tracking and, later,
+automated callers write too. A refused or failed write therefore changes
+nothing at all, and its message alone explains it.
+
+- `parseDataText()`: no file, an empty file, or whitespace (a leading BOM is
+  ignored) is a new project with default data. Invalid JSON or a value that is
+  not an object (`null`, an array, a number) is a `StorageProblem` of kind
+  `invalid`, never a reason to start over.
+- `forDir()`'s `load()` returns `null` only for `ENOENT`; any other read error
+  is thrown and becomes a problem of kind `unreadable`. The legacy
+  `.mindstream/data.json` is read only when the new file does not exist.
+- While `getProblem()` returns a problem, the last good data stays in memory
+  and `saveData()` throws `StorageError` (`code` `STORAGE_BLOCKED`) before any
+  write, so no `.tmp` file is created. A write that fails throws `WRITE_FAILED`
+  and removes the `.tmp` file.
+- Every failed `saveData()` restores the in-memory data from the last saved or
+  loaded text (`committedText`), so a caller that mutated `getData()` in place
+  leaves no change behind. `InMemoryStorage` (tests) mirrors this through its
+  `problem` field; `BLOCKED` in `test/helpers.ts` is a ready-made problem.
+- `StorageError.message` is complete: `Not saved: <reason> Nothing was changed.
+<how to fix>` (`blockedSaveMessage()`, `writeFailedMessage()`).
+- Recovery: the problem clears when the file becomes valid, returns to the last
+  saved text (a lock released), or is deleted. A deleted file never wipes the
+  data in memory; the next save writes it again.
+- `extension.ts` calls `createStorageNotifier().check()` after activation, every
+  watcher reload, `mindstream.refresh`, and window focus while a problem is set;
+  `describeStorageTransition()` (compared by problem kind) decides whether to
+  warn that saving is off or to say that it is back on.
+- Callers: `SidebarProvider.handleMessage` and `pauseWork`/`resumeWork` show the
+  error and refresh the view; `LinkTracker` drops refused background writes
+  silently (`flush`, `applyRename`, `applyDelete`, `setLink` calls), and
+  `resolveItem` still returns the resolved location; `importJson` reports the
+  problem before opening any dialog and catches a save refused later.
 
 - **Category default types.** A category may carry an optional
   `defaultTypeId`. When the "New note" form opens (or the category changes
@@ -710,6 +750,13 @@ cardIndicator }`. `postState()` sends it as `priority`, together with
   in RTL). New notes open on `defaultValue`. A note without a priority opens
   with nothing selected and the `#f-priority-hint` text "No priority assigned
   - Select one."; `saveModal()` sends `priority` only when a level is selected.
+- Saving: `saveModal()` sends `addItem`/`updateItem` with a `saveId`, disables
+  `#modal-save`, and keeps the editor open. The host answers with
+  `noteSaveResult` (`saveId`, `ok`); the editor closes only when `ok` is true,
+  so a refused save (storage problem, work paused) keeps everything typed. A
+  refused `addItem` keeps the host's pending code link for the retry. Closing
+  or reopening the editor forgets a Save still waiting, so a late answer never
+  closes a newer form.
 - Cards: `buildCardBase()` adds `prio-<level>` and `prio-ind-<style>` and the
   matching element (title dot, footer chip, or a stripe via CSS). Color-only
   stripes also get an `.sr-only` "(Priority: X)" text.
