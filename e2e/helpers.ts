@@ -3,7 +3,8 @@ import { downloadAndUnzipVSCode } from "@vscode/test-electron";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { GENERAL_CATEGORY_ID, type MindStreamData, type MindStreamPriority, type MindStreamStatus } from "../src/models";
+import { GENERAL_CATEGORY_ID, type MindStreamData, type MindStreamLink, type MindStreamPriority, type MindStreamStatus } from "../src/models";
+import { buildLink } from "../src/linkResolver";
 import { createEmptyData } from "../src/storage";
 
 /** The sidebar's data file, relative to the workspace folder. */
@@ -17,6 +18,17 @@ export interface SeedNote {
   description?: string;
   status?: MindStreamStatus;
   priority?: MindStreamPriority;
+  /** A code link written straight into the data file (as the editor command would create it). */
+  link?: MindStreamLink;
+}
+
+/** The link the editor command stores for 1-based lines `lineStart`..`lineEnd` of `lines`. */
+export function seedLink(filePath: string, lines: string[], lineStart: number, lineEnd = lineStart): MindStreamLink {
+  const link = buildLink("/ws", `/ws/${filePath}`, lines, lineStart, lineEnd);
+  if (!link) {
+    throw new Error(`Cannot build a link for ${filePath}:${lineStart}-${lineEnd}`);
+  }
+  return link;
 }
 
 /** Builds a data file with the default types and the given notes. */
@@ -34,6 +46,7 @@ export function buildData(notes: SeedNote[] = []): MindStreamData {
       description: n.description,
       status,
       ...(n.priority ? { priority: n.priority } : {}),
+      ...(n.link ? { link: n.link } : {}),
       statusHistory: [{ status, at }],
       archived: false,
       createdAt: at,
@@ -48,6 +61,8 @@ export interface LaunchOptions {
   data?: MindStreamData;
   /** Exact file text instead of `data` (to start from a broken file). */
   rawData?: string;
+  /** Workspace files written before VS Code starts: relative path to the file's lines. */
+  files?: Record<string, string[]>;
 }
 
 export interface Session {
@@ -76,6 +91,13 @@ function removeDir(dir: string): void {
   }
 }
 
+/** Writes a text file (LF line endings) into the workspace, creating its folders. */
+export function writeWorkspaceFile(workspace: string, relPath: string, lines: string[]): void {
+  const file = path.join(workspace, ...relPath.split("/"));
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, lines.join("\n"), "utf8");
+}
+
 /** Starts an isolated VS Code window with this extension loaded and a fresh workspace. */
 export async function launchVscode(options: LaunchOptions = {}): Promise<Session> {
   const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "mindstream-e2e-ws-"));
@@ -85,6 +107,9 @@ export async function launchVscode(options: LaunchOptions = {}): Promise<Session
   if (options.rawData !== undefined || options.data) {
     fs.mkdirSync(path.dirname(dataFile), { recursive: true });
     fs.writeFileSync(dataFile, options.rawData ?? JSON.stringify(options.data, null, 2), "utf8");
+  }
+  for (const [relPath, lines] of Object.entries(options.files ?? {})) {
+    writeWorkspaceFile(workspace, relPath, lines);
   }
 
   const app = await _electron.launch({
