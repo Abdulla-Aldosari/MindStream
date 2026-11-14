@@ -322,7 +322,7 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 
 .card-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
 }
@@ -806,6 +806,14 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 .modal-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* The note editor's Cancel + Save buttons travel together as one unit so a
+   wrapping action bar never splits them apart. */
+.modal-buttons {
+  display: flex;
   gap: 8px;
 }
 
