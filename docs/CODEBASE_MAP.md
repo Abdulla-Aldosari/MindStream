@@ -237,7 +237,41 @@ test/
   helpers.ts              InMemoryStorage: IStorage fake used across unit tests.
   *.test.ts                Mocha + ts-node unit tests per module (no vscode
                          dependency in the tested modules themselves).
+
+e2e/
+  helpers.ts              launchVscode(), the `launch` test fixture, and the sidebar
+                         helpers. See "End-to-end tests" below.
+  *.spec.ts                Playwright specs that drive a real VS Code window.
+
+playwright.config.ts      Playwright config: testDir e2e, one worker, HTML report.
 ```
+
+### End-to-end tests (`e2e/`)
+
+`npm run test:e2e` compiles the extension, then runs Playwright specs against a
+real VS Code window. `npm test` never runs them (Mocha's spec is
+`test/**/*.test.ts`).
+
+- `launchVscode()` starts Electron through Playwright's `_electron.launch` with
+  the VS Code build cached in `~/.vscode-test` (resolved by
+  `@vscode/test-electron`; `MINDSTREAM_E2E_VSCODE` overrides it for offline
+  runs). Each window gets its own temp workspace, user-data dir, and
+  extensions dir, loads this repo as `--extensionDevelopmentPath`, and runs
+  with `--disable-extensions`, so the bundled Copilot and other extensions
+  never interfere. No Playwright browsers are downloaded.
+- The `launch` fixture (`test` from `e2e/helpers.ts`) closes every window and
+  deletes its temp dirs, and attaches a screenshot when a test fails.
+- A seeded data file is written before VS Code starts (`buildData()`, or
+  `rawData` for a broken file); `readData()` / `waitForData()` read the file the
+  extension writes.
+- The sidebar webview is a nested frame: `showSidebar()` opens the view and
+  returns the frame whose URL is `fake.html` and that contains `#toolbar`.
+- `runCommand()` uses the Command Palette by title. Commands hidden from the
+  palette (resume work) are reached with `clickMoreMenuItem()`, which clicks
+  the `More` action in `.part.sidebar .title-actions`.
+- A real window appears while tests run, and the workbench selectors
+  (`.part.sidebar`, `.quick-input-widget`, `.notifications-toasts`) are
+  VS Code internals: keep them in `e2e/helpers.ts`.
 
 ### Data flow (high level)
 
