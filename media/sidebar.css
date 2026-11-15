@@ -337,7 +337,9 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 .card-type {
   font-size: 12px;
   color: var(--vscode-descriptionForeground);
-  background: var(--vscode-textBlockQuote-background);
+  /* Card background, tinted toward the light/dark theme's blend color:
+     a touch lighter in dark themes, a touch darker in light themes. */
+  background: color-mix(in srgb, var(--vscode-editor-background, var(--vscode-sideBar-background)) 92%, var(--ms-blend-color, #fff));
   padding: 3px 9px 4px 5px;
   border-radius: var(--radius-sm);
   display: flex;
@@ -694,6 +696,10 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 .viewer-card .status.in-progress {
   padding: 4px 7px 5px 7px;
   border-radius: var(--radius-sm);
+}
+
+.spacer {
+  flex: 1;
 }
 
 .icon-btn {
@@ -1125,7 +1131,9 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   padding: 2px 8px 3px 6px;
   border-radius: var(--radius-md);
   color: var(--vscode-descriptionForeground);
-  background: var(--vscode-textBlockQuote-background);
+  /* Card background, tinted toward the light/dark theme's blend color:
+     a touch lighter in dark themes, a touch darker in light themes. */
+  background: color-mix(in srgb, var(--vscode-editor-background, var(--vscode-sideBar-background)) 92%, var(--ms-blend-color, #fff));
   user-select: none;
 }
 .prio-chip .prio-dot {
