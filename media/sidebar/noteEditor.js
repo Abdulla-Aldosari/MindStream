@@ -8,16 +8,16 @@
 // The note editor modal (new / edit): type, category and priority fields,
 // the code link, the description height, and the Save round trip with the host.
 
-import { $, DEFAULT_DESCRIPTION_HEIGHT, listEl, modalEl, state, vscode } from "./core.js";
+import { $, DEFAULT_DESCRIPTION_HEIGHT, listEl, MODAL_GUTTER, modalEl, state, vscode } from "./core.js";
 import { bindCustomSelect, renderCustomSelect } from "./customSelect.js";
 import { closeAllModals } from "./overlays.js";
 import { buildLinkBadge, fitLinkRow, linkRowObserver } from "./linkBadge.js";
 import { flashCard } from "./list.js";
 import { fillPriorityControl } from "./priorityControl.js";
+import { getFormTasks, isFocusMode, resetTaskListScroll, setFormTasks } from "./taskEditor.js";
 
 const MIN_DESCRIPTION_HEIGHT = 55;
 const MAX_DESCRIPTION_HEIGHT = 600;
-const MODAL_GUTTER = 24;
 
 let pendingFlashId = null;
 let appliedDescHeight = null;
@@ -64,8 +64,10 @@ function clampDescriptionHeight(value) {
   return Math.min(MAX_DESCRIPTION_HEIGHT, Math.max(MIN_DESCRIPTION_HEIGHT, n));
 }
 
-// Applies the persisted description height, clamped so the note-editor card
-// never overflows the current viewport (e.g. a tall height saved while the
+// Applies the persisted description height (and the drag ceiling) so the
+// note-editor card never overflows the current viewport. It runs when the
+// editor opens and again on window resize while it is open, so the form shrinks
+// as soon as the viewport edges would touch it (a tall height saved while the
 // sidebar was large must not overflow after reopening it small).
 function applyDescHeight() {
   const desc = $("f-desc");
@@ -79,6 +81,9 @@ function applyDescHeight() {
   const cardAtMin = card.offsetHeight;
   const available = modalEl.clientHeight - MODAL_GUTTER;
   const maxDesc = Math.max(MIN_DESCRIPTION_HEIGHT, MIN_DESCRIPTION_HEIGHT + (available - cardAtMin));
+  // Cap the drag at that same ceiling (and never past the absolute maximum), so
+  // a manual resize cannot push the card outside the window.
+  desc.style.maxHeight = `${Math.min(MAX_DESCRIPTION_HEIGHT, maxDesc)}px`;
   const height = Math.max(MIN_DESCRIPTION_HEIGHT, Math.min(MAX_DESCRIPTION_HEIGHT, state.descriptionHeight, maxDesc));
   desc.style.setProperty("--desc-height", height + "px");
   appliedDescHeight = height;
@@ -117,7 +122,9 @@ export function openAdd(link) {
   fillTypeSelect(resolveCategoryDefaultTypeId(cat, state.types, state.typeFilter !== "all" ? state.typeFilter : null));
   // New notes start at the host's default priority (saved even if untouched).
   fillPriorityControl(state.priority.defaultValue);
+  setFormTasks([]);
   modalEl.hidden = false;
+  resetTaskListScroll();
   applyDescHeight();
   $("f-title").focus();
 }
@@ -134,7 +141,9 @@ export function openEdit(item) {
   fillCategorySelect(item.categoryId);
   // A note without a priority opens with nothing selected (plus a hint).
   fillPriorityControl(item.priority || null);
+  setFormTasks(item.tasks);
   modalEl.hidden = false;
+  resetTaskListScroll();
   applyDescHeight();
   $("f-title").focus();
 }
@@ -202,6 +211,9 @@ function saveModal() {
     description: $("f-desc").value,
     typeId: state.formTypeId,
     categoryId: state.formCategoryId,
+    // Always the full list: the host drops empty titles, and an empty list
+    // turns a task group back into a regular note.
+    tasks: getFormTasks(),
   };
   // Only sent while the system is enabled and a level is selected; the host
   // applies the default for new notes and leaves edits without one untouched.
@@ -235,12 +247,14 @@ export function initNoteEditor() {
   // Persist the description height only when the user manually resizes the
   // textarea (never on the programmatic apply that runs when the editor opens).
   const descObserver = new ResizeObserver((entries) => {
-    if (modalEl.hidden) {
+    // A description folded away by Focus mode reports a height of 0: that is
+    // not a user resize and must never be saved.
+    if (modalEl.hidden || isFocusMode()) {
       return;
     }
     for (const entry of entries) {
       const h = Math.round(entry.contentRect.height);
-      if (!Number.isFinite(h) || h === appliedDescHeight) {
+      if (!Number.isFinite(h) || h === 0 || h === appliedDescHeight) {
         continue;
       }
       const clamped = clampDescriptionHeight(h);
@@ -251,4 +265,14 @@ export function initNoteEditor() {
     }
   });
   descObserver.observe($("f-desc"));
+
+  // Keep the card inside the window when the window is resized while the editor
+  // is open: re-clamp the description as soon as the edges would touch it. Focus
+  // mode hides the description and sizes the task list itself, so it is left out
+  // here (taskEditor.js handles its own resize).
+  window.addEventListener("resize", () => {
+    if (!modalEl.hidden && !isFocusMode()) {
+      applyDescHeight();
+    }
+  });
 }

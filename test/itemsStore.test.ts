@@ -223,3 +223,57 @@ describe("ItemsStore", () => {
     );
   });
 });
+
+describe("ItemsStore tasks", () => {
+  const tasks = () => [
+    { title: "One", completed: false },
+    { title: "Two", completed: true },
+  ];
+
+  it("create stores tasks, and writes no key without them", () => {
+    const { items, typeId } = setup();
+    assert.deepStrictEqual(items.create({ typeId, title: "G", tasks: tasks() }).tasks, tasks());
+    assert.ok(!("tasks" in items.create({ typeId, title: "Plain" })));
+    assert.ok(!("tasks" in items.create({ typeId, title: "Empty", tasks: [] })));
+  });
+
+  it("update replaces, clears, or leaves the tasks untouched", () => {
+    const { items, typeId } = setup();
+    const id = items.create({ typeId, title: "G", tasks: tasks() }).id;
+    items.update(id, { title: "Renamed" });
+    assert.deepStrictEqual(items.get(id)?.tasks, tasks());
+    items.update(id, { tasks: [{ title: "Only", completed: false }] });
+    assert.deepStrictEqual(items.get(id)?.tasks, [{ title: "Only", completed: false }]);
+    items.update(id, { tasks: [] });
+    assert.ok(!("tasks" in (items.get(id) ?? {})));
+  });
+
+  it("setTaskCompleted sets the value, bumps updatedAt, and never changes status", () => {
+    const { storage, items, typeId } = setup();
+    const item = items.create({ typeId, title: "G", tasks: tasks() });
+    item.updatedAt = "2020-01-01T00:00:00.000Z";
+    const saves = storage.saved.length;
+    assert.strictEqual(items.setTaskCompleted(item.id, 0, "One", true), true);
+    const stored = items.get(item.id);
+    assert.strictEqual(stored?.tasks?.[0].completed, true);
+    assert.notStrictEqual(stored?.updatedAt, "2020-01-01T00:00:00.000Z");
+    assert.strictEqual(stored?.status, "pending");
+    assert.strictEqual(stored?.statusHistory.length, 1);
+    assert.strictEqual(storage.saved.length, saves + 1);
+  });
+
+  it("setTaskCompleted refuses a bad index, a title mismatch, an unknown note, or no change", () => {
+    const { storage, items, typeId } = setup();
+    const id = items.create({ typeId, title: "G", tasks: tasks() }).id;
+    const plain = items.create({ typeId, title: "Plain" }).id;
+    const saves = storage.saved.length;
+    assert.strictEqual(items.setTaskCompleted(id, 5, "One", true), false);
+    assert.strictEqual(items.setTaskCompleted(id, -1, "One", true), false);
+    assert.strictEqual(items.setTaskCompleted(id, 0, "Two", true), false);
+    assert.strictEqual(items.setTaskCompleted("nope", 0, "One", true), false);
+    assert.strictEqual(items.setTaskCompleted(plain, 0, "One", true), false);
+    assert.strictEqual(items.setTaskCompleted(id, 1, "Two", true), false);
+    assert.strictEqual(storage.saved.length, saves);
+    assert.deepStrictEqual(items.get(id)?.tasks, tasks());
+  });
+});

@@ -3,6 +3,7 @@ import * as path from "path";
 import { DATA_VERSION, GENERAL_CATEGORY_ID, MindStreamCategoryDef, MindStreamData, MindStreamTypeDef } from "./models";
 import { isPriority } from "./priority";
 import { sanitizeLink } from "./linkResolver";
+import { sanitizeTasks } from "./tasks";
 import { newId, nowIso } from "./util";
 import { normalizeWorkPauseNote } from "./workPause";
 
@@ -130,6 +131,15 @@ export function normalizeData(raw: unknown): MindStreamData {
         it.link = link;
       } else {
         delete it.link;
+      }
+    }
+    // Tasks are cleaned entry by entry; an empty or invalid list removes the key.
+    if ("tasks" in it) {
+      const tasks = sanitizeTasks(it.tasks);
+      if (tasks) {
+        it.tasks = tasks;
+      } else {
+        delete it.tasks;
       }
     }
   }

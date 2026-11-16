@@ -29,7 +29,7 @@ const baseScopes = [
   [
     "notes",
     "note CRUD, status history, archiving, deletion, and the user-defined note types and categories registries",
-    ["src/itemsStore.ts", "src/typesRegistry.ts", "src/categoriesRegistry.ts"],
+    ["src/itemsStore.ts", "src/typesRegistry.ts", "src/categoriesRegistry.ts", "src/tasks.ts"],
   ],
   [
     "links",

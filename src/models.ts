@@ -47,6 +47,12 @@ export interface MindStreamLink {
   state: MindStreamLinkState;
 }
 
+/** One step of a task group note. Its order is its index in `MindStreamItem.tasks`. */
+export interface MindStreamTask {
+  title: string;
+  completed: boolean;
+}
+
 /** A single entry in the notes roadmap. */
 export interface MindStreamItem {
   id: string;
@@ -70,6 +76,11 @@ export interface MindStreamItem {
   archivedAt?: string;
   tags?: string[];
   link?: MindStreamLink;
+  /**
+   * Ordered checklist (order = index). A note with at least one task is a
+   * "task group". The key is absent when there are no tasks, never `[]`.
+   */
+  tasks?: MindStreamTask[];
   createdAt: string;
   updatedAt: string;
 }

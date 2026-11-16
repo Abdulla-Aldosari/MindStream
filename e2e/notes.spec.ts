@@ -33,6 +33,31 @@ test("saving needs a title: the editor stays open and nothing is written", async
   await expect(sidebar.locator(".card")).toHaveCount(0);
 });
 
+test("the editor card stays inside the window even when the description is huge", async ({ launch }) => {
+  const session = await launch({ data: buildData([{ title: "Big desc" }]) });
+  const sidebar = await showSidebar(session.page);
+
+  await sidebar.locator(".card", { hasText: "Big desc" }).dblclick();
+  await sidebar.locator("#view-edit").click();
+
+  // The drag ceiling is applied when the editor opens.
+  const cap = await sidebar.locator("#f-desc").evaluate((el) => parseFloat(el.style.maxHeight));
+  expect(cap).toBeGreaterThanOrEqual(55);
+
+  // Force the description far taller than any window; its max-height must clamp
+  // it so the card never leaves the viewport (no hidden header or buttons).
+  await sidebar.locator("#f-desc").evaluate((el) => {
+    el.style.height = "9000px";
+  });
+  const modalHeight = await sidebar.locator("#modal").evaluate((el) => el.clientHeight);
+  const box = await sidebar.locator("#modal .modal-card").evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return { top: r.top, bottom: r.bottom };
+  });
+  expect(box.top).toBeGreaterThanOrEqual(0);
+  expect(box.bottom).toBeLessThanOrEqual(modalHeight + 0.5);
+});
+
 test("clicking the status moves a note through the cycle and records the history", async ({ launch }) => {
   const session = await launch({ data: buildData([{ title: "Cycle me" }]) });
   const sidebar = await showSidebar(session.page);

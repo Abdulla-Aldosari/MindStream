@@ -11,6 +11,7 @@ import { $, DEFAULT_DESCRIPTION_HEIGHT, modalEl, state } from "./core.js";
 import { renderList } from "./list.js";
 import { fillPriorityControl } from "./priorityControl.js";
 import { handleNoteSaveResult, openAdd, takePendingFlashId } from "./noteEditor.js";
+import { refreshView } from "./noteViewer.js";
 import { applyWorkPauseState, handleWorkPauseDiscardAnswer, isWorkPaused, openWorkPauseEditor } from "./workPausePanel.js";
 import { openCategoriesModal, renderCategories } from "./categoriesModal.js";
 import { openWeeklyReportModal } from "./weeklyReport.js";
@@ -136,6 +137,8 @@ export function initMessages() {
       }
     }
     renderList(changedIds);
+    // The open viewer follows the stored note (checked tasks, external edits).
+    refreshView();
 
     prevStatusById = {};
     newItems.forEach((it) => {

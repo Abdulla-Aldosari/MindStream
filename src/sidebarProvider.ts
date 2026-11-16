@@ -341,6 +341,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     const dropdownMenuCssUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "dropdown-menu.css"));
     const viewOptionsUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "viewOptions.js"));
     const workPauseUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "workPause.js"));
+    const taskListUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "taskList.js"));
     const nonce = getNonce();
     return `<!DOCTYPE html>
 <html lang="en" dir="ltr">
@@ -386,7 +387,24 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
         </div>
         <div id="f-priority-hint" class="pc-hint" hidden>No priority assigned - Select one.</div>
       </div>
-      <label class="field"><span>Description (optional)</span><textarea id="f-desc" rows="3" placeholder="Extra details..."></textarea></label>
+      <label id="f-desc-field" class="field"><span>Description (optional)</span><textarea id="f-desc" rows="3" placeholder="Extra details..."></textarea></label>
+      <div class="field">
+        <div class="field-label-row">
+          <span class="field-label-group">
+            <span id="f-tasks-label">Tasks (optional)</span>
+            <button id="f-tasks-info" class="icon-btn" type="button" hidden aria-label="Task shortcuts" data-tooltip-header="Task shortcuts" data-tooltip="Ctrl+Up / Ctrl+Down — Focus previous / next task<br>Enter — Add a task below<br>Backspace (empty) — Remove the task<br>Alt+Up / Alt+Down — Reorder the task<br>Ctrl+Shift+/ — Open the emoji picker<br>Ctrl+/ — Insert the last emoji" data-tooltip-footer="macOS: ⌘ instead of Ctrl, ⌥ instead of Alt">
+              <span class="codicon codicon-info" aria-hidden="true"></span>
+            </button>
+          </span>
+          <div class="field-label-actions">
+            <button id="f-tasks-focus" class="icon-btn" type="button" aria-pressed="false" data-tooltip="Focus on tasks" hidden>
+              <span class="codicon codicon-screen-full" aria-hidden="true"></span>
+            </button>
+            <button id="f-task-add" class="link-btn" type="button">+ Add task</button>
+          </div>
+        </div>
+        <ol id="f-tasks" class="task-list task-list-edit" aria-labelledby="f-tasks-label"></ol>
+      </div>
       <div class="modal-actions">
         <button id="emoji-hint" class="emoji-hint" type="button">💡 Ctrl+Shift+/ inserts an emoji</button>
         <div class="modal-buttons">
@@ -411,6 +429,10 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
         <div id="view-desc-scroll" class="viewer-desc-scroll">
           <div id="view-desc-content" class="viewer-desc-content"></div>
         </div>
+      </div>
+      <div id="view-tasks" class="viewer-tasks" hidden>
+        <div id="view-tasks-progress"></div>
+        <ol id="view-tasks-list" class="task-list task-list-view" aria-label="Tasks"></ol>
       </div>
       <div id="view-link" class="viewer-link" hidden></div>
       <div id="view-timestamps" class="viewer-timestamps"></div>
@@ -560,6 +582,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
   <script nonce="${nonce}" src="${dropdownMenuUri}"></script>
   <script nonce="${nonce}" src="${viewOptionsUri}"></script>
   <script nonce="${nonce}" src="${workPauseUri}"></script>
+  <script nonce="${nonce}" src="${taskListUri}"></script>
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;

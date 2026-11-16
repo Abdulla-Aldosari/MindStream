@@ -13,6 +13,7 @@ import { closeAllModals } from "./overlays.js";
 import { buildLinkBadge, linkRowObserver } from "./linkBadge.js";
 import { flashCard } from "./list.js";
 import { openEdit } from "./noteEditor.js";
+import { buildProgressBar, buildTaskCheck, setTaskCheck } from "./taskProgress.js";
 
 let viewingItem = null;
 
@@ -25,6 +26,102 @@ function formatDate(value) {
 
 export function openView(item) {
   closeAllModals();
+  renderView(item);
+  viewModalEl.hidden = false;
+}
+
+// Re-reads the open note from the latest state (after a task was checked, or
+// an external file change). A note that no longer exists closes the viewer.
+export function refreshView() {
+  if (viewModalEl.hidden || !viewingItem) {
+    return;
+  }
+  const fresh = state.items.find((it) => it.id === viewingItem.id);
+  if (!fresh) {
+    closeView({ skipFlash: true });
+    return;
+  }
+  renderView(fresh);
+}
+
+// Identifies the rows currently drawn: same note and same titles in the same
+// order means only the check marks can differ, so rows are updated in place
+// and keep their focus (moving focus by script would show the tooltip).
+let renderedTasksKey = null;
+
+function tasksKey(item) {
+  return TaskList.isTaskGroup(item) ? JSON.stringify([item.id, item.tasks.map((t) => t.title)]) : null;
+}
+
+// Draws the checklist of a task group note with its progress bar.
+function renderViewTasks(item) {
+  const box = $("view-tasks");
+  const list = $("view-tasks-list");
+  const progressHolder = $("view-tasks-progress");
+  box.hidden = !TaskList.isTaskGroup(item);
+  progressHolder.textContent = "";
+  if (box.hidden) {
+    list.textContent = "";
+    renderedTasksKey = null;
+    return;
+  }
+  box.setAttribute("dir", state.direction);
+  progressHolder.appendChild(buildProgressBar(item.tasks));
+
+  const key = tasksKey(item);
+  if (key !== renderedTasksKey) {
+    renderedTasksKey = key;
+    list.textContent = "";
+    item.tasks.forEach((task, index) => list.appendChild(buildViewTaskRow(task, index)));
+  }
+  item.tasks.forEach((task, index) => {
+    const row = list.children[index];
+    row.classList.toggle("completed", task.completed);
+    const check = row.querySelector(".task-check");
+    setTaskCheck(check, task.completed);
+    check.dataset.tooltip = task.completed ? "Mark as not done" : "Mark as done";
+  });
+}
+
+function buildViewTaskRow(task, index) {
+  const row = document.createElement("li");
+  row.className = "task-row";
+
+  const seq = document.createElement("span");
+  seq.className = "task-seq";
+  seq.textContent = `${index + 1}.`;
+  row.appendChild(seq);
+
+  const title = document.createElement("span");
+  title.className = "task-title";
+  title.textContent = task.title;
+  row.appendChild(title);
+
+  const check = buildTaskCheck(task.completed, task.title);
+  row.appendChild(check);
+  // The whole row toggles the task; clicks on the check box bubble to this
+  // handler too, and its Enter/Space activation keeps keyboard access.
+  row.addEventListener("click", () => toggleTask(index));
+  return row;
+}
+
+// Flips one task right away, then asks the host to store it. The host checks
+// the title at that index, and its next state confirms or corrects the view.
+function toggleTask(index) {
+  if (!viewingItem || !viewingItem.tasks || !viewingItem.tasks[index]) {
+    return;
+  }
+  const task = viewingItem.tasks[index];
+  const completed = !task.completed;
+  const tasks = viewingItem.tasks.slice();
+  tasks[index] = { title: task.title, completed };
+  // A copy, so the note in `state.items` changes only through the host's state.
+  viewingItem = Object.assign({}, viewingItem, { tasks });
+  renderViewTasks(viewingItem);
+  vscode.postMessage({ type: "setTaskCompleted", id: viewingItem.id, index, title: task.title, completed });
+}
+
+function renderView(item) {
   viewingItem = item;
 
   const t = typeOf(item.typeId);
@@ -50,6 +147,8 @@ export function openView(item) {
   descEl.hidden = !item.description;
   $("view-desc-content").textContent = item.description || "";
 
+  renderViewTasks(item);
+
   const linkEl = $("view-link");
   linkEl.textContent = "";
   linkEl.hidden = !item.link;
@@ -59,8 +158,6 @@ export function openView(item) {
   }
 
   $("view-timestamps").textContent = `Created: ${formatDate(item.createdAt)}\u2003\u00b7\u2003Updated: ${formatDate(item.updatedAt)}`;
-
-  viewModalEl.hidden = false;
 }
 
 export function closeView(options) {
@@ -97,6 +194,10 @@ function buildNoteCopyText(item) {
   if (item.description) {
     lines.push("");
     lines.push(item.description);
+  }
+  if (TaskList.isTaskGroup(item)) {
+    lines.push("");
+    item.tasks.forEach((task) => lines.push(`- [${task.completed ? "x" : " "}] ${task.title}`));
   }
   if (state.copyIncludeNoteInfo) {
     const cat = state.categories.find((c) => c.id === item.categoryId);

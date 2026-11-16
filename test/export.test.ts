@@ -58,6 +58,23 @@ describe("buildMarkdownExport", () => {
     assert.ok(text.includes("- Completed: "));
     assert.ok(text.includes("Details here"));
   });
+
+  it("renders the tasks of a task group as a checklist, in order", () => {
+    const { items, types, categories } = setup();
+    const typeId = types.add("Plan").id;
+    items.create({
+      typeId,
+      title: "Release",
+      tasks: [
+        { title: "Write notes", completed: true },
+        { title: "Tag", completed: false },
+      ],
+    });
+    const lines = buildMarkdownExport(items, types, categories);
+    const first = lines.indexOf("- [x] Write notes");
+    assert.ok(first > 0);
+    assert.strictEqual(lines[first + 1], "- [ ] Tag");
+  });
 });
 
 describe("buildWeeklyReportText", () => {

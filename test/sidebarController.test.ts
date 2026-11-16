@@ -453,6 +453,7 @@ describe("SidebarController Work Pause", () => {
         { type: "addType", label: "T" },
         { type: "recordEmojiUse", emoji: "✅" },
         { type: "setDescriptionHeight", height: 300 },
+        { type: "setTaskCompleted", id, index: 0, title: "x", completed: true },
       ] as const;
       for (const m of messages) {
         await controller.handleMessage(m);
@@ -475,6 +476,62 @@ describe("SidebarController Work Pause", () => {
       await controller.handleMessage({ type: "addItem", title: "After", typeId });
       assert.strictEqual(items.list().length, 1);
     });
+  });
+});
+
+describe("SidebarController tasks", () => {
+  it("addItem stores the sanitized task list", async () => {
+    const { items, controller, typeId } = setup();
+    await controller.handleMessage({ type: "addItem", title: "G", typeId, tasks: [{ title: " A ", completed: true }, { title: "" }, "junk"] });
+    assert.deepStrictEqual(items.list()[0].tasks, [{ title: "A", completed: true }]);
+  });
+
+  it("addItem writes no key without tasks", async () => {
+    const { items, controller, typeId } = setup();
+    await controller.handleMessage({ type: "addItem", title: "Plain", typeId, tasks: [{ title: "  " }] });
+    assert.ok(!("tasks" in items.list()[0]));
+  });
+
+  it("updateItem replaces the list, clears it when empty, and keeps it when absent", async () => {
+    const { items, controller, typeId } = setup();
+    const id = items.create({ typeId, title: "G", tasks: [{ title: "A", completed: false }] }).id;
+    await controller.handleMessage({ type: "updateItem", id, title: "G" });
+    assert.deepStrictEqual(items.get(id)?.tasks, [{ title: "A", completed: false }]);
+    await controller.handleMessage({ type: "updateItem", id, title: "G", tasks: [{ title: "B", completed: true }, { title: "A" }] });
+    assert.deepStrictEqual(items.get(id)?.tasks, [
+      { title: "B", completed: true },
+      { title: "A", completed: false },
+    ]);
+    await controller.handleMessage({ type: "updateItem", id, title: "G", tasks: [{ title: " " }] });
+    assert.ok(!("tasks" in (items.get(id) ?? {})));
+  });
+
+  it("setTaskCompleted stores a valid request", async () => {
+    const { items, controller, typeId } = setup();
+    const id = items.create({ typeId, title: "G", tasks: [{ title: "A", completed: false }] }).id;
+    await controller.handleMessage({ type: "setTaskCompleted", id, index: 0, title: "A", completed: true });
+    assert.strictEqual(items.get(id)?.tasks?.[0].completed, true);
+    await controller.handleMessage({ type: "setTaskCompleted", id, index: 0, title: "A", completed: false });
+    assert.strictEqual(items.get(id)?.tasks?.[0].completed, false);
+  });
+
+  it("setTaskCompleted ignores malformed requests", async () => {
+    const { storage, items, controller, typeId } = setup();
+    const id = items.create({ typeId, title: "G", tasks: [{ title: "A", completed: false }] }).id;
+    const saves = storage.saved.length;
+    const bad = [
+      { type: "setTaskCompleted", index: 0, title: "A", completed: true },
+      { type: "setTaskCompleted", id, index: 0.5, title: "A", completed: true },
+      { type: "setTaskCompleted", id, title: "A", completed: true },
+      { type: "setTaskCompleted", id, index: 0, completed: true },
+      { type: "setTaskCompleted", id, index: 0, title: "A" },
+      { type: "setTaskCompleted", id, index: 0, title: "Other", completed: true },
+    ] as const;
+    for (const m of bad) {
+      await controller.handleMessage(m);
+    }
+    assert.strictEqual(storage.saved.length, saves);
+    assert.strictEqual(items.get(id)?.tasks?.[0].completed, false);
   });
 });
 
