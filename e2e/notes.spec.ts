@@ -58,7 +58,7 @@ test("the editor card stays inside the window even when the description is huge"
   expect(box.bottom).toBeLessThanOrEqual(modalHeight + 0.5);
 });
 
-test("clicking the status moves a note through the cycle and records the history", async ({ launch }) => {
+test("clicking the status moves a note through the cycle and records the completion time", async ({ launch }) => {
   const session = await launch({ data: buildData([{ title: "Cycle me" }]) });
   const sidebar = await showSidebar(session.page);
   const status = sidebar.locator(".card", { hasText: "Cycle me" }).locator(".status");
@@ -70,7 +70,7 @@ test("clicking the status moves a note through the cycle and records the history
   await expect(status).toHaveText("Done");
 
   await waitForData(session, (d) => d.items[0].status === "done");
-  expect(readData(session).items[0].statusHistory.map((h) => h.status)).toEqual(["pending", "in-progress", "done"]);
+  expect(readData(session).items[0].completedAt).toBeTruthy();
 });
 
 test("editing a note changes it in place and keeps its id", async ({ launch }) => {

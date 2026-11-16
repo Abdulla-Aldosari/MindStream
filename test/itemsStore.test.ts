@@ -18,7 +18,7 @@ describe("ItemsStore", () => {
     assert.strictEqual(item.categoryId, GENERAL_CATEGORY_ID);
     assert.strictEqual(item.status, "pending");
     assert.strictEqual(item.archived, false);
-    assert.strictEqual(item.statusHistory.length, 1);
+    assert.ok(!("completedAt" in item));
   });
 
   it("create persists description, categoryId, tags and status", () => {
@@ -35,7 +35,7 @@ describe("ItemsStore", () => {
     assert.strictEqual(item.categoryId, "cat-x");
     assert.deepStrictEqual(item.tags, ["a", "b"]);
     assert.strictEqual(item.status, "done");
-    assert.strictEqual(item.statusHistory[0].status, "done");
+    assert.strictEqual(item.completedAt, item.createdAt);
   });
 
   it("create omits the priority key entirely when none is given", () => {
@@ -89,25 +89,25 @@ describe("ItemsStore", () => {
     assert.strictEqual(items.get(item.id)!.description, "Keep");
   });
 
-  it("changeStatus appends history without removing previous entries", () => {
+  it("changeStatus sets completedAt on done and removes it on any other status", () => {
     const { items, typeId } = setup();
     const item = items.create({ typeId, title: "Task" });
     items.changeStatus(item.id, "in-progress");
+    assert.ok(!("completedAt" in items.get(item.id)!));
     items.changeStatus(item.id, "done");
     const updated = items.get(item.id)!;
     assert.strictEqual(updated.status, "done");
-    assert.strictEqual(updated.statusHistory.length, 3);
-    assert.deepStrictEqual(
-      updated.statusHistory.map((h) => h.status),
-      ["pending", "in-progress", "done"]
-    );
+    assert.ok(updated.completedAt);
+    items.changeStatus(item.id, "pending");
+    assert.ok(!("completedAt" in items.get(item.id)!));
   });
 
   it("changeStatus is a no-op when the status is unchanged", () => {
-    const { items, typeId } = setup();
+    const { storage, items, typeId } = setup();
     const item = items.create({ typeId, title: "A" });
+    const saves = storage.saved.length;
     items.changeStatus(item.id, "pending");
-    assert.strictEqual(items.get(item.id)!.statusHistory.length, 1);
+    assert.strictEqual(storage.saved.length, saves);
   });
   it("archiving does not change the status and saves archivedAt", () => {
     const { items, typeId } = setup();
@@ -153,16 +153,6 @@ describe("ItemsStore", () => {
     items.deleteByCategory("c1");
     assert.strictEqual(items.list(true).length, 1);
     assert.strictEqual(items.list(true)[0].title, "B");
-  });
-
-  it("completedAt returns the last done time or undefined", () => {
-    const { items, typeId } = setup();
-    const item = items.create({ typeId, title: "A" });
-    assert.strictEqual(items.completedAt(item), undefined);
-    items.changeStatus(item.id, "done");
-    items.changeStatus(item.id, "in-progress");
-    items.changeStatus(item.id, "done");
-    assert.ok(items.completedAt(items.get(item.id)!));
   });
 
   it("list hides archived by default and shows on demand", () => {
@@ -258,7 +248,7 @@ describe("ItemsStore tasks", () => {
     assert.strictEqual(stored?.tasks?.[0].completed, true);
     assert.notStrictEqual(stored?.updatedAt, "2020-01-01T00:00:00.000Z");
     assert.strictEqual(stored?.status, "pending");
-    assert.strictEqual(stored?.statusHistory.length, 1);
+    assert.ok(!stored || !("completedAt" in stored));
     assert.strictEqual(storage.saved.length, saves + 1);
   });
 

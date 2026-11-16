@@ -159,7 +159,7 @@ describe("normalizeData", () => {
     assert.strictEqual(d.items.length, 0);
   });
 
-  it("fills missing statusHistory and archived on kept items", () => {
+  it("fills missing archived on kept items", () => {
     const d = normalizeData({
       items: [
         {
@@ -174,7 +174,6 @@ describe("normalizeData", () => {
     });
     assert.strictEqual(d.items.length, 1);
     const it = d.items[0];
-    assert.deepStrictEqual(it.statusHistory, [{ status: "done", at: "2020-01-01T00:00:00.000Z" }]);
     assert.strictEqual(it.archived, false);
   });
 
@@ -217,7 +216,6 @@ describe("StorageService", () => {
         categoryId: GENERAL_CATEGORY_ID,
         title: "Hello",
         status: "pending",
-        statusHistory: [{ status: "pending", at: "2020-01-01T00:00:00.000Z" }],
         archived: false,
         createdAt: "2020-01-01T00:00:00.000Z",
         updatedAt: "2020-01-01T00:00:00.000Z",
@@ -274,7 +272,6 @@ describe("StorageService.reloadIfExternal", () => {
         categoryId: GENERAL_CATEGORY_ID,
         title: "External edit",
         status: "pending",
-        statusHistory: [{ status: "pending", at: "2020-01-01T00:00:00.000Z" }],
         archived: false,
         createdAt: "2020-01-01T00:00:00.000Z",
         updatedAt: "2020-01-01T00:00:00.000Z",
@@ -374,7 +371,6 @@ describe("StorageService protection of the data file", () => {
       categoryId: GENERAL_CATEGORY_ID,
       title,
       status: "pending",
-      statusHistory: [{ status: "pending", at: "2020-01-01T00:00:00.000Z" }],
       archived: false,
       createdAt: "2020-01-01T00:00:00.000Z",
       updatedAt: "2020-01-01T00:00:00.000Z",

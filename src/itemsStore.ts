@@ -64,12 +64,14 @@ export class ItemsStore {
       title: input.title,
       description: input.description,
       status,
-      statusHistory: [{ status, at: now }],
       archived: false,
       tags: input.tags,
       createdAt: now,
       updatedAt: now,
     };
+    if (status === "done") {
+      item.completedAt = now;
+    }
     if (input.priority !== undefined) {
       item.priority = input.priority;
     }
@@ -179,16 +181,21 @@ export class ItemsStore {
     this.storage.saveData(this.storage.getData());
   }
 
-  /** Changes status and appends the new entry to statusHistory (never removes anything). */
+  /** Changes status; `completedAt` is set on "done" and removed on any other status. */
   changeStatus(id: string, status: MindStreamStatus): void {
     const data = this.storage.getData();
     const item = data.items.find((it) => it.id === id);
     if (!item || item.status === status) {
       return;
     }
+    const now = nowIso();
     item.status = status;
-    item.statusHistory.push({ status, at: nowIso() });
-    item.updatedAt = nowIso();
+    if (status === "done") {
+      item.completedAt = now;
+    } else {
+      delete item.completedAt;
+    }
+    item.updatedAt = now;
     this.storage.saveData(data);
   }
 
@@ -217,11 +224,5 @@ export class ItemsStore {
     const data = this.storage.getData();
     data.items = data.items.filter((it) => it.categoryId !== categoryId);
     this.storage.saveData(data);
-  }
-
-  /** Time of the last transition to "done" (used to show the completion sequence). */
-  completedAt(item: MindStreamItem): string | undefined {
-    const done = item.statusHistory.filter((h) => h.status === "done");
-    return done.length ? done[done.length - 1].at : undefined;
   }
 }

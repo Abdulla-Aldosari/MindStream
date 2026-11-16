@@ -69,8 +69,8 @@ export interface MindStreamItem {
    * absent key always means "unassigned", never an implicit default.
    */
   priority?: MindStreamPriority;
-  /** Append-only history of all status changes; preserves the completion sequence. */
-  statusHistory: { status: MindStreamStatus; at: string }[];
+  /** Time of the last transition to "done". Absent while the status is not "done". */
+  completedAt?: string;
   /** Archiving is fully independent of status — it never changes `status`. */
   archived: boolean;
   archivedAt?: string;

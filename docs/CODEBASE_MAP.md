@@ -146,7 +146,7 @@ src/
                          the save guard (StorageProblem, StorageError, getProblem()).
   workspaceStorage.ts     Thin helper: binds a StorageService to the open workspace
                          folder (.vscode/mindstream.data.json at the project root).
-  itemsStore.ts           ItemsStore: CRUD for notes, status history (append-only),
+  itemsStore.ts           ItemsStore: CRUD for notes, status changes (completedAt set on done),
                          archiving independent of status, permanent deletion, and host-side code link
                          tracking (setLink, mapLinks with persist false, save).
   typesRegistry.ts        TypesRegistry: manage user-defined note types (add/rename/
