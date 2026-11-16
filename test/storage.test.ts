@@ -145,7 +145,7 @@ describe("normalizeData", () => {
     assert.strictEqual(d.categories.length, 2);
   });
 
-  it("ignores legacy items without a categoryId", () => {
+  it("drops items missing a categoryId", () => {
     const d = normalizeData({ items: [{ id: "x", typeId: "t", title: "No cat" }] });
     assert.strictEqual(d.items.length, 0);
   });
@@ -222,42 +222,6 @@ describe("StorageService", () => {
       const file = path.join(dir, ".vscode", "mindstream.data.json");
       assert.ok(fs.existsSync(file));
       assert.ok(!fs.existsSync(file + ".tmp"));
-    } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
-    }
-  });
-  it("forDir: falls back to the legacy .mindstream/data.json when the new file is absent", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mindstream-migrate-test-"));
-    try {
-      const legacyFile = path.join(dir, ".mindstream", "data.json");
-      fs.mkdirSync(path.dirname(legacyFile), { recursive: true });
-      const legacyData = createEmptyData();
-      legacyData.items.push({
-        id: "legacy-1",
-        typeId: "t1",
-        categoryId: GENERAL_CATEGORY_ID,
-        title: "Legacy note",
-        status: "pending",
-        statusHistory: [{ status: "pending", at: "2020-01-01T00:00:00.000Z" }],
-        archived: false,
-        createdAt: "2020-01-01T00:00:00.000Z",
-        updatedAt: "2020-01-01T00:00:00.000Z",
-      });
-      fs.writeFileSync(legacyFile, JSON.stringify(legacyData, null, 2), "utf8");
-
-      const s = StorageService.forDir(dir);
-      assert.strictEqual(s.getData().items.length, 1);
-      assert.strictEqual(s.getData().items[0].title, "Legacy note");
-
-      // Saving migrates the data into the new location.
-      s.saveData(s.getData());
-      const newFile = path.join(dir, ".vscode", "mindstream.data.json");
-      assert.ok(fs.existsSync(newFile));
-
-      // A fresh instance now reads from the new location.
-      const reloaded = StorageService.forDir(dir);
-      assert.strictEqual(reloaded.getData().items.length, 1);
-      assert.strictEqual(reloaded.getData().items[0].title, "Legacy note");
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -456,10 +420,9 @@ describe("StorageService protection of the data file", () => {
     });
   });
 
-  it("an unreadable file (a folder in its place) blocks saving and is not replaced by the legacy file", () => {
+  it("an unreadable file (a folder in its place) blocks saving", () => {
     withDir((dir, file) => {
       fs.mkdirSync(file, { recursive: true }); // reading a directory fails
-      writeFile(path.join(dir, ".mindstream", "data.json"), JSON.stringify(dataWithNote("Legacy")));
       const s = StorageService.forDir(dir);
       assert.strictEqual(s.getProblem()?.kind, "unreadable");
       assert.strictEqual(s.getData().items.length, 0);

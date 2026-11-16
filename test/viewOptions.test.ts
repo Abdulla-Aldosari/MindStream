@@ -65,19 +65,14 @@ describe("viewOptions: features and saved state", () => {
     assert.deepStrictEqual(VO.restoreView(undefined), { groupBy: "status", sortBy: "priority", hiddenPriorities: [] });
   });
 
-  it("migrates the older single view mode", () => {
-    assert.deepStrictEqual(VO.restoreView({ viewMode: "auto" }), view("none", "status"));
-    assert.deepStrictEqual(VO.restoreView({ viewMode: "fixed" }), view("none", "fixed"));
-    assert.deepStrictEqual(VO.restoreView({ viewMode: "grouped" }), view("status", "date"));
-  });
-
-  it("prefers new keys over the older view mode and rejects junk", () => {
-    assert.deepStrictEqual(VO.restoreView({ viewMode: "auto", groupBy: "priority", sortBy: "date" }), view("priority", "date"));
+  it("keeps valid group and sort keys, rejecting junk", () => {
+    assert.deepStrictEqual(VO.restoreView({ groupBy: "priority", sortBy: "date" }), view("priority", "date"));
     assert.deepStrictEqual(VO.restoreView({ groupBy: "x", sortBy: 5, hiddenPriorities: ["low", "low", 3] }), view("status", "priority", ["low"]));
   });
 
-  it("scopes older collapsed status keys", () => {
-    assert.deepStrictEqual(VO.restoreCollapsed({ done: true, pending: false, "priority:high": true }), { "status:done": true, "priority:high": true });
+  it("keeps truthy collapsed keys and drops the rest", () => {
+    assert.deepStrictEqual(VO.restoreCollapsed({ "status:done": true, "priority:high": true, pending: false }), { "status:done": true, "priority:high": true });
+    assert.deepStrictEqual(VO.restoreCollapsed(undefined), {});
   });
 
   it("treats a missing or disabled payload as the disabled feature set", () => {
