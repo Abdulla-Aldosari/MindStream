@@ -140,7 +140,7 @@ src/
                          status enum, constants.
   storage.ts              StorageService (IStorage impl): loads/saves the JSON file
                          safely (write to .tmp then rename), default data creation,
-                         normalizeData() for legacy/incomplete data,
+                         normalizeData() for incomplete or hand-edited data,
                          reloadIfExternal() to pick up out-of-process changes, and
                          the save guard (StorageProblem, StorageError, getProblem()).
   workspaceStorage.ts     Thin helper: binds a StorageService to the open workspace
@@ -418,8 +418,7 @@ nothing at all, and its message alone explains it.
   not an object (`null`, an array, a number) is a `StorageProblem` of kind
   `invalid`, never a reason to start over.
 - `forDir()`'s `load()` returns `null` only for `ENOENT`; any other read error
-  is thrown and becomes a problem of kind `unreadable`. The legacy
-  `.mindstream/data.json` is read only when the new file does not exist.
+  is thrown and becomes a problem of kind `unreadable`.
 - While `getProblem()` returns a problem, the last good data stays in memory
   and `saveData()` throws `StorageError` (`code` `STORAGE_BLOCKED`) before any
   write, so no `.tmp` file is created. A write that fails throws `WRITE_FAILED`

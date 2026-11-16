@@ -93,7 +93,7 @@ export function createEmptyData(): MindStreamData {
   };
 }
 
-/** Normalizes any legacy/incomplete structure and returns a valid one (foundation for future migrations). */
+/** Normalizes an incomplete or hand-edited structure into a valid one. */
 export function normalizeData(raw: unknown): MindStreamData {
   if (!raw || typeof raw !== "object") {
     return createEmptyData();
@@ -108,7 +108,7 @@ export function normalizeData(raw: unknown): MindStreamData {
     categories = [{ id: GENERAL_CATEGORY_ID, label: "General", isDefault: true, order: 0, createdAt: nowIso() }, ...categories];
   }
 
-  // Ignore any legacy item that has no categoryId (as agreed: no migration).
+  // Drop any item missing its required category id.
   const items = allItems.filter((it) => typeof it.categoryId === "string");
 
   // Ensures the required history records exist on every item.
@@ -263,14 +263,11 @@ export class StorageService implements IStorage {
   }
 
   /** Creates a storage service bound to a given directory.
-   *  Reads `.vscode/mindstream.data.json` inside it, falling back to the legacy
-   *  `.mindstream/data.json` (only when the new file does not exist) so existing
-   *  installs keep their data on the first run. */
+   *  Reads `.vscode/mindstream.data.json` inside it. */
   static forDir(dirPath: string): StorageService {
     const file = path.join(dirPath, ".vscode", "mindstream.data.json");
-    const legacyFile = path.join(dirPath, ".mindstream", "data.json");
     return new StorageService({
-      load: () => readIfExists(file) ?? readIfExists(legacyFile),
+      load: () => readIfExists(file),
       save: (text: string) => {
         fs.mkdirSync(path.dirname(file), { recursive: true });
         const tmp = `${file}.tmp`;

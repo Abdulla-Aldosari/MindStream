@@ -29,13 +29,6 @@ const ViewOptions = (() => {
   /** View used when nothing valid is saved. */
   const DEFAULT_VIEW = Object.freeze({ groupBy: "status", sortBy: "priority", hiddenPriorities: Object.freeze([]) });
 
-  /** Older single "view mode" values, mapped to the equivalent group + sort. */
-  const LEGACY_VIEW_MODES = {
-    auto: { groupBy: "none", sortBy: "status" },
-    fixed: { groupBy: "none", sortBy: "fixed" },
-    grouped: { groupBy: "status", sortBy: "date" },
-  };
-
   // Each sort is a chain of keys; the grouped key and (while disabled) the
   // priority key are removed from the chain at sort time.
   const SORT_CHAINS = {
@@ -77,17 +70,16 @@ const ViewOptions = (() => {
     };
   }
 
-  /** Restores the saved view from webview state, migrating the older `viewMode`. */
+  /** Restores the saved view from webview state. */
   function restoreView(saved) {
     const source = saved && typeof saved === "object" ? saved : {};
-    const legacy = LEGACY_VIEW_MODES[source.viewMode];
-    const groupBy = GROUP_BY.includes(source.groupBy) ? source.groupBy : legacy ? legacy.groupBy : DEFAULT_VIEW.groupBy;
-    const sortBy = SORT_BY.includes(source.sortBy) ? source.sortBy : legacy ? legacy.sortBy : DEFAULT_VIEW.sortBy;
+    const groupBy = GROUP_BY.includes(source.groupBy) ? source.groupBy : DEFAULT_VIEW.groupBy;
+    const sortBy = SORT_BY.includes(source.sortBy) ? source.sortBy : DEFAULT_VIEW.sortBy;
     const hidden = Array.isArray(source.hiddenPriorities) ? source.hiddenPriorities.filter((l) => typeof l === "string") : [];
     return { groupBy, sortBy, hiddenPriorities: [...new Set(hidden)] };
   }
 
-  /** Collapsed-group keys are scoped ("status:done"); older bare status keys are migrated. */
+  /** Collapsed-group keys are scoped ("status:done"). */
   function restoreCollapsed(saved) {
     const result = {};
     if (!saved || typeof saved !== "object") {
@@ -95,7 +87,7 @@ const ViewOptions = (() => {
     }
     for (const key of Object.keys(saved)) {
       if (saved[key]) {
-        result[STATUS_ORDER.includes(key) ? `status:${key}` : key] = true;
+        result[key] = true;
       }
     }
     return result;
