@@ -12,6 +12,7 @@ import { esc, state, typeOf, vscode } from "./core.js";
 import { buildLinkBadge, linkRowObserver } from "./linkBadge.js";
 import { openEdit } from "./noteEditor.js";
 import { openView } from "./noteViewer.js";
+import { buildProgressBar } from "./taskProgress.js";
 
 const STATUS_CYCLE = ["pending", "in-progress", "done"];
 
@@ -72,6 +73,12 @@ function buildCardBase(item) {
     linkRow.appendChild(buildLinkBadge(item));
     card.appendChild(linkRow);
     linkRowObserver.observe(linkRow);
+  }
+
+  // Task group: progress of its checklist (completed / total).
+  if (TaskList.isTaskGroup(item)) {
+    card.classList.add("card-task-group");
+    card.appendChild(buildProgressBar(item.tasks));
   }
 
   const footer = document.createElement("div");

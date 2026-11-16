@@ -45,6 +45,7 @@ module.exports = [
       "test/dropdownMenu.test.ts",
       "test/viewOptions.test.ts",
       "test/workPauseWebview.test.ts",
+      "test/taskList.test.ts",
     ],
     rules: {
       "@typescript-eslint/no-require-imports": "off",
@@ -80,6 +81,7 @@ module.exports = [
         DropdownMenu: "readonly",
         ViewOptions: "readonly",
         WorkPause: "readonly",
+        TaskList: "readonly",
       },
     },
   },
@@ -95,6 +97,7 @@ module.exports = [
       "media/dropdown-menu.js",
       "media/viewOptions.js",
       "media/workPause.js",
+      "media/taskList.js",
     ],
     languageOptions: {
       globals: {

@@ -199,6 +199,8 @@ src/
   report.ts                buildWeeklyReport(): computes weekly created/completed/
                          in-progress/archived counts and lists.
   util.ts                  newId() (crypto.randomUUID), nowIso(), debounce().
+  tasks.ts                 sanitizeTasks(): cleans a note's task list (from the
+                         webview or a hand-edited file). See §11.
 
 media/
   sidebar/                The webview app: ES modules bundled by esbuild into
@@ -220,6 +222,12 @@ media/
     priorityControl.js    The editor's priority radiogroup (§7).
     noteViewer.js         Read-only viewer and its options menu (Copy ID /
                           Copy content, sent to the host as copyToClipboard).
+                          Checks tasks of a task group; refreshView() keeps the
+                          open viewer in line with each state (§11).
+    taskEditor.js         The note editor's task rows: add, remove, check,
+                          drag and Alt+Up/Down reordering, Focus mode (§11).
+    taskProgress.js       buildProgressBar() and the task checkbox, shared by
+                          cards, the viewer, and the editor (§11).
     categoriesModal.js    "Manage Categories" modal.
     typesModal.js         "Manage Types" modal and the icons picker.
     weeklyReport.js       Weekly report modal.
@@ -250,6 +258,10 @@ media/
   workPause.js             WorkPause: view/edit/cancel rules of the Work Pause note
                           (pure, no DOM, loaded as a global before sidebar.js).
                           See §10.
+  taskList.js              TaskList: isTaskGroup(), progress(), move(),
+                          focusAvailable() for task group notes (pure, loaded as
+                          a global before sidebar.js).
+                          See §11.
 
 
 
@@ -325,6 +337,9 @@ real VS Code window. `npm test` never runs them (Mocha's spec is
 - `runCommand()` uses the Command Palette by title. Commands hidden from the
   palette (resume work) are reached with `clickMoreMenuItem()`, which clicks
   the `More` action in `.part.sidebar .title-actions`.
+- Run from VS Code's integrated terminal (or any process started by VS Code),
+  the inherited `ELECTRON_RUN_AS_NODE` makes every launch fail with "Process
+  failed to launch!". Unset it first (`env -u ELECTRON_RUN_AS_NODE npm run test:e2e`).
 - A real window appears while tests run, and the workbench selectors
   (`.part.sidebar`, `.quick-input-widget`, `.notifications-toasts`) are
   VS Code internals: keep them in `e2e/helpers.ts`.
@@ -706,17 +721,23 @@ flag, and a heart.
 
 ### Webview flow
 
-- Shortcuts in the note editor's title (`#f-title`) and description
-  (`#f-desc`) fields:
+- Shortcuts in the note editor's title (`#f-title`), description (`#f-desc`),
+  and task title (`input.task-title-input`) fields:
   - `Ctrl+Shift+/` (`Cmd+Shift+/` on macOS) opens the emoji picker.
   - `Ctrl+/` (`Cmd+/` on macOS) inserts the most-recent emoji directly (no popup).
-- `media/sidebar/emojiPicker.js` matches these via a `keydown` listener using
-  `e.code === "Slash"` (layout-independent) with a Ctrl/Cmd modifier, then
-  inserts at the caret (`selectionStart`/`setSelectionRange`) and records the
-  use.
+- `media/sidebar/emojiPicker.js` matches these via a document-level `keydown`
+  listener using `e.code === "Slash"` (layout-independent) with a Ctrl/Cmd
+  modifier, then inserts at the caret (`selectionStart`/`setSelectionRange`) and
+  records the use. The listener and the focus tracking are delegated to the
+  document (`isEmojiField()` matches `#f-title`, `#f-desc`, or a
+  `task-title-input`), so dynamically created task title inputs participate
+  without per-row bindings. The programmatic insert also dispatches an `input`
+  event, because the task editor copies a title into its form model only on
+  that event (a plain `.value` assignment would show the emoji but drop it on
+  save).
 - A compact `#emoji-hint` hint in the editor's action bar (`.emoji-hint`)
   reads `💡 Ctrl+Shift+/ inserts an emoji` (⌘⇧/ on macOS). Clicking it opens the picker
-  anchored to the last focused title/description field.
+  anchored to the last focused title/description/task-title field.
 - The picker (`#emoji-picker`) is a fixed-position popup positioned with
   `--picker-top`/`--picker-left`/`--picker-width` custom properties computed
   in JS (the sanctioned `style.setProperty` use). While it is open, a
@@ -784,13 +805,15 @@ the registry into `SidebarProvider` → `SidebarController`.
 
 - `postState()` includes `descriptionHeight`; `media/sidebar/messages.js` stores it in
   `state.descriptionHeight`.
-- When the note editor opens (`openAdd`/`openEdit`), `applyDescHeight()` sets a
-  `--desc-height` CSS custom property consumed by `#f-desc { height:
-var(--desc-height, 128px); }`. It clamps the persisted height so the
-  `.modal-card` never overflows the current viewport: it measures the card with
-  the textarea collapsed to its minimum, then caps the height at
-  `viewport - gutter - cardAtMin`. A tall height saved while the sidebar was
-  large is therefore shown clipped (not persisted smaller) when reopened small.
+- `applyDescHeight()` runs when the note editor opens (`openAdd`/`openEdit`) and
+  again on window resize while it is open, and sets a `--desc-height` CSS custom
+  property consumed by `#f-desc { height: var(--desc-height, 128px); }`. It
+  clamps the persisted height so the `.modal-card` never overflows the current
+  viewport: it measures the card with the textarea collapsed to its minimum,
+  then caps the height at `viewport - gutter - cardAtMin`. The same ceiling is
+  also applied as the textarea's `max-height`, so a manual drag cannot push the
+  card outside the window. A tall height saved while the sidebar was large is
+  therefore shown clipped (not persisted smaller) when reopened small.
 - A `ResizeObserver` on `#f-desc` posts `setDescriptionHeight` only when the
   user drags the resize handle — it ignores the programmatic apply via the
   `appliedDescHeight` marker, and only runs while the modal is open.
@@ -1084,3 +1107,99 @@ only when the user saves text (`saveWorkPauseNote` with `pause: true`).
 - Host → webview: `openWorkPauseEditor`, `workPauseDiscardAnswer`, and `state.workPause`.
 
 The discard question is a modal `showWarningMessage` ("Discard your unsaved changes to the note?").
+
+## 11. Task groups
+
+A note with at least one task is a **task group**: an ordered checklist under
+its description, with a progress bar on its card and in the viewer. There is no
+separate type or flag: the tasks themselves make the difference.
+
+### Data
+
+`MindStreamItem.tasks?: { title, completed }[]`. The order is the array index
+(there is no `order` field), and the list lives inside the note, so archive,
+delete, Markdown export, and JSON import/merge need nothing extra.
+
+- The key is written only with at least one task; an empty list deletes it, so
+  a regular note keeps its exact shape.
+- `sanitizeTasks()` (`src/tasks.ts`) is the single cleaner: it keeps entries
+  whose `title` is a string, trims it and folds line breaks into spaces (a title
+  is one line), drops empty titles, caps it at `MAX_TASK_TITLE` (500), reads
+  `completed` as true only when it is exactly `true`, and returns `undefined`
+  when nothing is left. `normalizeData()` and `SidebarController` both use it.
+- No minimum or maximum number of tasks.
+
+### Rules
+
+- Progress is completed / total. Tasks may be completed in any order.
+- Checking a task never changes the note's `status`; it does update
+  `updatedAt` (so `Sort by date` moves the card up).
+- The progress bar is shown on cards (including weekly-report cards) and in the
+  viewer, never in the editor.
+
+### Messages
+
+| Message            | Fields                              | Handling                                                                                                   |
+| ------------------ | ----------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `addItem`          | `tasks` (raw)                       | stored through `sanitizeTasks()`; no key without tasks                                                     |
+| `updateItem`       | `tasks` (raw)                       | a sent array replaces the list (empty after cleaning removes the key); no array leaves the tasks untouched |
+| `setTaskCompleted` | `id`, `index`, `title`, `completed` | `ItemsStore.setTaskCompleted()`                                                                            |
+
+`setTaskCompleted` carries the explicit value (not a toggle), so a repeated
+message changes nothing more. It is ignored unless the task at `index` still
+has that `title`, so a list changed meanwhile (an external file edit) is never
+updated at the wrong position. Work Pause blocks it like every other mutation.
+
+### Webview
+
+- `media/taskList.js` (global `TaskList`, unit-tested): `isTaskGroup()`,
+  `progress()` (`{ done, total, percent }`), `move()` (returns a new array), and
+  `focusAvailable(count)` (true above `FOCUS_MIN_TASKS`, 5).
+- `buildProgressBar()` (`media/sidebar/taskProgress.js`): a `role="progressbar"`
+  row with a checklist icon, the bar (fill width from the `--task-progress`
+  custom property), and a `done/total` label. It turns green when complete.
+- **Viewer**: `#view-tasks` sits under the description. Clicking anywhere in
+  a task row toggles its checkbox (rows are not text-selectable and show a
+  pointer cursor). Each toggle updates the row and the bar at once, then posts
+  `setTaskCompleted`. Each
+  `state` message calls `refreshView()`, which re-reads the note (closing the
+  viewer if it was deleted). Rows are rebuilt only when the titles change;
+  otherwise they are updated in place, so the focused checkbox keeps its focus
+  (moving focus by script would show its tooltip).
+- **Editor**: `#f-tasks` holds the form's own copy of the list
+  (`setFormTasks()` / `getFormTasks()` in `taskEditor.js`). Each row is:
+  the sequence number (a `<button class="task-seq">` that is also the drag
+  handle, with a grab cursor), a one-line `<input>` (a title is never
+  multi-line while editing), the completed checkbox, and a remove button. Enter
+  adds a task below; Backspace in an empty title removes it; Alt+Up/Down (on the
+  title or the sequence button) reorders it; Ctrl+Up/Down (Cmd on macOS) moves
+  focus to the previous/next title without reordering. An info button
+  (`#f-tasks-info`, a `codicon-info` icon) sits beside the "Tasks (optional)"
+  label and, only with more than one task, lists every shortcut in its
+  `data-tooltip`. Dragging uses pointer events with
+  pointer capture on the sequence button, never HTML5 drag-and-drop (VS Code
+  webviews intercept drags for file drops). The dragged row never leaves the
+  DOM; its neighbours move around it, so the capture is never lost. The
+  sequence button has no `data-tooltip`, because focus returns to it by script
+  after a keyboard move. The list scrolls on its own (`max-height`), so Save
+  stays on screen. Save always sends the full list.
+- **Row height**: an editor row is exactly 34px (title input and remove button
+  26px). With the list's 2px gap the row pitch is 36px, a whole number of
+  device pixels at 125%-200% display scaling, so rows and gaps look identical.
+  Content-sized rows (a 33.2px row at 125%) snap to 41 or 42 device pixels
+  unevenly.
+- **Narrow rows**: each editor row is an inline-size container; when its width
+  is under 230px the checkbox is hidden (the completed state is kept). The
+  viewer is unaffected, and its titles wrap.
+- **Focus mode**: `#f-tasks-focus` (an icon toggle beside "+ Add task", shown
+  only while `TaskList.focusAvailable(count)`, i.e. more than 5 tasks) folds the
+  description (`#f-desc-field`) away through the `tasks-focus` class on the
+  card, and sets the list's `max-height` to the viewport room that leaves.
+  `taskEditor.js` measures the card's chrome once (everything but the
+  description and the list) when the mode turns on, then sets `--focus-max`
+  (the list's own max-height) to the modal height minus that chrome and
+  re-measures it on resize. It is manual, never saved, and off in every newly
+  opened editor. When the list drops to 5 tasks or fewer the button hides and
+  the mode ends. While it is on, the description height observer saves nothing
+  (a folded field measures 0), and an emoji picker anchored to the description
+  closes.

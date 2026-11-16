@@ -31,6 +31,12 @@ export function buildMarkdownExport(items: ItemsStore, types: TypesRegistry, cat
       lines.push("");
       lines.push(it.description);
     }
+    if (it.tasks?.length) {
+      lines.push("");
+      for (const task of it.tasks) {
+        lines.push(`- [${task.completed ? "x" : " "}] ${task.title}`);
+      }
+    }
     lines.push("");
     lines.push("---");
     lines.push("");

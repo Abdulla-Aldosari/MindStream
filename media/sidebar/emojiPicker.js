@@ -16,6 +16,19 @@ const MAX_EMOJI_RECENTS = 12;
 // non-editable quick-insert set). Note: "❖" is listed once (deduplicated).
 const FIXED_EMOJI_SYMBOLS = ["❖", "✫", "★", "☆", "◆", "◇", "■", "□", "●", "○", "◉", "◎", "◈", "▶", "▷", "➜", "➤", "➔", "➣", "✔", "✘", "☑", "☒"];
 
+// The last field the user focused that accepts an emoji (title, description,
+// or a task title input). Tracked via focusin so dynamically created task
+// inputs are covered without re-binding listeners per row.
+let lastEmojiField = null;
+
+/** Whether `el` is an input the emoji picker can insert into. */
+function isEmojiField(el) {
+  if (!el || !(el instanceof Element)) {
+    return false;
+  }
+  return el.id === "f-title" || el.id === "f-desc" || el.classList.contains("task-title-input");
+}
+
 // --- Emoji picker (anchored to the focused title/description field) ---
 
 function insertEmojiAtCaret(input, emoji) {
@@ -24,6 +37,10 @@ function insertEmojiAtCaret(input, emoji) {
   input.value = input.value.slice(0, start) + emoji + input.value.slice(end);
   const caret = start + emoji.length;
   input.setSelectionRange(caret, caret);
+  // Setting `.value` programmatically fires no `input` event, so fields whose
+  // own state is synced by that event (like the task editor's title -> form
+  // model copy) would otherwise lose the emoji on save. Dispatch one manually.
+  input.dispatchEvent(new Event("input", { bubbles: true }));
   input.focus();
 }
 
@@ -227,17 +244,15 @@ function handleEmojiShortcut(e, input) {
 }
 
 export function initEmojiPicker() {
-  $("f-title").addEventListener("keydown", (e) => handleEmojiShortcut(e, $("f-title")));
-  $("f-desc").addEventListener("keydown", (e) => handleEmojiShortcut(e, $("f-desc")));
-
-  // Track the last focused title/description field so the hint button opens
-  // the picker anchored to the right field, then inserts at its caret.
-  let lastEmojiField = null;
-  ["f-title", "f-desc"].forEach((id) => {
-    $(id).addEventListener("focus", () => {
-      lastEmojiField = $(id);
-    });
+  // Shortcuts and focus tracking are delegated to the document so dynamically
+  // created task title inputs participate without per-row bindings.
+  document.addEventListener("keydown", (e) => {
+    if (isEmojiField(e.target)) {
+      handleEmojiShortcut(e, e.target);
+    }
   });
+
+  // The hint button opens the picker anchored to the last focused emoji field.
   $("emoji-hint").addEventListener("click", () => {
     const field = lastEmojiField && lastEmojiField.isConnected ? lastEmojiField : $("f-title");
     openEmojiPicker(field);
@@ -266,6 +281,9 @@ export function initEmojiPicker() {
     closeEmojiPicker();
   });
   document.addEventListener("focusin", (e) => {
+    if (isEmojiField(e.target)) {
+      lastEmojiField = e.target;
+    }
     if ($("emoji-picker").hidden) return;
     if ($("emoji-picker").contains(e.target)) return;
     closeEmojiPicker();

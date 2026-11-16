@@ -1,4 +1,4 @@
-import { GENERAL_CATEGORY_ID, MindStreamItem, MindStreamLink, MindStreamPriority, MindStreamStatus } from "./models";
+import { GENERAL_CATEGORY_ID, MindStreamItem, MindStreamLink, MindStreamPriority, MindStreamStatus, MindStreamTask } from "./models";
 import { IStorage } from "./storage";
 import { newId, nowIso } from "./util";
 
@@ -13,6 +13,8 @@ export interface NewItemInput {
   priority?: MindStreamPriority;
   /** Code location, set only when the note is created from the editor context menu. */
   link?: MindStreamLink;
+  /** Already sanitized; omitted or empty creates a regular note (no `tasks` key). */
+  tasks?: MindStreamTask[];
 }
 
 /** The link is deliberately absent: it can never be edited, only tracked by the host (see `mapLinks`/`setLink`). */
@@ -24,6 +26,8 @@ export interface UpdateItemInput {
   tags?: string[];
   /** Omitted leaves the stored priority untouched (including an absent one). */
   priority?: MindStreamPriority;
+  /** Replaces the whole list (already sanitized). `[]` removes the key; omitted leaves the tasks untouched. */
+  tasks?: MindStreamTask[];
 }
 
 /**
@@ -72,6 +76,9 @@ export class ItemsStore {
     if (input.link !== undefined) {
       item.link = input.link;
     }
+    if (input.tasks?.length) {
+      item.tasks = input.tasks;
+    }
     data.items.push(item);
     this.storage.saveData(data);
     return item;
@@ -101,8 +108,34 @@ export class ItemsStore {
     if (patch.priority !== undefined) {
       item.priority = patch.priority;
     }
+    if (patch.tasks !== undefined) {
+      if (patch.tasks.length) {
+        item.tasks = patch.tasks;
+      } else {
+        delete item.tasks;
+      }
+    }
     item.updatedAt = nowIso();
     this.storage.saveData(data);
+  }
+
+  /**
+   * Checks or unchecks one task (from the viewer). `title` must match the task
+   * at `index`, so a list changed meanwhile (an external file edit) is never
+   * updated at the wrong position. Never touches `status`. Returns whether
+   * anything was saved.
+   */
+  setTaskCompleted(id: string, index: number, title: string, completed: boolean): boolean {
+    const data = this.storage.getData();
+    const item = data.items.find((it) => it.id === id);
+    const task = item?.tasks?.[index];
+    if (!item || !task || task.title !== title || task.completed === completed) {
+      return false;
+    }
+    task.completed = completed;
+    item.updatedAt = nowIso();
+    this.storage.saveData(data);
+    return true;
   }
 
   /** Replaces a note's code link (host-side tracking). Does not touch `updatedAt`: it is not a user edit. */

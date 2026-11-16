@@ -19,6 +19,11 @@ const saved = vscode.getState() || {};
 
 export const DEFAULT_DESCRIPTION_HEIGHT = 128;
 
+// Vertical breathing room kept between the note-editor card and the viewport
+// edge (12px top + 12px bottom). The description height is clamped against it
+// in media/sidebar/noteEditor.js, and Focus mode uses it in taskEditor.js.
+export const MODAL_GUTTER = 24;
+
 export const state = {
   items: [],
   types: [],

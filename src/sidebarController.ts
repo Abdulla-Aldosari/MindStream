@@ -7,6 +7,7 @@ import { DEFAULT_EMOJI_PALETTE, EmojiRegistry } from "./emojiRegistry";
 import { UiPrefsRegistry } from "./uiPrefs";
 import { WorkPauseStore } from "./workPauseStore";
 import { isAllowedDuringWorkPause } from "./workPause";
+import { sanitizeTasks } from "./tasks";
 
 export interface WebviewMessage {
   type:
@@ -32,7 +33,8 @@ export interface WebviewMessage {
     | "copyToClipboard"
     | "openLink"
     | "saveWorkPauseNote"
-    | "confirmDiscardWorkPauseDraft";
+    | "confirmDiscardWorkPauseDraft"
+    | "setTaskCompleted";
   id?: string;
   /** `saveWorkPauseNote` only: also pause work (lock the UI) once saved. */
   pause?: boolean;
@@ -58,6 +60,11 @@ export interface WebviewMessage {
   palette?: string[];
   height?: number;
   text?: string;
+  /** `addItem`/`updateItem`: the editor's raw task list, cleaned by `sanitizeTasks`. */
+  tasks?: unknown;
+  /** `setTaskCompleted`: position of the task, its expected title, and the new value. */
+  index?: number;
+  completed?: boolean;
 }
 
 /** User-facing confirmations and notices the controller needs from the host. */
@@ -150,6 +157,7 @@ export class SidebarController {
                 title: msg.title.trim(),
                 description: msg.description,
                 categoryId: msg.categoryId,
+                tasks: sanitizeTasks(msg.tasks),
                 // Enabled: always written (the editor's default when untouched).
                 // Disabled: never written, so the note stays unassigned.
                 priority: this.priorityEnabled() ? (isPriority(msg.priority) ? msg.priority : DEFAULT_PRIORITY) : undefined,
@@ -174,9 +182,16 @@ export class SidebarController {
               // Only an explicit, valid choice is stored; while the system is
               // disabled the stored value (or its absence) is left untouched.
               priority: this.priorityEnabled() && isPriority(msg.priority) ? msg.priority : undefined,
+              // A sent list replaces the stored one (empty clears it); no list leaves it untouched.
+              tasks: Array.isArray(msg.tasks) ? (sanitizeTasks(msg.tasks) ?? []) : undefined,
             });
           }
         });
+        break;
+      case "setTaskCompleted":
+        if (msg.id && Number.isInteger(msg.index) && typeof msg.title === "string" && typeof msg.completed === "boolean") {
+          this.items.setTaskCompleted(msg.id, msg.index as number, msg.title, msg.completed);
+        }
         break;
       case "deleteItem":
         if (msg.id) {

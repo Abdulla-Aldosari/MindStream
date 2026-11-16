@@ -3,7 +3,7 @@ import { downloadAndUnzipVSCode } from "@vscode/test-electron";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { GENERAL_CATEGORY_ID, type MindStreamData, type MindStreamLink, type MindStreamPriority, type MindStreamStatus } from "../src/models";
+import { GENERAL_CATEGORY_ID, type MindStreamData, type MindStreamLink, type MindStreamPriority, type MindStreamStatus, type MindStreamTask } from "../src/models";
 import { buildLink } from "../src/linkResolver";
 import { createEmptyData } from "../src/storage";
 
@@ -20,6 +20,8 @@ export interface SeedNote {
   priority?: MindStreamPriority;
   /** A code link written straight into the data file (as the editor command would create it). */
   link?: MindStreamLink;
+  /** Makes the note a task group. */
+  tasks?: MindStreamTask[];
 }
 
 /** The link the editor command stores for 1-based lines `lineStart`..`lineEnd` of `lines`. */
@@ -47,6 +49,7 @@ export function buildData(notes: SeedNote[] = []): MindStreamData {
       status,
       ...(n.priority ? { priority: n.priority } : {}),
       ...(n.link ? { link: n.link } : {}),
+      ...(n.tasks ? { tasks: n.tasks } : {}),
       statusHistory: [{ status, at }],
       archived: false,
       createdAt: at,
