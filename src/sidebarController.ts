@@ -131,6 +131,20 @@ export class SidebarController {
     this.ui.answerNoteSave(msg.saveId, true);
   }
 
+  /**
+   * Refuses a note whose type or category does not exist, so a save is never
+   * answered as stored when nothing was written. The message reaches the user
+   * through the host, and the editor keeps what was typed.
+   */
+  private assertKnownTypeAndCategory(typeId: string | undefined, categoryId: string | undefined): void {
+    if (typeId !== undefined && !this.types.get(typeId)) {
+      throw new Error("The note's type no longer exists. Pick an existing type, or add one from Manage Types. Nothing was changed.");
+    }
+    if (categoryId !== undefined && !this.categories.get(categoryId)) {
+      throw new Error("The note's category no longer exists. Pick an existing category. Nothing was changed.");
+    }
+  }
+
   async handleMessage(msg: WebviewMessage): Promise<void> {
     // While work is paused, the note is the only thing that may change.
     if (this.workPause.isPaused() && !isAllowedDuringWorkPause(msg.type)) {
@@ -150,10 +164,12 @@ export class SidebarController {
         this.pendingLink = undefined;
         try {
           this.saveNote(msg, () => {
-            if (msg.title?.trim() && msg.typeId) {
+            if (msg.title?.trim()) {
+              // A missing type id (no types) is refused too, never skipped silently.
+              this.assertKnownTypeAndCategory(msg.typeId ?? "", msg.categoryId);
               this.items.create({
                 link,
-                typeId: msg.typeId,
+                typeId: msg.typeId as string,
                 title: msg.title.trim(),
                 description: msg.description,
                 categoryId: msg.categoryId,
@@ -174,6 +190,7 @@ export class SidebarController {
       case "updateItem":
         this.saveNote(msg, () => {
           if (msg.id) {
+            this.assertKnownTypeAndCategory(msg.typeId, msg.categoryId);
             this.items.update(msg.id, {
               title: msg.title,
               description: msg.description,
@@ -275,6 +292,10 @@ export class SidebarController {
         }
         const typeDef = this.types.get(msg.id);
         if (!typeDef) {
+          break;
+        }
+        if (this.types.list().length <= 1) {
+          this.ui.showInfo(`Type "${typeDef.label}" is the last type. Add another type before deleting it: notes need at least one type.`);
           break;
         }
         const linked = this.types.countItems(msg.id);

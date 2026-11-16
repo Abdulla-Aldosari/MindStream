@@ -140,7 +140,8 @@ src/
                          status enum, constants.
   storage.ts              StorageService (IStorage impl): loads/saves the JSON file
                          safely (write to .tmp then rename), default data creation,
-                         normalizeData() for incomplete or hand-edited data,
+                         normalizeData() for incomplete or hand-edited data (a file
+                         with no types gets the default types back),
                          reloadIfExternal() to pick up out-of-process changes, and
                          the save guard (StorageProblem, StorageError, getProblem()).
   workspaceStorage.ts     Thin helper: binds a StorageService to the open workspace
@@ -193,9 +194,14 @@ src/
                          skips posting while hidden, and waits for the view when first used.
   commands.ts             Command handlers (export/import Markdown/JSON, weekly report,
                          requireWorkspace) with an injected CommandsDeps I/O surface.
-                         importJson does nothing while the Work Pause lock is on.
+                         importJson does nothing while the Work Pause lock is on, and
+                         rejects a file that is not a MindStream data file (error, no
+                         Merge/Replace dialog, nothing changed).
   export.ts               Pure functions: buildMarkdownExport(), buildWeeklyReportText(),
-                         mergeData() (merge imported JSON into current data by id).
+                         validateImportData() (checks a parsed file has types, categories
+                         and items lists with well-formed entries; one bad entry rejects
+                         the whole file), mergeData() (merge imported JSON into current
+                         data by id).
   report.ts                buildWeeklyReport(): computes weekly created/completed/
                          in-progress/archived counts and lists.
   util.ts                  newId() (crypto.randomUUID), nowIso(), debounce().
@@ -441,6 +447,18 @@ nothing at all, and its message alone explains it.
   silently (`flush`, `applyRename`, `applyDelete`, `setLink` calls), and
   `resolveItem` still returns the resolved location; `importJson` reports the
   problem before opening any dialog and catches a save refused later.
+
+### At least one type
+
+A note cannot be saved without a type, so the data always holds one.
+
+- `normalizeData()` restores the default types when `types` is missing or empty.
+- `TypesRegistry.remove()` throws when asked to remove the last type, and the
+  `deleteType` message in `SidebarController` says why before any dialog.
+- `SidebarController` refuses `addItem` and `updateItem` whose `typeId` (a
+  missing one included) or `categoryId` does not exist: it answers
+  `noteSaveResult` with `ok: false` and throws, so the editor stays open with
+  what was typed. A save is never answered as stored when nothing was written.
 
 - **Category default types.** A category may carry an optional
   `defaultTypeId`. When the "New note" form opens (or the category changes

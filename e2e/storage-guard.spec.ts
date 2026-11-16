@@ -64,3 +64,20 @@ test("an empty data file is a new project: a note can be saved", async ({ launch
   await waitForData(session, (d) => d.items.length === 1);
   expect(readData(session).items[0].title).toBe("First note in an empty file");
 });
+
+test("a data file with no types gets the default types back: a note can be saved", async ({ launch }) => {
+  const emptyTypes = { version: 1, types: [], categories: [{ id: "general", label: "General", isDefault: true, order: 0, createdAt: "2026-11-01T10:00:00.000Z" }], items: [] };
+  const session = await launch({ rawData: JSON.stringify(emptyTypes, null, 2) });
+  const sidebar = await showSidebar(session.page);
+
+  await sidebar.locator(".empty-create-btn").click();
+  await expect(sidebar.locator("#f-type-btn .cs-btn-label")).toHaveText("General");
+  await sidebar.locator("#f-title").fill("Saved with restored types");
+  await sidebar.locator("#modal-save").click();
+
+  await expect(sidebar.locator("#modal")).toBeHidden();
+  await waitForData(session, (d) => d.items.length === 1 && d.types.length > 0);
+  const data = readData(session);
+  expect(data.items[0].title).toBe("Saved with restored types");
+  expect(data.types.some((t) => t.id === data.items[0].typeId)).toBe(true);
+});
