@@ -3,7 +3,7 @@ import { ItemsStore } from "./itemsStore";
 import { TypesRegistry } from "./typesRegistry";
 import { CategoriesRegistry } from "./categoriesRegistry";
 import { IStorage, StorageError, normalizeData } from "./storage";
-import { buildMarkdownExport, buildWeeklyReportText, mergeData } from "./export";
+import { buildMarkdownExport, buildWeeklyReportText, mergeData, validateImportData } from "./export";
 import { buildWeeklyReport } from "./report";
 
 /** Minimal stand-in for `vscode.Uri` so command logic stays free of the `vscode` module. */
@@ -84,6 +84,11 @@ export async function importJson(deps: CommandsDeps, storage: IStorage, refresh:
     parsed = JSON.parse(fs.readFileSync(uris[0].fsPath, "utf8"));
   } catch (err) {
     await deps.showErrorMessage(`MindStream: Could not read the selected file: ${err instanceof Error ? err.message : String(err)}`);
+    return;
+  }
+  const check = validateImportData(parsed);
+  if (!check.ok) {
+    await deps.showErrorMessage(`MindStream: The selected file is not a MindStream data file: ${check.reason}. Nothing was changed.`);
     return;
   }
   const incoming = normalizeData(parsed);

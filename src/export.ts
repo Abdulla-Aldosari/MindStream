@@ -72,6 +72,43 @@ export function buildWeeklyReportText(report: WeeklyReportData): string[] {
   return lines;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasStrings(entry: unknown, keys: string[]): boolean {
+  return isRecord(entry) && keys.every((key) => typeof entry[key] === "string");
+}
+
+/**
+ * Checks that parsed JSON really is a MindStream data file before anything is
+ * offered to the user. Any JSON object is otherwise accepted by
+ * `normalizeData`, which would let an unrelated file (for example VS Code's
+ * settings.json) replace every note. One bad entry rejects the whole file, so
+ * no note is dropped silently.
+ */
+export function validateImportData(parsed: unknown): { ok: true } | { ok: false; reason: string } {
+  if (!isRecord(parsed)) {
+    return { ok: false, reason: "it does not contain a data object" };
+  }
+  const sections: { key: "types" | "categories" | "items"; fields: string[] }[] = [
+    { key: "types", fields: ["id", "label"] },
+    { key: "categories", fields: ["id", "label"] },
+    { key: "items", fields: ["id", "typeId", "categoryId", "title"] },
+  ];
+  for (const { key, fields } of sections) {
+    const list = parsed[key];
+    if (!Array.isArray(list)) {
+      return { ok: false, reason: `it has no "${key}" list` };
+    }
+    const bad = list.findIndex((entry) => !hasStrings(entry, fields));
+    if (bad !== -1) {
+      return { ok: false, reason: `entry ${bad + 1} of "${key}" is missing one of: ${fields.join(", ")}` };
+    }
+  }
+  return { ok: true };
+}
+
 /** Merges `incoming` data into `target` by id (no duplicates). Mutates `target`. */
 export function mergeData(target: MindStreamData, incoming: MindStreamData): void {
   const typeIds = new Set(target.types.map((t) => t.id));
