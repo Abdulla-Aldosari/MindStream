@@ -121,7 +121,6 @@ describe("mergeData", () => {
       categoryId: GENERAL_CATEGORY_ID,
       title: id,
       status: "pending",
-      statusHistory: [],
       archived: false,
       createdAt: "x",
       updatedAt: "x",

@@ -32,10 +32,7 @@ export function buildWeeklyReport(items: ItemsStore, now: Date = new Date()): We
   const weekStart = startOfWeek(now).getTime();
   const all = items.list(true);
   const created = all.filter((it) => new Date(it.createdAt).getTime() >= weekStart);
-  const completed = all.filter((it) => {
-    const at = items.completedAt(it);
-    return at ? new Date(at).getTime() >= weekStart : false;
-  });
+  const completed = all.filter((it) => (it.completedAt ? new Date(it.completedAt).getTime() >= weekStart : false));
   const inProgress = all.filter((it) => it.status === "in-progress");
   const archived = all.filter((it) => it.archivedAt && new Date(it.archivedAt).getTime() >= weekStart);
   return {

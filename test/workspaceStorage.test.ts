@@ -29,7 +29,6 @@ describe("createWorkspaceStorage", () => {
         categoryId: GENERAL_CATEGORY_ID,
         title: "Hello",
         status: "pending",
-        statusHistory: [{ status: "pending", at: "2020-01-01T00:00:00.000Z" }],
         archived: false,
         createdAt: "2020-01-01T00:00:00.000Z",
         updatedAt: "2020-01-01T00:00:00.000Z",

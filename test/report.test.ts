@@ -51,7 +51,7 @@ describe("buildWeeklyReport", () => {
     const oldDone = items.create({ typeId: "t", title: "Old done" });
     items.changeStatus(oldDone.id, "done");
     const stored = items.get(oldDone.id)!;
-    stored.statusHistory[stored.statusHistory.length - 1].at = "2000-01-01T00:00:00.000Z";
+    stored.completedAt = "2000-01-01T00:00:00.000Z";
 
     const report = buildWeeklyReport(items, now);
     assert.strictEqual(report.completedCount, 0);

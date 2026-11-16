@@ -116,11 +116,7 @@ export function normalizeData(raw: unknown): MindStreamData {
   // Drop any item missing its required category id.
   const items = allItems.filter((it) => typeof it.categoryId === "string");
 
-  // Ensures the required history records exist on every item.
   for (const it of items) {
-    if (!Array.isArray(it.statusHistory)) {
-      it.statusHistory = [{ status: it.status ?? "pending", at: it.createdAt ?? nowIso() }];
-    }
     if (typeof it.archived !== "boolean") {
       it.archived = false;
     }

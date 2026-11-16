@@ -16,7 +16,7 @@ _A thought strikes mid-code. One shortcut later, it's a saved note, without ever
 - Fully customizable types: add, rename, delete (with reassignment), and pick an icon from the built-in codicon set — records keep their type safely via stable IDs.
 - Customizable categories with a protected built-in "General" category (rename allowed, delete blocked). Deleting a category deletes its notes.
 - Category filter dropdown ("All Categories") to focus the list on one category at a time.
-- Three statuses — None / In Progress / Done — with one-click cycling, `Ctrl+Click` (or `Cmd+Click` on macOS) for direct jumps, and an append-only completion history.
+- Three statuses — None / In Progress / Done — with one-click cycling, `Ctrl+Click` (or `Cmd+Click` on macOS) for direct jumps, and a recorded completion time.
 - Archiving fully independent of status (never changes a "Done" status), with a show/hide archive toggle.
 - Note priority (Critical / High / Medium / Low), shown on each card in the style you choose, or disabled entirely.
 - View menu: group by None / Status / Priority (collapsible sections with counters), sort by Date modified / Fixed order / Status / Priority, and show or hide individual priority levels.

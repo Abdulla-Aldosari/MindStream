@@ -20,9 +20,8 @@ export function buildMarkdownExport(items: ItemsStore, types: TypesRegistry, cat
     lines.push(`- Status: ${STATUS_LABEL[it.status]}`);
     lines.push(`- Category: ${categories.label(it.categoryId)}`);
     lines.push(`- Created: ${formatDate(it.createdAt)}`);
-    const done = items.completedAt(it);
-    if (done) {
-      lines.push(`- Completed: ${formatDate(done)}`);
+    if (it.completedAt) {
+      lines.push(`- Completed: ${formatDate(it.completedAt)}`);
     }
     if (it.archived) {
       lines.push("- Archived");
