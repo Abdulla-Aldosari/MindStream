@@ -569,6 +569,38 @@ describe("SidebarController note editor save answer", () => {
     assert.deepStrictEqual(items.list()[0].link, link);
   });
 
+  it("refuses a note with a missing or unknown type and answers not ok", async () => {
+    const { controller, ui, items, typeId } = setup();
+    await assert.rejects(controller.handleMessage({ type: "addItem", title: "A", saveId: 1 }), /type no longer exists/);
+    await assert.rejects(controller.handleMessage({ type: "addItem", title: "A", typeId: "gone", saveId: 2 }), /type no longer exists/);
+    await assert.rejects(controller.handleMessage({ type: "addItem", title: "A", typeId, categoryId: "gone", saveId: 3 }), /category no longer exists/);
+    assert.strictEqual(items.list().length, 0);
+    assert.deepStrictEqual(ui.saveAnswers, [
+      { saveId: 1, ok: false },
+      { saveId: 2, ok: false },
+      { saveId: 3, ok: false },
+    ]);
+  });
+
+  it("refuses to move a note to an unknown type", async () => {
+    const { controller, items, typeId } = setup();
+    const note = items.create({ typeId, title: "Kept" });
+    await assert.rejects(controller.handleMessage({ type: "updateItem", id: note.id, title: "Kept", typeId: "gone", saveId: 1 }), /type no longer exists/);
+    assert.strictEqual(items.get(note.id)?.typeId, typeId);
+  });
+
+  it("deleteType keeps the last type and says why", async () => {
+    const { types, ui, controller } = setup();
+    for (const t of types.list().slice(1)) {
+      types.remove(t.id);
+    }
+    const last = types.list()[0];
+    await controller.handleMessage({ type: "deleteType", id: last.id });
+    assert.ok(types.get(last.id));
+    assert.strictEqual(ui.confirmedTypes.length, 0);
+    assert.ok(ui.infos.some((m) => m.includes("last type")));
+  });
+
   it("answers not ok while work is paused, so the editor keeps its text", async () => {
     const { controller, ui, typeId, items } = setup();
     await controller.handleMessage({ type: "saveWorkPauseNote", text: "Locked", pause: true });

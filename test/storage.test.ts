@@ -123,9 +123,18 @@ describe("normalizeData", () => {
   it("fills missing arrays and version", () => {
     const d = normalizeData({});
     assert.strictEqual(d.version, DATA_VERSION);
-    assert.deepStrictEqual(d.types, []);
+    assert.strictEqual(d.types.length, DEFAULT_TYPES.length);
     assert.strictEqual(d.categories.length, 1);
     assert.deepStrictEqual(d.items, []);
+  });
+
+  it("restores the default types when the file has none, and keeps existing ones", () => {
+    assert.strictEqual(normalizeData({ types: [] }).types.length, DEFAULT_TYPES.length);
+    const kept = normalizeData({ types: [{ id: "mine", label: "Mine", createdAt: "t" }] });
+    assert.deepStrictEqual(
+      kept.types.map((t) => t.id),
+      ["mine"]
+    );
   });
 
   it("injects the General category at the front when missing", () => {

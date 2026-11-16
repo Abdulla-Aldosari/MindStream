@@ -79,6 +79,18 @@ describe("TypesRegistry", () => {
     assert.strictEqual(items.list()[0].typeId, def.id);
   });
 
+  it("refuses to remove the last type and changes nothing", () => {
+    const { storage, types } = setup();
+    for (const t of types.list().slice(1)) {
+      types.remove(t.id);
+    }
+    const last = types.list()[0];
+    const before = JSON.stringify(storage.getData());
+    assert.throws(() => types.remove(last.id), /last type/);
+    assert.strictEqual(JSON.stringify(storage.getData()), before);
+    assert.ok(types.get(last.id));
+  });
+
   it("reassign moves items and updates their updatedAt", () => {
     const { types, items } = setup();
     const a = types.add("A");

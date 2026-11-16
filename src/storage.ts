@@ -83,11 +83,15 @@ export const DEFAULT_TYPES: Omit<MindStreamTypeDef, "id" | "createdAt">[] = [
 /** The built-in default category. */
 export const DEFAULT_CATEGORIES: Omit<MindStreamCategoryDef, "createdAt">[] = [{ id: GENERAL_CATEGORY_ID, label: "General", isDefault: true, order: 0 }];
 
+function createDefaultTypes(): MindStreamTypeDef[] {
+  return DEFAULT_TYPES.map((t) => ({ ...t, id: newId(), createdAt: nowIso() }));
+}
+
 /** Creates the empty default structure with the ready-made default types. */
 export function createEmptyData(): MindStreamData {
   return {
     version: DATA_VERSION,
-    types: DEFAULT_TYPES.map((t) => ({ ...t, id: newId(), createdAt: nowIso() })),
+    types: createDefaultTypes(),
     categories: DEFAULT_CATEGORIES.map((c) => ({ ...c, createdAt: nowIso() })),
     items: [],
   };
@@ -99,7 +103,8 @@ export function normalizeData(raw: unknown): MindStreamData {
     return createEmptyData();
   }
   const obj = raw as Partial<MindStreamData>;
-  const types = Array.isArray(obj.types) ? obj.types : [];
+  // A project always has at least one type (the note editor cannot save without one).
+  const types = Array.isArray(obj.types) && obj.types.length > 0 ? obj.types : createDefaultTypes();
   let categories = Array.isArray(obj.categories) ? obj.categories : [];
   const allItems = Array.isArray(obj.items) ? obj.items : [];
 

@@ -57,9 +57,15 @@ export class TypesRegistry {
     this.storage.saveData(data);
   }
 
-  /** Removes a type and returns how many items referenced it (they stay intact as "Deleted type"). */
+  /**
+   * Removes a type and returns how many items referenced it (they stay intact as "Deleted type").
+   * The last remaining type cannot be removed: without one no note can be created.
+   */
   remove(id: string): number {
     const data = this.storage.getData();
+    if (data.types.length <= 1 && data.types.some((t) => t.id === id)) {
+      throw new Error("The last type cannot be deleted: notes need at least one type. Add another type first. Nothing was changed.");
+    }
     const affected = data.items.filter((it) => it.typeId === id).length;
     data.types = data.types.filter((t) => t.id !== id);
     this.storage.saveData(data);
