@@ -3,7 +3,7 @@ import { createEmptyData } from "../src/storage";
 import { ItemsStore } from "../src/itemsStore";
 import { TypesRegistry } from "../src/typesRegistry";
 import { CategoriesRegistry } from "../src/categoriesRegistry";
-import { STATUS_LABEL, buildMarkdownExport, buildWeeklyReportText, mergeData } from "../src/export";
+import { STATUS_LABEL, buildMarkdownExport, buildWeeklyReportText, mergeData, validateImportData } from "../src/export";
 import { buildWeeklyReport } from "../src/report";
 import { GENERAL_CATEGORY_ID, MindStreamData, MindStreamItem } from "../src/models";
 import { InMemoryStorage } from "./helpers";
@@ -156,5 +156,37 @@ describe("mergeData", () => {
     mergeData(target, incoming);
     assert.strictEqual(incoming.types.length, 1);
     assert.strictEqual(target.types.length, 1);
+  });
+});
+
+describe("validateImportData", () => {
+  const entry = { id: "x", label: "X" };
+  const item = { id: "i", typeId: "t", categoryId: "general", title: "A" };
+
+  it("accepts a data file, including one without notes", () => {
+    assert.deepStrictEqual(validateImportData(createEmptyData()), { ok: true });
+    assert.deepStrictEqual(validateImportData({ types: [entry], categories: [entry], items: [item] }), { ok: true });
+  });
+
+  it("rejects JSON that is not a data object", () => {
+    for (const raw of [null, 42, "text", [], [item]]) {
+      assert.strictEqual(validateImportData(raw).ok, false, JSON.stringify(raw));
+    }
+  });
+
+  it("rejects an unrelated JSON file such as VS Code settings", () => {
+    const result = validateImportData({ "editor.fontSize": 14, "files.autoSave": "afterDelay" });
+    assert.strictEqual(result.ok, false);
+  });
+
+  it("rejects a file missing one of the lists", () => {
+    const result = validateImportData({ types: [], categories: [] });
+    assert.deepStrictEqual(result, { ok: false, reason: 'it has no "items" list' });
+  });
+
+  it("rejects the whole file when one entry is malformed", () => {
+    const result = validateImportData({ types: [entry], categories: [entry], items: [item, { id: "j", title: "No type" }] });
+    assert.strictEqual(result.ok, false);
+    assert.ok(!result.ok && result.reason.includes('entry 2 of "items"'));
   });
 });

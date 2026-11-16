@@ -185,6 +185,25 @@ describe("importJson", () => {
     assert.strictEqual(deps.errors.length, 1);
   });
 
+  it("rejects a file that is not a MindStream data file: no dialog, nothing changed", async () => {
+    const deps = new FakeDeps();
+    const storage = new InMemoryStorage(createEmptyData());
+    const before = JSON.stringify(storage.getData());
+    deps.openUris = [{ fsPath: makeImportFile({ "editor.fontSize": 14, "files.autoSave": "afterDelay" }) }];
+    deps.warningResult = "Replace";
+    let refreshed = false;
+
+    await importJson(deps, storage, () => (refreshed = true));
+
+    assert.strictEqual(deps.warningMessages.length, 0);
+    assert.strictEqual(deps.errors.length, 1);
+    assert.ok(deps.errors[0].includes("not a MindStream data file"));
+    assert.ok(deps.errors[0].includes("Nothing was changed"));
+    assert.strictEqual(refreshed, false);
+    assert.strictEqual(JSON.stringify(storage.getData()), before);
+    assert.strictEqual(storage.saved.length, 0);
+  });
+
   it("merges the imported data on Merge", async () => {
     const deps = new FakeDeps();
     const storage = new InMemoryStorage(createEmptyData());
