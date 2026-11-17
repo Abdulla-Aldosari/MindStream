@@ -34,6 +34,8 @@ export interface WebviewMessage {
     | "openLink"
     | "saveWorkPauseNote"
     | "confirmDiscardWorkPauseDraft"
+    | "openDescriptionEditor"
+    | "closeDescriptionEditor"
     | "setTaskCompleted";
   id?: string;
   /** `saveWorkPauseNote` only: also pause work (lock the UI) once saved. */
@@ -85,6 +87,14 @@ export interface SidebarUi {
    * loses what the user typed.
    */
   answerNoteSave(saveId: number | undefined, ok: boolean): void;
+  /**
+   * Shows the note form's description in an editor tab (or reveals the tab when
+   * it is already open). The text goes back to the form as the user edits it;
+   * nothing is stored until the form's own Save.
+   */
+  openDescriptionEditor(title: string, text: string): Promise<void>;
+  /** Ends the description draft and closes its tab. */
+  closeDescriptionEditor(): Promise<void>;
 }
 
 /**
@@ -157,6 +167,12 @@ export class SidebarController {
         break;
       case "confirmDiscardWorkPauseDraft":
         this.ui.answerWorkPauseDiscard(await this.ui.confirmDiscardWorkPauseDraft());
+        break;
+      case "openDescriptionEditor":
+        await this.ui.openDescriptionEditor(typeof msg.title === "string" ? msg.title : "", typeof msg.description === "string" ? msg.description : "");
+        break;
+      case "closeDescriptionEditor":
+        await this.ui.closeDescriptionEditor();
         break;
       case "addItem": {
         const previousLink = this.pendingLink;

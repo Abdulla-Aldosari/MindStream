@@ -13,6 +13,7 @@ import { IStorage, StorageProblem, describeStorageTransition } from "./storage";
 import { debounce, isDemoCapture } from "./util";
 import { CommandsDeps, exportJson, exportMarkdown, exportWeeklyReport, importJson, requireWorkspace } from "./commands";
 import { WorkPauseStore } from "./workPauseStore";
+import { DescriptionEditor } from "./descriptionEditor";
 import { WORK_PAUSE_CONTEXT_KEY, guardWhenWorkPaused } from "./workPause";
 
 /** Milliseconds to coalesce bursts of filesystem-watcher events (e.g. the
@@ -164,7 +165,9 @@ export function activate(context: vscode.ExtensionContext): void {
   // already see the lock after a restart. The sidebar keeps it in sync afterwards.
   void vscode.commands.executeCommand("setContext", WORK_PAUSE_CONTEXT_KEY, workPause.isPaused());
   const unlessWorkPaused = guardWhenWorkPaused(() => workPause.isPaused());
-  sidebar = new SidebarProvider(context.extensionUri, items, types, categories, emoji, uiPrefs, workPause, linkTracker, isDevMode);
+  const descriptionEditor = new DescriptionEditor();
+  context.subscriptions.push(descriptionEditor);
+  sidebar = new SidebarProvider(context.extensionUri, items, types, categories, emoji, uiPrefs, workPause, linkTracker, descriptionEditor, isDevMode);
   registerLinkTracking(context, folder, linkTracker, () => sidebar?.refresh());
 
   context.subscriptions.push(

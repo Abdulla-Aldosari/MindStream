@@ -25,6 +25,62 @@ let appliedDescHeight = null;
 // null. The editor closes only once the host confirms the note was stored.
 let pendingNoteSave = null;
 let nextNoteSaveId = 1;
+// True while the description is being edited in an editor tab. The textarea is
+// then read-only and shows the tab's text, so the text has a single source.
+let descExternal = false;
+
+// Locks or unlocks the description textarea for the editor tab. `text`, when
+// given, becomes the textarea's value (the tab's latest text).
+function setDescExternal(on, text) {
+  descExternal = on;
+  const desc = $("f-desc");
+  if (typeof text === "string") {
+    desc.value = text;
+  }
+  desc.readOnly = on;
+  $("f-desc-external-note").hidden = !on;
+  $("f-desc-external").hidden = on;
+}
+
+// Ends the description tab when the form no longer needs it (the host closes it).
+function endExternalDescription() {
+  if (descExternal) {
+    vscode.postMessage({ type: "closeDescriptionEditor" });
+  }
+  setDescExternal(false);
+}
+
+function openDescriptionEditor() {
+  if (pendingNoteSave) {
+    return;
+  }
+  vscode.postMessage({ type: "openDescriptionEditor", title: $("f-title").value.trim(), description: $("f-desc").value });
+}
+
+// The host opened (or revealed) the tab and sends its text, which may be newer
+// than the form's when the tab was already open.
+export function handleDescriptionEditorOpened(msg) {
+  if (modalEl.hidden) {
+    // The form was closed while the tab was opening: the tab has no owner.
+    vscode.postMessage({ type: "closeDescriptionEditor" });
+    return;
+  }
+  setDescExternal(true, msg.text);
+}
+
+// Every edit or save made in the tab flows into the form.
+export function handleDescriptionEditorText(msg) {
+  if (descExternal && !modalEl.hidden) {
+    $("f-desc").value = msg.text;
+  }
+}
+
+// The user closed the tab: the textarea is editable again with the final text.
+export function handleDescriptionEditorClosed(msg) {
+  if (descExternal && !modalEl.hidden) {
+    setDescExternal(false, msg.text);
+  }
+}
 
 function fillTypeSelect(selectedTypeId) {
   const options = state.types.map(function (t) {
@@ -109,6 +165,7 @@ function renderFormLink(item) {
 export function openAdd(link) {
   closeAllModals();
   clearPendingNoteSave();
+  endExternalDescription();
   state.editingId = null;
   state.formTypeTouched = false;
   renderFormLink(link ? { id: null, link } : null);
@@ -132,6 +189,7 @@ export function openAdd(link) {
 export function openEdit(item) {
   closeAllModals();
   clearPendingNoteSave();
+  endExternalDescription();
   state.editingId = item.id;
   renderFormLink(item);
   $("modal-title").textContent = "Edit note";
@@ -171,6 +229,7 @@ export function closeModal(options) {
   const deferFlash = !!(options && options.deferFlash);
   const itemId = state.editingId;
   clearPendingNoteSave();
+  endExternalDescription();
   modalEl.hidden = true;
   $("emoji-picker").hidden = true;
   $("emoji-edit-modal").hidden = true;
@@ -243,6 +302,9 @@ export function initNoteEditor() {
   $("modal-close").addEventListener("click", closeModal);
   $("modal-cancel").addEventListener("click", closeModal);
   $("modal-save").addEventListener("click", saveModal);
+  $("f-desc-external").addEventListener("click", openDescriptionEditor);
+  // Asks the host again, which only reveals the tab that is already open.
+  $("f-desc-focus").addEventListener("click", openDescriptionEditor);
 
   // Persist the description height only when the user manually resizes the
   // textarea (never on the programmatic apply that runs when the editor opens).

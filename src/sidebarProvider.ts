@@ -10,6 +10,7 @@ import { WeeklyReportData } from "./report";
 import { SidebarController, SidebarUi, WebviewMessage } from "./sidebarController";
 import { getBodyClass } from "./util";
 import { DEFAULT_PRIORITY, normalizePriorityStyle, PRIORITIES, PRIORITY_LABEL, PriorityStyle, priorityFeatures } from "./priority";
+import { DescriptionEditor } from "./descriptionEditor";
 import { WorkPauseStore } from "./workPauseStore";
 import { WORK_PAUSE_CONTEXT_KEY, isAllowedDuringWorkPause } from "./workPause";
 
@@ -47,13 +48,24 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     private readonly uiPrefs: UiPrefsRegistry,
     private readonly workPause: WorkPauseStore,
     private readonly links: LinkTracker,
+    private readonly descriptionEditor: DescriptionEditor,
     private readonly isDevMode: boolean = false
   ) {
     this.controller = new SidebarController(items, types, categories, this.emoji, this.uiPrefs, this.workPause, this, () => this.getPriorityStyle() !== "off");
+    // The text follows every edit and save made in the description tab; closing
+    // the tab hands the final text back and unlocks the form's field.
+    this.descriptionEditor.onDidChangeText((text) => {
+      void this._view?.webview.postMessage({ type: "descriptionEditorText", text });
+    });
+    this.descriptionEditor.onDidCloseByUser((text) => {
+      void this._view?.webview.postMessage({ type: "descriptionEditorClosed", text });
+    });
   }
 
   resolveWebviewView(webviewView: vscode.WebviewView, _context: vscode.WebviewViewResolveContext, _token: vscode.CancellationToken): void {
     this._view = webviewView;
+    // A new page has no note form, so a description tab left from the old one has nothing to belong to.
+    void this.descriptionEditor.close();
     webviewView.webview.options = {
       enableScripts: true,
       localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "dist", "media")],
@@ -83,7 +95,12 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
    * (a file edit, git) are picked up too.
    */
   private syncWorkPauseContext(): void {
-    void vscode.commands.executeCommand("setContext", WORK_PAUSE_CONTEXT_KEY, this.workPause.isPaused());
+    const paused = this.workPause.isPaused();
+    void vscode.commands.executeCommand("setContext", WORK_PAUSE_CONTEXT_KEY, paused);
+    if (paused) {
+      // The lock hides the note form, so its description tab must go too.
+      void this.descriptionEditor.close();
+    }
   }
 
   /**
@@ -274,6 +291,16 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     void this._view?.webview.postMessage({ type: "noteSaveResult", saveId, ok });
   }
 
+  async openDescriptionEditor(title: string, text: string): Promise<void> {
+    await this.descriptionEditor.open(title, text);
+    // The answer carries the draft's text: a tab that was already open may hold newer text than the form.
+    void this._view?.webview.postMessage({ type: "descriptionEditorOpened", text: this.descriptionEditor.text() ?? text });
+  }
+
+  async closeDescriptionEditor(): Promise<void> {
+    await this.descriptionEditor.close();
+  }
+
   showInfo(message: string): void {
     void vscode.window.showInformationMessage(message);
   }
@@ -387,7 +414,21 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
         </div>
         <div id="f-priority-hint" class="pc-hint" hidden>No priority assigned - Select one.</div>
       </div>
-      <label id="f-desc-field" class="field"><span>Description (optional)</span><textarea id="f-desc" rows="3" placeholder="Extra details..."></textarea></label>
+      <div id="f-desc-field" class="field">
+        <div class="field-label-row">
+          <label for="f-desc">Description (optional)</label>
+          <div class="field-label-actions">
+            <button id="f-desc-external" class="icon-btn" type="button" aria-label="Edit description in an editor tab" data-tooltip="Edit in an editor tab">
+              <span class="codicon codicon-go-to-file" aria-hidden="true"></span>
+            </button>
+          </div>
+        </div>
+        <textarea id="f-desc" rows="3" placeholder="Extra details..."></textarea>
+        <div id="f-desc-external-note" class="desc-external-note" hidden>
+          <span>Editing in the editor tab. Save there to update this note form.</span>
+          <button id="f-desc-focus" class="link-btn" type="button">Focus editor</button>
+        </div>
+      </div>
       <div class="field">
         <div class="field-label-row">
           <span class="field-label-group">

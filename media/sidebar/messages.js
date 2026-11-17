@@ -10,7 +10,7 @@
 import { $, DEFAULT_DESCRIPTION_HEIGHT, modalEl, state } from "./core.js";
 import { renderList } from "./list.js";
 import { fillPriorityControl } from "./priorityControl.js";
-import { handleNoteSaveResult, openAdd, takePendingFlashId } from "./noteEditor.js";
+import { handleDescriptionEditorClosed, handleDescriptionEditorOpened, handleDescriptionEditorText, handleNoteSaveResult, openAdd, takePendingFlashId } from "./noteEditor.js";
 import { refreshView } from "./noteViewer.js";
 import { applyWorkPauseState, handleWorkPauseDiscardAnswer, isWorkPaused, openWorkPauseEditor } from "./workPausePanel.js";
 import { openCategoriesModal, renderCategories } from "./categoriesModal.js";
@@ -39,6 +39,18 @@ export function initMessages() {
     }
     if (msg.type === "noteSaveResult") {
       handleNoteSaveResult(msg);
+      return;
+    }
+    if (msg.type === "descriptionEditorOpened") {
+      handleDescriptionEditorOpened(msg);
+      return;
+    }
+    if (msg.type === "descriptionEditorText") {
+      handleDescriptionEditorText(msg);
+      return;
+    }
+    if (msg.type === "descriptionEditorClosed") {
+      handleDescriptionEditorClosed(msg);
       return;
     }
     // Locked: only state messages (which carry the note) are processed.

@@ -15,8 +15,8 @@ const baseScopes = [
   ["commands", "command handler logic for export, import, weekly report, and workspace requirement checks", ["src/commands.ts"]],
   [
     "sidebar",
-    "sidebar webview host: message handling, data mutations, confirm dialogs, view provider rendering, state posting, activity-bar badge",
-    ["src/sidebarController.ts", "src/sidebarProvider.ts"],
+    "sidebar webview host: message handling, data mutations, confirm dialogs, view provider rendering, state posting, activity-bar badge, the description editor tab",
+    ["src/sidebarController.ts", "src/sidebarProvider.ts", "src/descriptionDraft.ts", "src/descriptionEditor.ts"],
   ],
   ["webview", "sidebar webview UI scripts and styles: note cards, modals, custom dropdowns, tooltips, emoji picker, view options, icon classes", ["media/"]],
 

@@ -81,6 +81,17 @@ class FakeUi implements SidebarUi {
   answerNoteSave(saveId: number | undefined, ok: boolean): void {
     this.saveAnswers.push({ saveId, ok });
   }
+
+  descriptionOpens: { title: string; text: string }[] = [];
+  descriptionCloses = 0;
+
+  async openDescriptionEditor(title: string, text: string): Promise<void> {
+    this.descriptionOpens.push({ title, text });
+  }
+
+  async closeDescriptionEditor(): Promise<void> {
+    this.descriptionCloses += 1;
+  }
 }
 
 function setup(priorityEnabled = true) {
@@ -615,5 +626,44 @@ describe("SidebarController note editor save answer", () => {
     assert.strictEqual(ui.saveAnswers.length, 0);
     controller.refuseNoteSave({ type: "updateItem", id: "x", saveId: 4 });
     assert.deepStrictEqual(ui.saveAnswers, [{ saveId: 4, ok: false }]);
+  });
+
+  describe("description editor tab", () => {
+    it("openDescriptionEditor passes the title and text to the host and stores nothing", async () => {
+      const { controller, ui, storage, items } = setup();
+      await controller.handleMessage({ type: "openDescriptionEditor", title: "Idea", description: "Long text" });
+      assert.deepStrictEqual(ui.descriptionOpens, [{ title: "Idea", text: "Long text" }]);
+      assert.strictEqual(storage.saved.length, 0);
+      assert.strictEqual(items.list().length, 0);
+    });
+
+    it("openDescriptionEditor treats a missing title or text as empty", async () => {
+      const { controller, ui } = setup();
+      await controller.handleMessage({ type: "openDescriptionEditor", title: 5 as unknown as string, description: undefined });
+      assert.deepStrictEqual(ui.descriptionOpens, [{ title: "", text: "" }]);
+    });
+
+    it("closeDescriptionEditor asks the host to close the tab", async () => {
+      const { controller, ui } = setup();
+      await controller.handleMessage({ type: "closeDescriptionEditor" });
+      assert.strictEqual(ui.descriptionCloses, 1);
+    });
+
+    it("is refused while work is paused, and the data stays unchanged", async () => {
+      const { controller, ui, storage } = setup();
+      await controller.handleMessage({ type: "saveWorkPauseNote", text: "Locked", pause: true });
+      const saves = storage.saved.length;
+      await controller.handleMessage({ type: "openDescriptionEditor", title: "Idea", description: "x" });
+      assert.strictEqual(ui.descriptionOpens.length, 0);
+      assert.strictEqual(storage.saved.length, saves);
+    });
+
+    it("a refused note save leaves the data untouched while the description came from the tab", async () => {
+      const { controller, items, storage, typeId } = setup();
+      storage.problem = BLOCKED;
+      await assert.rejects(controller.handleMessage({ type: "addItem", title: "A", description: "from the tab", typeId, saveId: 1 }), StorageError);
+      assert.strictEqual(items.list().length, 0);
+      assert.strictEqual(storage.saved.length, 0);
+    });
   });
 });
