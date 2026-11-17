@@ -46,6 +46,34 @@ export class StorageError extends Error {
   }
 }
 
+/** Errors a rename gets while another process briefly holds the target (antivirus, indexer, file watcher on Windows). */
+const TRANSIENT_RENAME_CODES = new Set(["EPERM", "EBUSY", "EACCES"]);
+
+/** Blocks the thread for `ms` milliseconds (saving is synchronous). */
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/**
+ * Renames `from` over `to`, retrying a few times with a growing pause when the
+ * failure is one that another process causes for a moment. Any other error, and
+ * the last transient one, is thrown so the caller leaves nothing behind.
+ */
+export function renameWithRetry(from: string, to: string, rename: (from: string, to: string) => void = fs.renameSync, sleep: (ms: number) => void = sleepSync, attempts = 5): void {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      rename(from, to);
+      return;
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (attempt >= attempts || !code || !TRANSIENT_RENAME_CODES.has(code)) {
+        throw err;
+      }
+      sleep(attempt * 20);
+    }
+  }
+}
+
 /** Generic interface for reading/writing MindStream data. */
 export interface IStorage {
   getData(): MindStreamData;
@@ -274,7 +302,7 @@ export class StorageService implements IStorage {
         const tmp = `${file}.tmp`;
         try {
           fs.writeFileSync(tmp, text, "utf8");
-          fs.renameSync(tmp, file);
+          renameWithRetry(tmp, file);
         } catch (err) {
           // Leave nothing behind: the original file is untouched.
           fs.rmSync(tmp, { force: true });
