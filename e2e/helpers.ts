@@ -1,17 +1,14 @@
 import { _electron, expect, test as base, type ElectronApplication, type Frame, type Page } from "@playwright/test";
-import { downloadAndUnzipVSCode } from "@vscode/test-electron";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { GENERAL_CATEGORY_ID, type MindStreamData, type MindStreamLink, type MindStreamPriority, type MindStreamStatus, type MindStreamTask } from "../src/models";
 import { buildLink } from "../src/linkResolver";
 import { createEmptyData } from "../src/storage";
+import { prepareUserData, resolveVscodeExecutable, vscodeArgs } from "./profile";
 
 /** The sidebar's data file, relative to the workspace folder. */
 export const DATA_FILE = path.join(".vscode", "mindstream.data.json");
-
-const EXTENSION_ROOT = path.resolve(__dirname, "..");
-const VSCODE_CACHE = path.join(os.homedir(), ".vscode-test");
 
 export interface SeedNote {
   title: string;
@@ -80,15 +77,6 @@ export interface Session {
   close(): Promise<void>;
 }
 
-async function resolveVscodeExecutable(): Promise<string> {
-  // An explicit path keeps the tests working offline.
-  const fromEnv = process.env.MINDSTREAM_E2E_VSCODE;
-  if (fromEnv) {
-    return fromEnv;
-  }
-  return downloadAndUnzipVSCode({ version: "stable", cachePath: VSCODE_CACHE });
-}
-
 function removeDir(dir: string): void {
   try {
     fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
@@ -117,22 +105,11 @@ export async function launchVscode(options: LaunchOptions = {}): Promise<Session
   for (const [relPath, lines] of Object.entries(options.files ?? {})) {
     writeWorkspaceFile(workspace, relPath, lines);
   }
+  prepareUserData(userData);
 
   const app = await _electron.launch({
     executablePath: await resolveVscodeExecutable(),
-    args: [
-      "--no-sandbox",
-      "--disable-gpu",
-      "--disable-updates",
-      "--skip-welcome",
-      "--skip-release-notes",
-      "--disable-workspace-trust",
-      "--disable-extensions",
-      `--user-data-dir=${userData}`,
-      `--extensions-dir=${extensions}`,
-      `--extensionDevelopmentPath=${EXTENSION_ROOT}`,
-      workspace,
-    ],
+    args: vscodeArgs({ userData, extensions, workspace }),
   });
   const page = await app.firstWindow();
   await page.waitForSelector(".monaco-workbench", { timeout: 60_000 });

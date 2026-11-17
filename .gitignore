@@ -10,4 +10,5 @@ dist/
 .vscode/settings.json
 demo/
 test-results/
+e2e/.profile/
 playwright-report/

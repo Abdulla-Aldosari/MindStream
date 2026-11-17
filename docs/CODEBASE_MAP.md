@@ -333,6 +333,19 @@ real VS Code window. `npm test` never runs them (Mocha's spec is
   extensions dir, loads this repo as `--extensionDevelopmentPath`, and runs
   with `--disable-extensions`, so the bundled Copilot and other extensions
   never interfere. No Playwright browsers are downloaded.
+- `e2e/profile.ts` prepares every window's fresh user-data dir
+  (`prepareUserData()`): a `User/settings.json` (`chat.disableAIFeatures` on,
+  secondary side bar hidden) and, when a local profile exists, the window
+  rectangle (written to `storage.json`) and the sidebar width (a copy of
+  `state.vscdb`, where VS Code keeps `workbench.sideBar.size`). `window.zoomLevel`
+  stays at its default (0).
+- The local profile lives in `e2e/.profile/` (`window.json`, `state.vscdb`), is
+  git-ignored, and is optional: without it every window opens with VS Code's
+  defaults and no test depends on it. `npm run e2e:profile`
+  (`e2e/capture-profile.ts`) opens a window, waits while you place, size, and
+  widen the sidebar by hand, and saves the layout once you close the window
+  (VS Code writes both only on close). Only the window rectangle is taken from
+  `storage.json`, because the rest holds machine ids.
 - The `launch` fixture (`test` from `e2e/helpers.ts`) closes every window and
   deletes its temp dirs, and attaches a screenshot when a test fails.
 - A seeded data file is written before VS Code starts (`buildData()`, or
