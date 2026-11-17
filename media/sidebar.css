@@ -19,6 +19,9 @@
   --ms-card-archived-background: var(--vscode-settings-rowHoverBackground, var(--vscode-editorWidget-background));
   --ms-card-current-background: var(--ms-card-background);
   --ms-card-flash-color: var(--vscode-focusBorder);
+  /* Modal background (note viewer, dialogs): a fixed token so chips inside a
+     modal blend with the modal instead of a list card's background. */
+  --ms-modal-card-background: var(--vscode-sideBar-background, var(--vscode-activeSessionView-background));
 }
 
 body.vscode-dark {
@@ -693,7 +696,7 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 
 .status.pending {
   color: var(--vscode-foreground);
-  border-color: var(--vscode-widget-border, #555);
+  border-color: color-mix(in srgb, var(--ms-card-current-background) 85%, var(--ms-blend-color, #fff));
 }
 
 .status.in-progress {
@@ -759,7 +762,7 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 }
 
 .modal-card {
-  background: var(--vscode-sideBar-background, var(--vscode-activeSessionView-background));
+  background: var(--ms-modal-card-background);
   border: 1px solid var(--vscode-widget-border, #444);
   border-radius: var(--radius-lg);
   width: 100%;
@@ -1060,10 +1063,15 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   flex-shrink: 0;
 }
 
+/* Viewer-only type chip: blend with the modal background (not the card list's). */
+.viewer-card .card-type {
+  background: color-mix(in srgb, var(--ms-modal-card-background) 90%, var(--ms-blend-color, #fff));
+}
+
 .viewer-category {
   font-size: 12px;
   color: var(--vscode-descriptionForeground);
-  background: var(--vscode-textBlockQuote-background);
+  background: color-mix(in srgb, var(--ms-modal-card-background) 90%, var(--ms-blend-color, #fff));
   padding: 4px 7px 5px 7px;
   border-radius: var(--radius-sm);
   white-space: nowrap;
