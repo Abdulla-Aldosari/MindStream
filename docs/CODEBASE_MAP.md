@@ -165,7 +165,8 @@ src/
                          renameLinkPath(), markLinkMissingForPath(), sanitizeLink().
                          See section 9.
   linkTracker.ts          LinkTracker: keeps links correct on edits, renames, deletes
-                         and re-checks them against file contents (injected LinkFiles).
+                         and re-checks them against file contents (injected LinkFiles);
+                         refreshAll skips archived notes.
   saveScheduler.ts        SaveScheduler: coalesces bursts into one delayed write (trailing delay
                          plus a maximum wait, flush/cancel, injectable clock).
   linkIntegration.ts      vscode wiring for links: the link of the cursor line/selection,
@@ -185,6 +186,7 @@ src/
                          link set by the host (setPendingLink); addItem attaches it only when the
                          webview sends linked true, and updateItem never touches a link.
                          Answers every note editor Save through SidebarUi.answerNoteSave.
+                         Unarchiving a note re-resolves its link (injected LinkTracker).
   descriptionDraft.ts     Pure rules of the description editor tab (§12): the one active
                           draft with its saved and live texts, draftFileName(), normalizeEol().
   descriptionEditor.ts    DescriptionEditor: the `vscode` layer of §12 (a FileSystemProvider
@@ -975,17 +977,17 @@ A note may carry `link` (`MindStreamLink`): a workspace-relative `filePath`
 
 ### Keeping the link correct
 
-| Event                                                       | Handling                                                                                                                                 |
-| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Lines added/removed above the range                         | `onDidChangeTextDocument` shifts `lineStart` and `lineEnd` (`shiftLinkForEdits`)                                                         |
-| Lines added/removed inside the range (after its first line) | only `lineEnd` moves; edits on the first line or crossing the end are left to `resolveLink`                                              |
-| Change outside the editor (git, terminal)                   | `refreshAll()` on startup and window focus, and `resolveItem()` on open, re-find the code from `anchor`                                  |
-| Same code at another line                                   | link moves there (best before/after context, then nearest)                                                                               |
-| Range grew or shrank outside the editor                     | a range longer than 5 lines also stores its tail (`anchor.endText`); `resolveLink` re-finds head and tail together and updates `lineEnd` |
-| Code edited or removed                                      | state `changed`: position kept, badge warns, nothing is guessed                                                                          |
-| File renamed or moved (file or folder)                      | `onDidRenameFiles` rewrites `filePath`                                                                                                   |
-| File deleted, or moved out of the workspace                 | state `missing`: badge is struck through, the note is kept                                                                               |
-| File restored, or code back                                 | next re-check returns the state to `ok`                                                                                                  |
+| Event                                                       | Handling                                                                                                                                     |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lines added/removed above the range                         | `onDidChangeTextDocument` shifts `lineStart` and `lineEnd` (`shiftLinkForEdits`)                                                             |
+| Lines added/removed inside the range (after its first line) | only `lineEnd` moves; edits on the first line or crossing the end are left to `resolveLink`                                                  |
+| Change outside the editor (git, terminal)                   | `refreshAll()` on startup and window focus (active notes only), and `resolveItem()` on open and on unarchive, re-find the code from `anchor` |
+| Same code at another line                                   | link moves there (best before/after context, then nearest)                                                                                   |
+| Range grew or shrank outside the editor                     | a range longer than 5 lines also stores its tail (`anchor.endText`); `resolveLink` re-finds head and tail together and updates `lineEnd`     |
+| Code edited or removed                                      | state `changed`: position kept, badge warns, nothing is guessed                                                                              |
+| File renamed or moved (file or folder)                      | `onDidRenameFiles` rewrites `filePath`                                                                                                       |
+| File deleted, or moved out of the workspace                 | state `missing`: badge is struck through, the note is kept                                                                                   |
+| File restored, or code back                                 | next re-check returns the state to `ok`                                                                                                      |
 
 Live shifts are cheap: `applyEdits()` returns at once for edits that keep the line
 count, changes memory only (`mapLinks(fn, false)`), and `flush()` writes them. A
@@ -993,6 +995,13 @@ count, changes memory only (`mapLinks(fn, false)`), and `flush()` writes them. A
 flushed on file save, window blur, and shutdown. A lost shift is harmless: the
 next `refreshAll()`/`resolveItem()` re-finds the code. While the sidebar is hidden
 `postState()` is skipped, and the state is posted when it becomes visible again.
+
+Archived notes still follow live edits, renames, and deletes, but `refreshAll()`
+skips them, so their files are not read on every startup and window focus. Any
+path that unarchives a note must re-resolve its link: `toggleArchive` in
+`SidebarController` awaits `LinkTracker.resolveItem()` after a real unarchive,
+before the view refreshes. Until then an archived note's badge may show its last
+known location; opening the link always re-resolves it first.
 
 ### Showing the path
 

@@ -1,5 +1,16 @@
 import { MindStreamData } from "../src/models";
 import { IStorage, StorageError, StorageProblem, blockedSaveMessage } from "../src/storage";
+import { LinkFiles } from "../src/linkTracker";
+
+/** Workspace files for link tests: relative path to lines; records every read. */
+export class FakeFiles implements LinkFiles {
+  files = new Map<string, string[]>();
+  reads: string[] = [];
+  async readLines(relPath: string): Promise<string[] | null> {
+    this.reads.push(relPath);
+    return this.files.get(relPath) ?? null;
+  }
+}
 
 /**
  * In-memory storage for tests (tracks the last saved state). Set `problem` to

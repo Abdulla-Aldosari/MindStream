@@ -61,6 +61,27 @@ test("the link follows the code when lines are added above it (changed outside V
   expect(readData(session).items[0].link?.state).toBe("ok");
 });
 
+test("unarchiving a linked note re-finds code that moved while it was archived", async ({ launch }) => {
+  const session = await launch({
+    data: buildData([{ title: "Old win", link: seedLink(FILE, SOURCE, 4), archived: true }]),
+    files: { [FILE]: SOURCE },
+  });
+  const sidebar = await showSidebar(session.page);
+
+  // Two lines are added at the top while the note is archived, as `git pull` would do.
+  writeWorkspaceFile(session.workspace, FILE, ["// header", "// header 2", ...SOURCE]);
+  await sidebar.locator("#btn-archive-toggle").click();
+  const archivedCard = sidebar.locator(".card", { hasText: "Old win" });
+  await expect(archivedCard).toHaveClass(/archived/);
+
+  await archivedCard.locator('[data-tooltip="Unarchive"]').click();
+
+  await waitForData(session, (d) => !d.items[0].archived && d.items[0].link?.lineStart === 6);
+  const badge = sidebar.locator(".card", { hasText: "Old win" }).locator(".link-badge");
+  await expect(badge).toContainText("app.ts:6");
+  await expect(badge).toHaveClass(/link-ok/);
+});
+
 test("when the linked code is rewritten the link is flagged changed, with a warning", async ({ launch }) => {
   const session = await linkedSession(launch);
   const sidebar = await showSidebar(session.page);

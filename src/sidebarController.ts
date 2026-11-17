@@ -6,6 +6,7 @@ import { CategoriesRegistry } from "./categoriesRegistry";
 import { DEFAULT_EMOJI_PALETTE, EmojiRegistry } from "./emojiRegistry";
 import { UiPrefsRegistry } from "./uiPrefs";
 import { WorkPauseStore } from "./workPauseStore";
+import { LinkTracker } from "./linkTracker";
 import { isAllowedDuringWorkPause } from "./workPause";
 import { sanitizeTasks } from "./tasks";
 
@@ -101,6 +102,7 @@ export interface SidebarUi {
  * Message-handling logic for the sidebar, extracted from the webview provider
  * so it can be unit-tested without the `vscode` module. Mutates data through
  * the injected registries and asks for confirmations through the injected `ui`.
+ * Unarchiving a linked note re-finds its code through the injected `links`.
  */
 export class SidebarController {
   /** Link prepared by the "Add note to this line" command, consumed by the next `addItem`. */
@@ -113,6 +115,8 @@ export class SidebarController {
     private readonly emoji: EmojiRegistry,
     private readonly uiPrefs: UiPrefsRegistry,
     private readonly workPause: WorkPauseStore,
+    /** Re-finds a note's code when it is unarchived (archived notes are not re-checked meanwhile). */
+    private readonly links: LinkTracker,
     private readonly ui: SidebarUi,
     /** Reads the live `mindstream.priority.style` setting (true unless "off"). */
     private readonly priorityEnabled: () => boolean = () => true
@@ -244,7 +248,12 @@ export class SidebarController {
         break;
       case "toggleArchive":
         if (msg.id && typeof msg.archived === "boolean") {
+          const wasArchived = this.items.get(msg.id)?.archived === true;
           this.items.setArchived(msg.id, msg.archived);
+          if (wasArchived && !msg.archived) {
+            // The link was not re-checked while archived; a refused write is dropped silently.
+            await this.links.resolveItem(msg.id);
+          }
         }
         break;
       case "addCategory":

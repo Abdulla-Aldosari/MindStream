@@ -51,7 +51,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     private readonly descriptionEditor: DescriptionEditor,
     private readonly isDevMode: boolean = false
   ) {
-    this.controller = new SidebarController(items, types, categories, this.emoji, this.uiPrefs, this.workPause, this, () => this.getPriorityStyle() !== "off");
+    this.controller = new SidebarController(items, types, categories, this.emoji, this.uiPrefs, this.workPause, this.links, this, () => this.getPriorityStyle() !== "off");
     // The text follows every edit and save made in the description tab; closing
     // the tab hands the final text back and unlocks the form's field.
     this.descriptionEditor.onDidChangeText((text) => {

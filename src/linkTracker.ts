@@ -31,9 +31,11 @@ function background(write: () => boolean): boolean {
 /**
  * Keeps note links pointing at the right code while files are edited, renamed,
  * moved, or deleted. Event-driven methods (`applyEdits`, `applyRename`,
- * `applyDelete`) are synchronous and cheap; `resolveItem`/`refreshAll` re-read
- * files and re-find the code from its anchor, which also covers changes made
- * outside the editor (git, terminal, other tools).
+ * `applyDelete`) are synchronous and cheap and cover archived notes too;
+ * `resolveItem`/`refreshAll` re-read files and re-find the code from its
+ * anchor, which also covers changes made outside the editor (git, terminal,
+ * other tools). `refreshAll` skips archived notes: whoever unarchives a note
+ * calls `resolveItem` for it.
  */
 export class LinkTracker {
   constructor(
@@ -111,9 +113,14 @@ export class LinkTracker {
     return resolved;
   }
 
-  /** Re-resolves every linked note (each file is read once). Returns whether any link changed. */
+  /**
+   * Re-resolves every linked note that is not archived (each file is read
+   * once). Returns whether any link changed. Archived notes are skipped so their
+   * files are not read on every startup and window focus; renames and deletes
+   * still reach them, and unarchiving re-resolves the note (`resolveItem`).
+   */
   async refreshAll(): Promise<boolean> {
-    const linked = this.items.list(true).filter((it) => it.link);
+    const linked = this.items.list().filter((it) => it.link);
     // Each file is read and normalized once, however many links point into it.
     const cache = new Map<string, { lines: string[]; norm: string[] } | null>();
     let changed = false;
