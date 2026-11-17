@@ -958,8 +958,8 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: var(--vscode-textBlockQuote-background);
-  border: 1px solid var(--vscode-widget-border, transparent);
+  background: color-mix(in srgb, var(--ms-card-current-background) 92%, var(--ms-blend-color, #fff));
+  border: 1px solid color-mix(in srgb, var(--ms-card-current-background) 88%, var(--ms-blend-color, #fff));
   border-radius: var(--radius-md);
   padding: 5px 9px;
   font-size: 12px;
@@ -1935,7 +1935,7 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   font-family: var(--vscode-editor-font-family, monospace);
   font-size: 11px;
   color: var(--vscode-textLink-foreground);
-  background: var(--vscode-textBlockQuote-background);
+  background: color-mix(in srgb, var(--ms-card-current-background) 92%, var(--ms-blend-color, #fff));
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   cursor: pointer;
