@@ -1,3 +1,10 @@
+/*-------------------------------------------------
+ * MindStream — VS Code Extension
+ * Copyright (c) 2026 Abdulla Aldosari
+ * Licensed under MIT
+ * See LICENSE in the project root for details.
+ *-------------------------------------------------*/
+
 /**
  * Pure rules of the "edit the description in an editor tab" feature (no
  * `vscode`), so they can be unit-tested directly. At most one draft exists: the

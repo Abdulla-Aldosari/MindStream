@@ -1,3 +1,10 @@
+/*-------------------------------------------------
+ * MindStream — VS Code Extension
+ * Copyright (c) 2026 Abdulla Aldosari
+ * Licensed under MIT
+ * See LICENSE in the project root for details.
+ *-------------------------------------------------*/
+
 import * as assert from "assert";
 import { MAX_TASK_TITLE, sanitizeTasks } from "../src/tasks";
 import { normalizeData } from "../src/storage";

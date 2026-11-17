@@ -1,3 +1,10 @@
+/*-------------------------------------------------
+ * MindStream — VS Code Extension
+ * Copyright (c) 2026 Abdulla Aldosari
+ * Licensed under MIT
+ * See LICENSE in the project root for details.
+ *-------------------------------------------------*/
+
 import * as vscode from "vscode";
 import { LinkTracker, LinkFiles } from "./linkTracker";
 import { buildLink, LineEdit, toRelativePath } from "./linkResolver";

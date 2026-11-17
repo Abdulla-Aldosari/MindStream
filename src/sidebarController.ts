@@ -1,3 +1,10 @@
+/*-------------------------------------------------
+ * MindStream — VS Code Extension
+ * Copyright (c) 2026 Abdulla Aldosari
+ * Licensed under MIT
+ * See LICENSE in the project root for details.
+ *-------------------------------------------------*/
+
 import { MindStreamLink, MindStreamStatus } from "./models";
 import { DEFAULT_PRIORITY, isPriority } from "./priority";
 import { ItemsStore } from "./itemsStore";

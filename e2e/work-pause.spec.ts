@@ -1,3 +1,10 @@
+/*-------------------------------------------------
+ * MindStream — VS Code Extension
+ * Copyright (c) 2026 Abdulla Aldosari
+ * Licensed under MIT
+ * See LICENSE in the project root for details.
+ *-------------------------------------------------*/
+
 import { buildData, clickMoreMenuItem, expect, expectCommandHidden, readData, runCommand, showSidebar, test, waitForData } from "./helpers";
 
 test("pausing work locks the sidebar behind the hand-off note, and resuming unlocks it", async ({ launch }) => {

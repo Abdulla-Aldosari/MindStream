@@ -1,3 +1,10 @@
+/*-------------------------------------------------
+ * MindStream — VS Code Extension
+ * Copyright (c) 2026 Abdulla Aldosari
+ * Licensed under MIT
+ * See LICENSE in the project root for details.
+ *-------------------------------------------------*/
+
 import * as fs from "fs";
 import * as path from "path";
 import { DATA_VERSION, GENERAL_CATEGORY_ID, MindStreamCategoryDef, MindStreamData, MindStreamTypeDef } from "./models";

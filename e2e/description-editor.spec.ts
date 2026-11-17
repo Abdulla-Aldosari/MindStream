@@ -1,3 +1,10 @@
+/*-------------------------------------------------
+ * MindStream — VS Code Extension
+ * Copyright (c) 2026 Abdulla Aldosari
+ * Licensed under MIT
+ * See LICENSE in the project root for details.
+ *-------------------------------------------------*/
+
 import type { Page } from "@playwright/test";
 import { buildData, expect, readData, runCommand, showSidebar, test, waitForData } from "./helpers";
 

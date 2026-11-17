@@ -1,3 +1,10 @@
+/*-------------------------------------------------
+ * MindStream — VS Code Extension
+ * Copyright (c) 2026 Abdulla Aldosari
+ * Licensed under MIT
+ * See LICENSE in the project root for details.
+ *-------------------------------------------------*/
+
 import * as assert from "assert";
 import * as path from "path";
 import { buildLink, MAX_ANCHOR_LINES, resolveLink, toRelativePath } from "../src/linkResolver";
