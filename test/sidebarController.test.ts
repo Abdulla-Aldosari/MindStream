@@ -8,7 +8,8 @@ import { DEFAULT_EMOJI_PALETTE, EmojiMemento, EmojiRegistry } from "../src/emoji
 import { DEFAULT_DESCRIPTION_HEIGHT, UiPrefsRegistry } from "../src/uiPrefs";
 import { DEFAULT_PRIORITY } from "../src/priority";
 import { WorkPauseStore } from "../src/workPauseStore";
-import { BLOCKED, InMemoryStorage } from "./helpers";
+import { LinkTracker } from "../src/linkTracker";
+import { BLOCKED, FakeFiles, InMemoryStorage } from "./helpers";
 import { StorageError } from "../src/storage";
 
 class FakeEmojiMemento implements EmojiMemento {
@@ -103,9 +104,10 @@ function setup(priorityEnabled = true) {
   const uiPrefs = new UiPrefsRegistry(new FakeEmojiMemento());
   const ui = new FakeUi();
   const workPause = new WorkPauseStore(storage);
-  const controller = new SidebarController(items, types, categories, emoji, uiPrefs, workPause, ui, () => priorityEnabled);
+  const files = new FakeFiles();
+  const controller = new SidebarController(items, types, categories, emoji, uiPrefs, workPause, new LinkTracker(items, files), ui, () => priorityEnabled);
   const typeId = storage.getData().types[0].id;
-  return { storage, items, types, categories, emoji, uiPrefs, workPause, ui, controller, typeId };
+  return { storage, items, types, categories, emoji, uiPrefs, workPause, ui, controller, typeId, files };
 }
 
 describe("SidebarController.handleMessage", () => {
@@ -252,6 +254,55 @@ describe("SidebarController.handleMessage", () => {
     const item = items.create({ typeId, title: "A" });
     await controller.handleMessage({ type: "toggleArchive", id: item.id, archived: true });
     assert.strictEqual(items.get(item.id)!.archived, true);
+  });
+
+  describe("toggleArchive with a code link", () => {
+    const SOURCE = ["a", "function f() {", "  return 1;", "}", "b"];
+
+    function linked() {
+      const ctx = setup();
+      const note = ctx.items.create({
+        typeId: ctx.typeId,
+        title: "Linked",
+        link: { filePath: "src/a.ts", lineStart: 3, state: "ok", anchor: { text: ["return 1;"], before: "function f() {", after: "}" } },
+      });
+      ctx.files.files.set("src/a.ts", ["new", "new", ...SOURCE]);
+      return { ...ctx, note };
+    }
+
+    it("unarchiving re-finds the code that moved while the note was archived", async () => {
+      const { items, files, controller, note } = linked();
+      items.setArchived(note.id, true);
+      await controller.handleMessage({ type: "toggleArchive", id: note.id, archived: false });
+      assert.strictEqual(items.get(note.id)!.archived, false);
+      assert.deepStrictEqual(files.reads, ["src/a.ts"]);
+      assert.strictEqual(items.get(note.id)!.link?.lineStart, 5);
+    });
+
+    it("archiving does not read the linked file", async () => {
+      const { items, files, controller, note } = linked();
+      await controller.handleMessage({ type: "toggleArchive", id: note.id, archived: true });
+      assert.strictEqual(items.get(note.id)!.archived, true);
+      assert.deepStrictEqual(files.reads, []);
+    });
+
+    it("unarchiving a note that is not archived reads nothing", async () => {
+      const { items, files, controller, note } = linked();
+      await controller.handleMessage({ type: "toggleArchive", id: note.id, archived: false });
+      assert.deepStrictEqual(files.reads, []);
+      assert.strictEqual(items.get(note.id)!.link?.lineStart, 3);
+    });
+
+    it("a refused unarchive changes nothing and does not re-check the link", async () => {
+      const { storage, items, files, controller, note } = linked();
+      items.setArchived(note.id, true);
+      const before = JSON.stringify(storage.getData());
+      storage.problem = BLOCKED;
+      await assert.rejects(controller.handleMessage({ type: "toggleArchive", id: note.id, archived: false }), StorageError);
+      assert.strictEqual(JSON.stringify(storage.getData()), before);
+      assert.strictEqual(items.get(note.id)!.archived, true);
+      assert.deepStrictEqual(files.reads, []);
+    });
   });
 
   it("addCategory adds a trimmed label", async () => {

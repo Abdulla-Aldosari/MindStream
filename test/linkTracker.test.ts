@@ -1,20 +1,11 @@
 import * as assert from "assert";
 import { createEmptyData } from "../src/storage";
 import { ItemsStore } from "../src/itemsStore";
-import { LinkFiles, LinkTracker } from "../src/linkTracker";
+import { LinkTracker } from "../src/linkTracker";
 import { MindStreamLink } from "../src/models";
-import { BLOCKED, InMemoryStorage } from "./helpers";
+import { BLOCKED, FakeFiles, InMemoryStorage } from "./helpers";
 
 const SOURCE = ["a", "function f() {", "  return 1;", "}", "b"];
-
-class FakeFiles implements LinkFiles {
-  files = new Map<string, string[]>();
-  reads: string[] = [];
-  async readLines(relPath: string): Promise<string[] | null> {
-    this.reads.push(relPath);
-    return this.files.get(relPath) ?? null;
-  }
-}
 
 function setup() {
   const storage = new InMemoryStorage(createEmptyData());
@@ -111,6 +102,51 @@ describe("LinkTracker", () => {
     files.files.delete("src/a.ts");
     assert.strictEqual(await tracker.refreshAll(), true);
     assert.ok(items.list().every((it) => it.link?.state === "missing"));
+  });
+
+  describe("archived notes", () => {
+    it("refreshAll does not read a file that only archived notes link to", async () => {
+      const { storage, items, files, tracker, note } = setup();
+      items.setArchived(note.id, true);
+      files.files.set("src/a.ts", ["new", "new", ...SOURCE]);
+      const savesBefore = storage.saved.length;
+      assert.strictEqual(await tracker.refreshAll(), false);
+      assert.deepStrictEqual(files.reads, []);
+      assert.strictEqual(storage.saved.length, savesBefore);
+      assert.strictEqual(items.get(note.id)?.link?.lineStart, 3);
+    });
+
+    it("refreshAll reads a shared file once and moves only the active note's link", async () => {
+      const { items, files, tracker, note, typeId } = setup();
+      const active = items.create({ typeId, title: "Active", link: { ...items.get(note.id)!.link! } });
+      items.setArchived(note.id, true);
+      files.files.set("src/a.ts", ["new", "new", ...SOURCE]);
+      assert.strictEqual(await tracker.refreshAll(), true);
+      assert.deepStrictEqual(files.reads, ["src/a.ts"]);
+      assert.strictEqual(items.get(active.id)?.link?.lineStart, 5);
+      assert.strictEqual(items.get(note.id)?.link?.lineStart, 3);
+    });
+
+    it("live edits, renames and deletes still reach archived notes", () => {
+      const { items, tracker, note } = setup();
+      items.setArchived(note.id, true);
+      assert.strictEqual(tracker.applyEdits("src/a.ts", [{ startLine: 0, endLine: 0, addedLines: 1 }]), true);
+      assert.strictEqual(items.get(note.id)?.link?.lineStart, 4);
+      assert.strictEqual(tracker.applyRename("src", "lib"), true);
+      assert.strictEqual(items.get(note.id)?.link?.filePath, "lib/a.ts");
+      assert.strictEqual(tracker.applyDelete("lib/a.ts"), true);
+      assert.strictEqual(items.get(note.id)?.link?.state, "missing");
+    });
+
+    it("resolveItem re-finds an archived note's code once it is called", async () => {
+      const { items, files, tracker, note } = setup();
+      items.setArchived(note.id, true);
+      files.files.set("src/a.ts", ["new", "new", ...SOURCE]);
+      await tracker.refreshAll();
+      items.setArchived(note.id, false);
+      assert.strictEqual((await tracker.resolveItem(note.id))?.outcome, "moved");
+      assert.strictEqual(items.get(note.id)?.link?.lineStart, 5);
+    });
   });
 
   describe("while the storage refuses saves", () => {

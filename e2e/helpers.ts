@@ -22,6 +22,8 @@ export interface SeedNote {
   link?: MindStreamLink;
   /** Makes the note a task group. */
   tasks?: MindStreamTask[];
+  /** Writes the note as already archived. */
+  archived?: boolean;
 }
 
 /** The link the editor command stores for 1-based lines `lineStart`..`lineEnd` of `lines`. */
@@ -51,7 +53,8 @@ export function buildData(notes: SeedNote[] = []): MindStreamData {
       ...(n.link ? { link: n.link } : {}),
       ...(n.tasks ? { tasks: n.tasks } : {}),
       ...(status === "done" ? { completedAt: at } : {}),
-      archived: false,
+      archived: n.archived === true,
+      ...(n.archived ? { archivedAt: at } : {}),
       createdAt: at,
       updatedAt: at,
     });
