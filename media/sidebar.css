@@ -1477,8 +1477,6 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 /* Note-editor priority control: a segmented radiogroup whose indicator
    slides to the checked option (--pc-index / --pc-count are set from JS). */
 .pc {
-  --pc-color: var(--prio, var(--vscode-focusBorder));
-  --pc-text: #ffffff;
   --pc-pad: 3px;
   --pc-gap: 3px;
   --pc-count: 4;
@@ -1492,21 +1490,6 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   border-radius: var(--radius);
   gap: var(--pc-gap);
 }
-.pc[data-value="critical"] {
-  --pc-color: var(--priority-critical);
-}
-.pc[data-value="high"] {
-  --pc-color: var(--priority-high);
-}
-.pc[data-value="medium"] {
-  --pc-color: var(--priority-medium);
-}
-/* White text on the gray Low color is below readable contrast. */
-.pc[data-value="low"] {
-  --pc-color: var(--priority-low);
-  --pc-text: #1e1e1e;
-}
-
 .pc-indicator {
   position: absolute;
   top: var(--pc-pad);
@@ -1643,22 +1626,6 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 .group-count {
   color: var(--vscode-descriptionForeground);
   font-weight: 400;
-}
-
-/* FLIP move animation */
-.card.flip {
-  transition: transform 0.25s ease;
-}
-.card.appear {
-  animation: fade-in 0.25s ease;
-}
-@keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
 }
 
 /* Types management modal */
