@@ -113,6 +113,66 @@ test("archiving hides a note until the archive is shown", async ({ launch }) => 
   await expect(card(sidebar, "Archive me")).toHaveCount(0);
 });
 
+test("the flash after closing the viewer settles on each card's own background", async ({ launch }) => {
+  const session = await launch({ data: buildData([{ title: "Active note" }, { title: "Archived note", archived: true }]) });
+  const sidebar = await showSidebar(session.page);
+  await sidebar.locator("#btn-archive-toggle").click();
+  await expect(card(sidebar, "Archived note")).toHaveClass(/archived/);
+
+  // The webview's DOM types are not part of this project's tsconfig.
+  type Animated = {
+    getAnimations(): {
+      effect: { getKeyframes(): object[] } | null;
+      pause(): void;
+      cancel(): void;
+      currentTime: number | null;
+    }[];
+    querySelector(selector: string): object | null;
+  };
+  type Styler = (el: object) => { backgroundColor: string };
+
+  // Closes the viewer, then freezes the flash just before it ends. Returns the
+  // frozen background, the background once the animation is cancelled, and the
+  // card-type chip color (derived from the card's current background).
+  async function flashEnd(title: string) {
+    await card(sidebar, title).dblclick();
+    await expect(sidebar.locator("#view-modal")).toBeVisible();
+    await sidebar.locator("#view-close").click();
+    await expect(sidebar.locator("#view-modal")).toBeHidden();
+    return card(sidebar, title).evaluate((node) => {
+      const el = node as unknown as Animated;
+      const style = (globalThis as unknown as { getComputedStyle: Styler }).getComputedStyle;
+      const flash = el.getAnimations().find((a) => a.effect?.getKeyframes().some((k) => "backgroundColor" in k));
+      if (!flash) {
+        throw new Error("No flash animation on the card");
+      }
+      flash.pause();
+      flash.currentTime = 499;
+      const frozen = style(el).backgroundColor;
+      flash.cancel();
+      const chip = el.querySelector(".card-type");
+      return { frozen, settled: style(el).backgroundColor, chip: chip ? style(chip).backgroundColor : "" };
+    });
+  }
+
+  const active = await flashEnd("Active note");
+  const archived = await flashEnd("Archived note");
+
+  // The flash ends on the real background (no jump when it is removed)...
+  // rgb() has no alpha channel: treat it as fully opaque.
+  const channels = (color: string) => {
+    const [r, g, b, a = 1] = (color.match(/\d+(\.\d+)?/g) ?? []).map(Number);
+    return [r, g, b, a * 255];
+  };
+  for (const end of [active, archived]) {
+    const settled = channels(end.settled);
+    channels(end.frozen).forEach((channel, i) => expect(Math.abs(channel - settled[i])).toBeLessThan(4));
+  }
+  // ...archived cards really differ, and their chip follows the card.
+  expect(archived.settled).not.toBe(active.settled);
+  expect(archived.chip).not.toBe(active.chip);
+});
+
 test("the priority control works with the mouse and the keyboard", async ({ launch }) => {
   const session = await launch({ data: buildData([{ title: "No priority yet" }]) });
   const sidebar = await showSidebar(session.page);

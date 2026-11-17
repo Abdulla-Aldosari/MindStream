@@ -119,9 +119,12 @@ function capturePositions() {
 
 // Brief color-only flash used to draw attention to a card (status change,
 // or the note whose view modal was just closed). Background-only so it never
-// affects size, shape, or position.
+// affects size, shape, or position. Only the start color is given (offset 0
+// is required: a lone keyframe would otherwise be the end frame): the browser
+// animates to the card's own computed background, so normal and archived
+// cards (and any future state) settle on their real color.
 export function flashCard(el) {
-  el.animate([{ backgroundColor: "var(--vscode-focusBorder)" }, { backgroundColor: "var(--vscode-editor-background, var(--vscode-sideBar-background))" }], {
+  el.animate([{ backgroundColor: "var(--ms-card-flash-color)", offset: 0 }], {
     duration: 500,
     easing: "ease",
   });
