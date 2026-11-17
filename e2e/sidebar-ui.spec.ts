@@ -1,3 +1,10 @@
+/*-------------------------------------------------
+ * MindStream — VS Code Extension
+ * Copyright (c) 2026 Abdulla Aldosari
+ * Licensed under MIT
+ * See LICENSE in the project root for details.
+ *-------------------------------------------------*/
+
 import type { Frame, Page } from "@playwright/test";
 import { GENERAL_CATEGORY_ID, type MindStreamData } from "../src/models";
 import { buildData, expect, readData, runCommand, showSidebar, test, waitForData } from "./helpers";

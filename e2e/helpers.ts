@@ -1,3 +1,10 @@
+/*-------------------------------------------------
+ * MindStream — VS Code Extension
+ * Copyright (c) 2026 Abdulla Aldosari
+ * Licensed under MIT
+ * See LICENSE in the project root for details.
+ *-------------------------------------------------*/
+
 import { _electron, expect, test as base, type ElectronApplication, type Frame, type Page } from "@playwright/test";
 import * as fs from "node:fs";
 import * as os from "node:os";

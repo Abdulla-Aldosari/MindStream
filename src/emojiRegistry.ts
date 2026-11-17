@@ -1,3 +1,10 @@
+/*-------------------------------------------------
+ * MindStream — VS Code Extension
+ * Copyright (c) 2026 Abdulla Aldosari
+ * Licensed under MIT
+ * See LICENSE in the project root for details.
+ *-------------------------------------------------*/
+
 /**
  * Global (per-user, shared across every workspace) emoji palette and recent
  * usage tracking for the note editor. Backed by a tiny `EmojiMemento`

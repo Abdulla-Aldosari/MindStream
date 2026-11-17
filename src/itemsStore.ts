@@ -1,3 +1,10 @@
+/*-------------------------------------------------
+ * MindStream — VS Code Extension
+ * Copyright (c) 2026 Abdulla Aldosari
+ * Licensed under MIT
+ * See LICENSE in the project root for details.
+ *-------------------------------------------------*/
+
 import { GENERAL_CATEGORY_ID, MindStreamItem, MindStreamLink, MindStreamPriority, MindStreamStatus, MindStreamTask } from "./models";
 import { IStorage } from "./storage";
 import { newId, nowIso } from "./util";

@@ -1,3 +1,10 @@
+/*-------------------------------------------------
+ * MindStream — VS Code Extension
+ * Copyright (c) 2026 Abdulla Aldosari
+ * Licensed under MIT
+ * See LICENSE in the project root for details.
+ *-------------------------------------------------*/
+
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { buildData, expect, notification, readData, seedLink, showSidebar, sidebarFrame, test, waitForData, writeWorkspaceFile, type LaunchOptions, type Session } from "./helpers";

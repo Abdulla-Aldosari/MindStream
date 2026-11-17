@@ -1,3 +1,10 @@
+/*-------------------------------------------------
+ * MindStream — VS Code Extension
+ * Copyright (c) 2026 Abdulla Aldosari
+ * Licensed under MIT
+ * See LICENSE in the project root for details.
+ *-------------------------------------------------*/
+
 /**
  * Note priority: levels, the default for new notes, and the user setting that
  * selects how (and whether) priority is shown. Pure module (no `vscode`), so

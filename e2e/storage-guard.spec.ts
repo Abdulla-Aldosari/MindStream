@@ -1,3 +1,10 @@
+/*-------------------------------------------------
+ * MindStream — VS Code Extension
+ * Copyright (c) 2026 Abdulla Aldosari
+ * Licensed under MIT
+ * See LICENSE in the project root for details.
+ *-------------------------------------------------*/
+
 import * as fs from "node:fs";
 import { buildData, expect, notification, readData, runCommand, showSidebar, test, waitForData } from "./helpers";
 

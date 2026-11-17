@@ -1,3 +1,10 @@
+/*-------------------------------------------------
+ * MindStream — VS Code Extension
+ * Copyright (c) 2026 Abdulla Aldosari
+ * Licensed under MIT
+ * See LICENSE in the project root for details.
+ *-------------------------------------------------*/
+
 import { buildData, expect, readData, showSidebar, test, waitForData } from "./helpers";
 
 test("a new note is created from the editor and written to the data file", async ({ launch }) => {
