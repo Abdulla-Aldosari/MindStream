@@ -11,6 +11,14 @@
   --priority-medium: #3794ff;
   --priority-low: #8c8c8c;
   --ms-mgmt-row-hoverBackground: var(--vscode-list-activeSelectionBackground, var(--vscode-toolbar-hoverBackground));
+  /* Card backgrounds: the single source for the card, its chips, and the
+     flash animation. `--ms-card-current-background` is what a card shows
+     right now; `.card.archived` overrides it, so everything inside a card
+     follows the card without knowing its state. */
+  --ms-card-background: var(--vscode-editor-background, var(--vscode-sideBar-background));
+  --ms-card-archived-background: var(--vscode-settings-rowHoverBackground, var(--vscode-editorWidget-background));
+  --ms-card-current-background: var(--ms-card-background);
+  --ms-card-flash-color: var(--vscode-focusBorder);
 }
 
 body.vscode-dark {
@@ -311,7 +319,7 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 }
 
 .card {
-  background: var(--vscode-editor-background, var(--vscode-sideBar-background));
+  background: var(--ms-card-current-background);
   border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, #333));
   border-radius: var(--radius-md);
   padding: 10px;
@@ -343,7 +351,7 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   color: var(--vscode-descriptionForeground);
   /* Card background, tinted toward the light/dark theme's blend color:
      a touch lighter in dark themes, a touch darker in light themes. */
-  background: color-mix(in srgb, var(--vscode-editor-background, var(--vscode-sideBar-background)) 92%, var(--ms-blend-color, #fff));
+  background: color-mix(in srgb, var(--ms-card-current-background) 92%, var(--ms-blend-color, #fff));
   padding: 3px 9px 4px 5px;
   border-radius: var(--radius-sm);
   display: flex;
@@ -394,7 +402,7 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 }
 
 .card.archived {
-  background-color: var(--vscode-settings-rowHoverBackground, var(--vscode-editorWidget-background));
+  --ms-card-current-background: var(--ms-card-archived-background);
   border-style: dashed;
   border-width: 2px;
 }
@@ -1437,7 +1445,7 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   color: var(--vscode-descriptionForeground);
   /* Card background, tinted toward the light/dark theme's blend color:
      a touch lighter in dark themes, a touch darker in light themes. */
-  background: color-mix(in srgb, var(--vscode-editor-background, var(--vscode-sideBar-background)) 92%, var(--ms-blend-color, #fff));
+  background: color-mix(in srgb, var(--ms-card-current-background) 92%, var(--ms-blend-color, #fff));
   user-select: none;
 }
 .prio-chip .prio-dot {
