@@ -330,6 +330,7 @@
     "watch": "node esbuild.js --watch",
     "test": "npm run compile && mocha",
     "test:e2e": "npm run compile && playwright test",
+    "e2e:profile": "ts-node e2e/capture-profile.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "prettier:check": "prettier --check .",
