@@ -9,11 +9,45 @@ import {
   describeStorageTransition,
   normalizeData,
   parseDataText,
+  renameWithRetry,
   StorageError,
   StorageProblem,
   StorageService,
 } from "../src/storage";
 import { DATA_VERSION, GENERAL_CATEGORY_ID } from "../src/models";
+
+describe("renameWithRetry", () => {
+  const failing = (code: string, times: number) => {
+    let calls = 0;
+    const rename = () => {
+      calls++;
+      if (calls <= times) {
+        throw Object.assign(new Error(code), { code });
+      }
+    };
+    return { rename, calls: () => calls };
+  };
+
+  it("retries a transient EPERM with a growing pause until the rename works", () => {
+    const f = failing("EPERM", 2);
+    const pauses: number[] = [];
+    renameWithRetry("a", "b", f.rename, (ms) => pauses.push(ms));
+    assert.strictEqual(f.calls(), 3);
+    assert.deepStrictEqual(pauses, [20, 40]);
+  });
+
+  it("gives up after the last attempt and throws the transient error", () => {
+    const f = failing("EBUSY", 99);
+    assert.throws(() => renameWithRetry("a", "b", f.rename, () => undefined, 3), /EBUSY/);
+    assert.strictEqual(f.calls(), 3);
+  });
+
+  it("throws any other error at once, without retrying", () => {
+    const f = failing("ENOENT", 99);
+    assert.throws(() => renameWithRetry("a", "b", f.rename, () => assert.fail("must not sleep")), /ENOENT/);
+    assert.strictEqual(f.calls(), 1);
+  });
+});
 
 describe("createEmptyData", () => {
   it("creates versioned empty data with ready-made types and the General category", () => {

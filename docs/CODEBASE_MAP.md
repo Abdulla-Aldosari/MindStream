@@ -448,7 +448,10 @@ nothing at all, and its message alone explains it.
 - While `getProblem()` returns a problem, the last good data stays in memory
   and `saveData()` throws `StorageError` (`code` `STORAGE_BLOCKED`) before any
   write, so no `.tmp` file is created. A write that fails throws `WRITE_FAILED`
-  and removes the `.tmp` file.
+  and removes the `.tmp` file. The final rename goes through `renameWithRetry()`,
+  which retries `EPERM`/`EBUSY`/`EACCES` up to 5 times (20 ms growing pause)
+  because on Windows another process (antivirus, indexer) can hold the target
+  for a moment; any other error is thrown at once.
 - Every failed `saveData()` restores the in-memory data from the last saved or
   loaded text (`committedText`), so a caller that mutated `getData()` in place
   leaves no change behind. `InMemoryStorage` (tests) mirrors this through its
