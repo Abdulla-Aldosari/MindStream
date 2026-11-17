@@ -192,6 +192,26 @@ export async function runCommand(page: Page, title: string): Promise<void> {
 }
 
 /**
+ * Asserts that the Command Palette does not offer a command (for example one
+ * hidden while work is paused), then closes the palette so it cannot cover the
+ * workbench for the next step.
+ */
+export async function expectCommandHidden(page: Page, title: string): Promise<void> {
+  await page.keyboard.press("F1");
+  try {
+    await page.locator(".quick-input-widget .quick-input-box input").fill(`>${title}`);
+    // The fuzzy search still lists similar commands, so the list is never empty: once an
+    // entry shows, the filter has been applied to what was typed.
+    const entries = page.locator(".quick-input-list .quick-input-list-entry");
+    await expect(entries.first()).toBeVisible();
+    await expect(entries.filter({ hasText: title })).toHaveCount(0);
+  } finally {
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".quick-input-widget")).toBeHidden();
+  }
+}
+
+/**
  * Clicks an item of the sidebar's More (...) menu by its title. Commands hidden
  * from the Command Palette (such as resuming work) can only be reached here.
  */

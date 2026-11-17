@@ -1,4 +1,4 @@
-import { buildData, clickMoreMenuItem, expect, readData, runCommand, showSidebar, test, waitForData } from "./helpers";
+import { buildData, clickMoreMenuItem, expect, expectCommandHidden, readData, runCommand, showSidebar, test, waitForData } from "./helpers";
 
 test("pausing work locks the sidebar behind the hand-off note, and resuming unlocks it", async ({ launch }) => {
   const session = await launch({ data: buildData([{ title: "A note" }]) });
@@ -17,7 +17,7 @@ test("pausing work locks the sidebar behind the hand-off note, and resuming unlo
   expect(readData(session).workPauseNote?.text).toContain("run the checks");
 
   // The lock is on the commands too: with work paused, creating a note does nothing.
-  await runCommand(session.page, "MindStream: Quick Note").catch(() => undefined);
+  await expectCommandHidden(session.page, "MindStream: Quick Note");
   await expect(sidebar.locator("#modal")).toBeHidden();
 
   // The only way out is the More menu: the resume command is hidden from the palette on purpose.

@@ -358,6 +358,9 @@ real VS Code window. `npm test` never runs them (Mocha's spec is
   To create a link through the UI, right-click the target line and wait for the
   status bar to show that line before choosing "Add note to this line": the
   command reads the cursor when it runs, which is a moment after the click.
+- A step that asserts a command is hidden from the palette (work paused) uses
+  `expectCommandHidden()`: it types the title, checks no entry matches, and
+  always closes the palette, so it can never cover the sidebar's More button.
 - The sidebar webview is a nested frame: `showSidebar()` opens the view and
   returns the frame whose URL is `fake.html` and that contains `#toolbar`.
 - `runCommand()` uses the Command Palette by title. Commands hidden from the
