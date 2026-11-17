@@ -185,6 +185,10 @@ src/
                          link set by the host (setPendingLink); addItem attaches it only when the
                          webview sends linked true, and updateItem never touches a link.
                          Answers every note editor Save through SidebarUi.answerNoteSave.
+  descriptionDraft.ts     Pure rules of the description editor tab (§12): the one active
+                          draft with its saved and live texts, draftFileName(), normalizeEol().
+  descriptionEditor.ts    DescriptionEditor: the `vscode` layer of §12 (a FileSystemProvider
+                          for the `mindstream-desc` scheme, tab opening/closing, change events).
   sidebarProvider.ts      SidebarProvider (WebviewViewProvider): renders the sidebar
                          webview, posts state to the UI, updates the activity-bar
                          badge, implements SidebarUi for confirm dialogs and the
@@ -224,7 +228,8 @@ media/
     list.js               Filtering, empty state, groups, FLIP animation.
     card.js               Note cards and their footer actions.
     linkBadge.js          Code-link badge and its fit-to-width observer (§9).
-    noteEditor.js         New/edit note modal and the Save round trip.
+    noteEditor.js         New/edit note modal, the Save round trip, and the
+                          description editor tab link (§12).
     priorityControl.js    The editor's priority radiogroup (§7).
     noteViewer.js         Read-only viewer and its options menu (Copy ID /
                           Copy content, sent to the host as copyToClipboard).
@@ -1220,3 +1225,59 @@ updated at the wrong position. Work Pause blocks it like every other mutation.
   the mode ends. While it is on, the description height observer saves nothing
   (a folded field measures 0), and an emoji picker anchored to the description
   closes.
+
+## 12. Description in an editor tab
+
+A long description is edited in a normal VS Code editor tab instead of the
+narrow textarea. The note form stays the only owner of the text: the tab is a
+second way to edit it, and nothing reaches the data file until the form's own
+Save.
+
+### Where the state lives
+
+- `DescriptionDraft` (`src/descriptionDraft.ts`, no `vscode`) holds at most one
+  draft, started by `open(title, text)`. It keeps two texts: `saved` (the
+  virtual file's content, changed only when the tab is saved, so VS Code never
+  sees the file change under a dirty editor) and `live` (what the form uses,
+  updated on every edit, line breaks normalized to LF). Every draft gets a new
+  path, `/<id>/<note title>.md` (`draftFileName()` makes the title safe, falls
+  back to `Note description`, caps it at 60 characters).
+- `DescriptionEditor` (`src/descriptionEditor.ts`) is the `vscode` layer: a
+  `FileSystemProvider` for the `mindstream-desc` scheme (one file, every other
+  operation refused), plus the tab handling. A virtual file is used so Ctrl+S
+  saves without a Save As dialog. The files are Markdown, which VS Code wraps by
+  default. It exposes `onDidChangeText` (every edit or save) and
+  `onDidCloseByUser` (the final text when the user closes the tab).
+- `SidebarProvider` receives the `DescriptionEditor` through its constructor,
+  forwards both events to the webview, and implements
+  `SidebarUi.openDescriptionEditor` / `closeDescriptionEditor`.
+
+### Behavior
+
+| Situation                                                     | Result                                                                                                      |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Click `#f-desc-external`                                      | the tab opens with the form's description; a second click only reveals the tab                              |
+| Edit in the tab                                               | the form's textarea follows at once                                                                         |
+| Ctrl+S in the tab                                             | updates the form only (the data file is not written) and shows a status bar message                         |
+| Description field while the tab is open                       | read-only (`#f-desc-external-note` with `Focus editor`); no emoji is inserted into it                       |
+| Form closed (Save ok, Cancel, X, Esc), or another note opened | the tab closes without a Save prompt; unsaved tab text is discarded with the form                           |
+| Save refused (storage problem, work paused)                   | the form and the tab stay open, nothing is lost                                                             |
+| The user closes the tab                                       | the textarea is editable again with the latest text                                                         |
+| Work is paused                                                | the tab closes (`SidebarProvider.syncWorkPauseContext()`); the open message is refused like any write       |
+| Sidebar page rebuilt, or window reloaded                      | leftover `mindstream-desc` tabs are closed (`resolveWebviewView()` and the `DescriptionEditor` constructor) |
+
+### Messages
+
+- Webview → host: `openDescriptionEditor` (`title`, `description`) and
+  `closeDescriptionEditor`. Both are blocked while work is paused.
+- Host → webview: `descriptionEditorOpened` (`text`: the draft's text, which may
+  be newer than the form's when the tab was already open),
+  `descriptionEditorText` (`text`), and `descriptionEditorClosed` (`text`).
+
+### Webview
+
+`noteEditor.js` keeps `descExternal`. `setDescExternal()` toggles the textarea's
+`readOnly`, `#f-desc-external-note`, and the button. `openAdd()`, `openEdit()`,
+and `closeModal()` end the draft first. A `descriptionEditorOpened` answer that
+arrives after the form closed sends `closeDescriptionEditor`, so no tab is left
+without an owner. Focus mode hides the whole description field, button included.

@@ -833,6 +833,24 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   height: var(--desc-height, 128px);
 }
 
+/* The description is being edited in an editor tab: the textarea only mirrors it. */
+#f-desc:read-only {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.desc-external-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.desc-external-note[hidden],
+#f-desc-external[hidden] {
+  display: none;
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;

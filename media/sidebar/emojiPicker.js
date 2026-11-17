@@ -26,7 +26,8 @@ function isEmojiField(el) {
   if (!el || !(el instanceof Element)) {
     return false;
   }
-  return el.id === "f-title" || el.id === "f-desc" || el.classList.contains("task-title-input");
+  // A read-only description (open in an editor tab) takes no emoji.
+  return el.id === "f-title" || (el.id === "f-desc" && !el.readOnly) || el.classList.contains("task-title-input");
 }
 
 // --- Emoji picker (anchored to the focused title/description field) ---
@@ -254,7 +255,7 @@ export function initEmojiPicker() {
 
   // The hint button opens the picker anchored to the last focused emoji field.
   $("emoji-hint").addEventListener("click", () => {
-    const field = lastEmojiField && lastEmojiField.isConnected ? lastEmojiField : $("f-title");
+    const field = lastEmojiField && lastEmojiField.isConnected && isEmojiField(lastEmojiField) ? lastEmojiField : $("f-title");
     openEmojiPicker(field);
   });
 
