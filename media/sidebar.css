@@ -45,7 +45,6 @@ body.vscode-high-contrast-light {
    theme's --ms-blend-color / --ms-deep-color, which are set on body. */
 body {
   --ms-status-canceled-color: color-mix(in srgb, #e21212 70%, var(--ms-blend-color, #fff));
-  --ms-status-canceled-border-color: color-mix(in srgb, #ff6a6a 50%, var(--ms-deep-color, #fff));
 }
 
 body.vscode-light[data-vscode-theme-id="Visual Studio Light"],
@@ -418,12 +417,6 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 }
 
 /* Canceled: the work was dropped; the note is kept for reference. */
-.card.canceled {
-  border-color: var(--ms-status-canceled-border-color);
-}
-.card.canceled:hover {
-  border-color: var(--vscode-focusBorder);
-}
 .card.canceled .card-title {
   color: var(--ms-status-canceled-color);
 }
@@ -732,7 +725,7 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 }
 .status.canceled {
   color: var(--ms-status-canceled-color);
-  border-color: var(--ms-status-canceled-border-color);
+  border-color: color-mix(in srgb, var(--ms-status-canceled-color) 40%, transparent);
 }
 
 .viewer-card .status.in-progress {
