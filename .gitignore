@@ -1,13 +1,13 @@
 .cline/
 .vsenv/
-.vscode/mindstream.data.json
+.vscode/mindstream.*
+.vscode/runbox.*
+.vscode/settings.json
 .devdeck/
 node_modules/
 dist/
 *.vsix
 .vscode-test
-.vscode/runbox.*
-.vscode/settings.json
 demo/
 test-results/
 e2e/.profile/
