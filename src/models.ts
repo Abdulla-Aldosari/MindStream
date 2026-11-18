@@ -9,7 +9,15 @@
  * Core data models for the MindStream extension.
  */
 
-export type MindStreamStatus = "pending" | "in-progress" | "done";
+/** Every note status, in display order. "done" and "canceled" are final outcomes. */
+export const MINDSTREAM_STATUSES = ["pending", "in-progress", "done", "canceled"] as const;
+
+export type MindStreamStatus = (typeof MINDSTREAM_STATUSES)[number];
+
+/** Guards values from untrusted callers (the webview, an imported or hand-edited file). */
+export function isStatus(value: unknown): value is MindStreamStatus {
+  return typeof value === "string" && (MINDSTREAM_STATUSES as readonly string[]).includes(value);
+}
 
 /** Note priority levels, highest first. Constants and helpers live in `priority.ts`. */
 export type MindStreamPriority = "critical" | "high" | "medium" | "low";
@@ -78,6 +86,12 @@ export interface MindStreamItem {
   priority?: MindStreamPriority;
   /** Time of the last transition to "done". Absent while the status is not "done". */
   completedAt?: string;
+  /**
+   * Time of the last transition to "canceled" (the work was dropped and will
+   * not be done; the note is kept for reference). Absent while the status is
+   * not "canceled".
+   */
+  canceledAt?: string;
   /** Archiving is fully independent of status — it never changes `status`. */
   archived: boolean;
   archivedAt?: string;

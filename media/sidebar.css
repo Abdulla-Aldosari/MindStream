@@ -41,6 +41,13 @@ body.vscode-high-contrast-light {
 
 /* Fix badge visibility on hover for themes whose focus background is
    dark while descriptionForeground stays dark.*/
+/* Canceled status colors. Defined on body (not :root) because they mix the
+   theme's --ms-blend-color / --ms-deep-color, which are set on body. */
+body {
+  --ms-status-canceled-color: color-mix(in srgb, #e21212 70%, var(--ms-blend-color, #fff));
+  --ms-status-canceled-border-color: color-mix(in srgb, #ff6a6a 50%, var(--ms-deep-color, #fff));
+}
+
 body.vscode-light[data-vscode-theme-id="Visual Studio Light"],
 body.vscode-light[data-vscode-theme-id="Light+"] {
   --ms-mgmt-row-hoverBackground: var(--vscode-inputOption-hoverBackground, var(--vscode-toolbar-hoverBackground));
@@ -410,6 +417,17 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   border-width: 2px;
 }
 
+/* Canceled: the work was dropped; the note is kept for reference. */
+.card.canceled {
+  border-color: var(--ms-status-canceled-border-color);
+}
+.card.canceled:hover {
+  border-color: var(--vscode-focusBorder);
+}
+.card.canceled .card-title {
+  color: var(--ms-status-canceled-color);
+}
+
 /* Archived notes are read-only: the status is a plain badge. */
 .card.archived .status {
   cursor: default;
@@ -711,6 +729,10 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 .status.done {
   color: var(--status-done-color);
   border-color: color-mix(in srgb, var(--status-done-color) 40%, transparent);
+}
+.status.canceled {
+  color: var(--ms-status-canceled-color);
+  border-color: var(--ms-status-canceled-border-color);
 }
 
 .viewer-card .status.in-progress {

@@ -57,6 +57,7 @@ export function buildData(notes: SeedNote[] = []): MindStreamData {
       ...(n.link ? { link: n.link } : {}),
       ...(n.tasks ? { tasks: n.tasks } : {}),
       ...(status === "done" ? { completedAt: at } : {}),
+      ...(status === "canceled" ? { canceledAt: at } : {}),
       archived: n.archived === true,
       ...(n.archived ? { archivedAt: at } : {}),
       createdAt: at,

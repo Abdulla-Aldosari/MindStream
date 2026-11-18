@@ -30,6 +30,7 @@ const STATUS_LABEL: Record<MindStreamStatus, string> = {
   pending: "None",
   "in-progress": "In Progress",
   done: "Done",
+  canceled: "Canceled",
 };
 
 /**

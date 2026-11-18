@@ -256,6 +256,25 @@ describe("SidebarController.handleMessage", () => {
     assert.strictEqual(items.get(item.id)!.status, "done");
   });
 
+  it("changeStatus moves a note to canceled and back", async () => {
+    const { items, controller, typeId } = setup();
+    const item = items.create({ typeId, title: "A" });
+    await controller.handleMessage({ type: "changeStatus", id: item.id, status: "canceled" });
+    assert.strictEqual(items.get(item.id)!.status, "canceled");
+    assert.ok(items.get(item.id)!.canceledAt);
+    await controller.handleMessage({ type: "changeStatus", id: item.id, status: "pending" });
+    assert.strictEqual(items.get(item.id)!.status, "pending");
+    assert.ok(!("canceledAt" in items.get(item.id)!));
+  });
+
+  it("changeStatus refuses an unknown status from the webview, changing nothing", async () => {
+    const { items, storage, controller, typeId } = setup();
+    const item = items.create({ typeId, title: "A" });
+    const before = JSON.stringify(storage.getData());
+    await assert.rejects(controller.handleMessage({ type: "changeStatus", id: item.id, status: "rejected" as never }), /is not a note status/);
+    assert.strictEqual(JSON.stringify(storage.getData()), before);
+  });
+
   it("toggleArchive archives the note", async () => {
     const { items, controller, typeId } = setup();
     const item = items.create({ typeId, title: "A" });

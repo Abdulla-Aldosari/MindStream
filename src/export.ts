@@ -16,6 +16,7 @@ export const STATUS_LABEL: Record<MindStreamStatus, string> = {
   pending: "None",
   "in-progress": "In Progress",
   done: "Done",
+  canceled: "Canceled",
 };
 
 /** Builds the Markdown export content (a list of lines) for all notes. */
@@ -29,6 +30,9 @@ export function buildMarkdownExport(items: ItemsStore, types: TypesRegistry, cat
     lines.push(`- Created: ${formatDate(it.createdAt)}`);
     if (it.completedAt) {
       lines.push(`- Completed: ${formatDate(it.completedAt)}`);
+    }
+    if (it.canceledAt) {
+      lines.push(`- Canceled: ${formatDate(it.canceledAt)}`);
     }
     if (it.archived) {
       lines.push("- Archived");
