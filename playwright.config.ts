@@ -11,5 +11,5 @@ export default defineConfig({
   workers: 1,
   fullyParallel: false,
   retries: 0,
-  reporter: [["list"], ["html", { open: "never" }]],
+  reporter: [["list"], ["html", { open: "on-failure" }]],
 });
