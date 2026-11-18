@@ -7,7 +7,7 @@
 
 import * as assert from "assert";
 import { createEmptyData } from "../src/storage";
-import { ItemsStore } from "../src/itemsStore";
+import { ArchivedNoteError, ItemsStore } from "../src/itemsStore";
 import { TypesRegistry } from "../src/typesRegistry";
 import { CategoriesRegistry } from "../src/categoriesRegistry";
 import { SidebarController, SidebarUi } from "../src/sidebarController";
@@ -649,6 +649,34 @@ describe("SidebarController note editor save answer", () => {
       { saveId: 2, ok: false },
       { saveId: 3, ok: false },
     ]);
+  });
+
+  it("refuses to save a note that was archived while its editor was open, keeping the editor open", async () => {
+    const { controller, ui, typeId, items, storage } = setup();
+    const note = items.create({ typeId, title: "Kept" });
+    // Archived from elsewhere (another window, a hand edit) while the editor is open.
+    items.setArchived(note.id, true);
+    const before = JSON.stringify(storage.getData());
+    const saves = storage.saved.length;
+    await assert.rejects(controller.handleMessage({ type: "updateItem", id: note.id, title: "Typed text", saveId: 5 }), ArchivedNoteError);
+    // Not ok: the editor stays open with what was typed; only the user's Cancel closes it.
+    assert.deepStrictEqual(ui.saveAnswers, [{ saveId: 5, ok: false }]);
+    assert.strictEqual(JSON.stringify(storage.getData()), before);
+    assert.strictEqual(storage.saved.length, saves);
+  });
+
+  it("refuses status and task changes on an archived note, changing nothing", async () => {
+    const { controller, items, storage, typeId } = setup();
+    const note = items.create({ typeId, title: "Frozen", tasks: [{ title: "One", completed: false }] });
+    items.setArchived(note.id, true);
+    const before = JSON.stringify(storage.getData());
+    await assert.rejects(controller.handleMessage({ type: "changeStatus", id: note.id, status: "done" }), ArchivedNoteError);
+    await assert.rejects(controller.handleMessage({ type: "setTaskCompleted", id: note.id, index: 0, title: "One", completed: true }), ArchivedNoteError);
+    assert.strictEqual(JSON.stringify(storage.getData()), before);
+    // Unarchiving is the way back, and makes the note editable again.
+    await controller.handleMessage({ type: "toggleArchive", id: note.id, archived: false });
+    await controller.handleMessage({ type: "changeStatus", id: note.id, status: "done" });
+    assert.strictEqual(items.get(note.id)?.status, "done");
   });
 
   it("refuses to move a note to an unknown type", async () => {

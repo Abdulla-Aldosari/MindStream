@@ -409,6 +409,11 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   border-style: dashed;
   border-width: 2px;
 }
+
+/* Archived notes are read-only: the status is a plain badge. */
+.card.archived .status {
+  cursor: default;
+}
 .status {
   font-size: 11px;
   padding: 2px 8px 3px 8px;
@@ -1274,7 +1279,7 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   user-select: none;
 }
 
-.task-list-view .task-row:not(.completed):hover {
+.task-list-view:not(.read-only) .task-row:not(.completed):hover {
   background: var(--task-row-hover);
 }
 
@@ -1284,8 +1289,15 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   background: var(--task-row-completed-bg);
 }
 
-.task-list-view .task-row.completed:hover {
+.task-list-view:not(.read-only) .task-row.completed:hover {
   background: var(--task-row-completed-hover);
+}
+
+/* Archived note: the checklist is shown, not toggled. The disabled check keeps
+   its normal look; only the pointer and hover go away. */
+.task-list-view.read-only .task-row,
+.task-list-view.read-only .task-check {
+  cursor: default;
 }
 
 /* Editor: single-line title inputs, a handle to drag, and a remove button.

@@ -44,13 +44,14 @@ export function refreshView() {
   renderView(fresh);
 }
 
-// Identifies the rows currently drawn: same note and same titles in the same
-// order means only the check marks can differ, so rows are updated in place
-// and keep their focus (moving focus by script would show the tooltip).
+// Identifies the rows currently drawn: same note, same archived state, and
+// same titles in the same order means only the check marks can differ, so rows
+// are updated in place and keep their focus (moving focus by script would show
+// the tooltip). Archiving or unarchiving redraws the rows (read-only or not).
 let renderedTasksKey = null;
 
 function tasksKey(item) {
-  return TaskList.isTaskGroup(item) ? JSON.stringify([item.id, item.tasks.map((t) => t.title)]) : null;
+  return TaskList.isTaskGroup(item) ? JSON.stringify([item.id, !!item.archived, item.tasks.map((t) => t.title)]) : null;
 }
 
 // Draws the checklist of a task group note with its progress bar.
@@ -68,22 +69,29 @@ function renderViewTasks(item) {
   box.setAttribute("dir", state.direction);
   progressHolder.appendChild(buildProgressBar(item.tasks));
 
+  // An archived note is read-only: its tasks are shown but cannot be checked.
+  const readOnly = !!item.archived;
+  list.classList.toggle("read-only", readOnly);
   const key = tasksKey(item);
   if (key !== renderedTasksKey) {
     renderedTasksKey = key;
     list.textContent = "";
-    item.tasks.forEach((task, index) => list.appendChild(buildViewTaskRow(task, index)));
+    item.tasks.forEach((task, index) => list.appendChild(buildViewTaskRow(task, index, readOnly)));
   }
   item.tasks.forEach((task, index) => {
     const row = list.children[index];
     row.classList.toggle("completed", task.completed);
     const check = row.querySelector(".task-check");
     setTaskCheck(check, task.completed);
-    check.dataset.tooltip = task.completed ? "Mark as not done" : "Mark as done";
+    if (readOnly) {
+      delete check.dataset.tooltip;
+    } else {
+      check.dataset.tooltip = task.completed ? "Mark as not done" : "Mark as done";
+    }
   });
 }
 
-function buildViewTaskRow(task, index) {
+function buildViewTaskRow(task, index, readOnly) {
   const row = document.createElement("li");
   row.className = "task-row";
 
@@ -99,6 +107,11 @@ function buildViewTaskRow(task, index) {
 
   const check = buildTaskCheck(task.completed, task.title);
   row.appendChild(check);
+  if (readOnly) {
+    // Out of the tab order and not clickable; aria-checked still reports the state.
+    check.disabled = true;
+    return row;
+  }
   // The whole row toggles the task; clicks on the check box bubble to this
   // handler too, and its Enter/Space activation keeps keyboard access.
   row.addEventListener("click", () => toggleTask(index));
@@ -108,7 +121,7 @@ function buildViewTaskRow(task, index) {
 // Flips one task right away, then asks the host to store it. The host checks
 // the title at that index, and its next state confirms or corrects the view.
 function toggleTask(index) {
-  if (!viewingItem || !viewingItem.tasks || !viewingItem.tasks[index]) {
+  if (!viewingItem || viewingItem.archived || !viewingItem.tasks || !viewingItem.tasks[index]) {
     return;
   }
   const task = viewingItem.tasks[index];
@@ -158,6 +171,9 @@ function renderView(item) {
   }
 
   $("view-timestamps").textContent = `Created: ${formatDate(item.createdAt)}\u2003\u00b7\u2003Updated: ${formatDate(item.updatedAt)}`;
+
+  // An archived note is read-only: unarchive it to edit.
+  $("view-edit").hidden = !!item.archived;
 }
 
 export function closeView(options) {
@@ -237,6 +253,9 @@ export function initNoteViewer() {
   $("view-close-btn").addEventListener("click", closeView);
   $("view-edit").addEventListener("click", () => {
     const item = viewingItem;
+    if (item && item.archived) {
+      return;
+    }
     closeView({ skipFlash: true });
     if (item) {
       openEdit(item);
