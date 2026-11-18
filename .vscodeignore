@@ -8,6 +8,8 @@ docs/
 src/
 media/
 test/
+demo/
+floorplan/
 node_modules/
 **/*.map
 
