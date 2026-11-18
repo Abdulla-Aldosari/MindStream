@@ -21,6 +21,7 @@ describe("STATUS_LABEL", () => {
       pending: "None",
       "in-progress": "In Progress",
       done: "Done",
+      canceled: "Canceled",
     });
   });
 });
@@ -64,6 +65,18 @@ describe("buildMarkdownExport", () => {
     assert.ok(text.includes("- Status: Done"));
     assert.ok(text.includes("- Completed: "));
     assert.ok(text.includes("Details here"));
+  });
+
+  it("renders the canceled status and its date, without a completed line", () => {
+    const { items, types, categories } = setup();
+    const typeId = types.add("Idea").id;
+    const item = items.create({ typeId, title: "Dropped" });
+    items.changeStatus(item.id, "canceled");
+
+    const text = buildMarkdownExport(items, types, categories).join("\n");
+    assert.ok(text.includes("- Status: Canceled"));
+    assert.ok(text.includes("- Canceled: "));
+    assert.ok(!text.includes("- Completed: "));
   });
 
   it("renders the tasks of a task group as a checklist, in order", () => {

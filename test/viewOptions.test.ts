@@ -126,6 +126,47 @@ describe("viewOptions: grouping", () => {
     );
   });
 
+  it("the Canceled status group is listed last, and only when it has notes", () => {
+    const v = view("status", "priority");
+    const labels = { pending: "None", "in-progress": "In Progress", done: "Done", canceled: "Canceled" };
+    const withCanceled: Note[] = [...notes, { id: "n7", status: "canceled", priority: "low", updatedAt: "2026-01-07T00:00:00Z" }];
+    const groups = VO.buildGroups(VO.sortItems(withCanceled, v, ON), v, ON, labels)!;
+    assert.deepStrictEqual(
+      groups.map((g) => [g.key, g.label, ids(g.items)]),
+      [
+        ["status:pending", "None", ["n5", "n6", "n3", "n2"]],
+        ["status:in-progress", "In Progress", ["n4"]],
+        ["status:done", "Done", ["n1"]],
+        ["status:canceled", "Canceled", ["n7"]],
+      ]
+    );
+    const withoutCanceled = VO.buildGroups(VO.sortItems(notes, v, ON), v, ON, labels)!;
+    assert.strictEqual(
+      withoutCanceled.some((g) => g.key === "status:canceled"),
+      false
+    );
+    // Empty regular status groups are still listed.
+    const onlyCanceled = VO.buildGroups([withCanceled[6]], v, ON, labels)!;
+    assert.deepStrictEqual(
+      onlyCanceled.map((g) => [g.key, g.items.length]),
+      [
+        ["status:pending", 0],
+        ["status:in-progress", 0],
+        ["status:done", 0],
+        ["status:canceled", 1],
+      ]
+    );
+  });
+
+  it("status sort ranks canceled after done", () => {
+    const list: Note[] = [
+      { id: "c", status: "canceled", updatedAt: "2026-01-03T00:00:00Z" },
+      { id: "d", status: "done", updatedAt: "2026-01-02T00:00:00Z" },
+      { id: "p", status: "pending", updatedAt: "2026-01-01T00:00:00Z" },
+    ];
+    assert.deepStrictEqual(ids(VO.sortItems(list, view("none", "status"), OFF)), ["p", "d", "c"]);
+  });
+
   it("priority groups list every level (even empty) and Unassigned only when it has notes", () => {
     const v = view("priority", "status");
     assert.deepStrictEqual(VO.sortChain(v, ON), ["status", "date"]);

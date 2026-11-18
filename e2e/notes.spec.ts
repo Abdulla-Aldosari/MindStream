@@ -80,6 +80,78 @@ test("clicking the status moves a note through the cycle and records the complet
   expect(readData(session).items[0].completedAt).toBeTruthy();
 });
 
+test("only Ctrl+Shift+Click moves a note into and out of Canceled", async ({ launch }) => {
+  const session = await launch({ data: buildData([{ title: "Dropped idea", status: "in-progress" }]) });
+  const sidebar = await showSidebar(session.page);
+  const card = sidebar.locator(".card", { hasText: "Dropped idea" });
+  const status = card.locator(".status");
+
+  await status.click({ modifiers: ["Control", "Shift"] });
+  await expect(status).toHaveText("Canceled");
+  await expect(card).toHaveClass(/(^|\s)canceled(\s|$)/);
+  await expect(status).toHaveClass(/(^|\s)canceled(\s|$)/);
+  await waitForData(session, (d) => d.items[0].status === "canceled");
+  const canceled = readData(session).items[0];
+  expect(canceled.canceledAt).toBeTruthy();
+  expect(canceled.completedAt).toBeUndefined();
+
+  // The canceled colors apply to the title and the status badge.
+  // The e2e project has no DOM typings, so the page APIs are typed locally.
+  type Probe = { style: { color: string }; remove(): void };
+  type Page = { getComputedStyle(el: object): { color: string }; document: { createElement(tag: string): Probe } };
+  const colors = await card.evaluate((node) => {
+    const el = node as unknown as { querySelector(selector: string): object; appendChild(child: object): void };
+    const page = globalThis as unknown as Page;
+    const probe = page.document.createElement("span");
+    probe.style.color = "var(--ms-status-canceled-color)";
+    el.appendChild(probe);
+    const expected = page.getComputedStyle(probe).color;
+    probe.remove();
+    return {
+      title: page.getComputedStyle(el.querySelector(".card-title")).color,
+      badge: page.getComputedStyle(el.querySelector(".status")).color,
+      expected,
+    };
+  });
+  // The variable resolves to a red tone (an undefined variable would only
+  // inherit). A color-mix() result reads as "color(srgb r g b)" with 0-1
+  // channels, so the channels are compared as ratios, not absolute values.
+  const [red, green, blue] = (colors.expected.match(/\d+(\.\d+)?/g) ?? []).map(Number);
+  expect(red).toBeGreaterThan(green * 1.5);
+  expect(red).toBeGreaterThan(blue * 1.5);
+  expect(colors.title).toBe(colors.expected);
+  expect(colors.badge).toBe(colors.expected);
+
+  // A plain click or Ctrl+Click leaves a canceled note as it is.
+  await status.click();
+  await status.click({ modifiers: ["Control"] });
+  await expect(status).toHaveText("Canceled");
+  expect(readData(session).items[0].status).toBe("canceled");
+
+  // Ctrl+Shift+Click again brings it back to None.
+  await status.click({ modifiers: ["Control", "Shift"] });
+  await expect(status).toHaveText("None");
+  await expect(card).not.toHaveClass(/(^|\s)canceled(\s|$)/);
+  await waitForData(session, (d) => d.items[0].status === "pending");
+  expect(readData(session).items[0].canceledAt).toBeUndefined();
+});
+
+test("the Canceled group appears only while it has notes", async ({ launch }) => {
+  const session = await launch({ data: buildData([{ title: "Keep" }, { title: "Drop" }]) });
+  const sidebar = await showSidebar(session.page);
+  const canceledGroup = sidebar.locator('.group-header[data-group="status:canceled"]');
+
+  await expect(sidebar.locator('.group-header[data-group="status:done"]')).toBeVisible();
+  await expect(canceledGroup).toHaveCount(0);
+  await sidebar
+    .locator(".card", { hasText: "Drop" })
+    .locator(".status")
+    .click({ modifiers: ["Control", "Shift"] });
+  await expect(canceledGroup).toBeVisible();
+  await expect(canceledGroup).toContainText("Canceled");
+  await expect(canceledGroup).toContainText("(1)");
+});
+
 test("editing a note changes it in place and keeps its id", async ({ launch }) => {
   const session = await launch({ data: buildData([{ title: "Old title" }]) });
   const sidebar = await showSidebar(session.page);

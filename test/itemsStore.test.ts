@@ -6,10 +6,22 @@
  *-------------------------------------------------*/
 
 import * as assert from "assert";
-import { createEmptyData } from "../src/storage";
+import { StorageError, createEmptyData } from "../src/storage";
 import { ArchivedNoteError, ItemsStore } from "../src/itemsStore";
-import { GENERAL_CATEGORY_ID } from "../src/models";
-import { InMemoryStorage } from "./helpers";
+import { GENERAL_CATEGORY_ID, MINDSTREAM_STATUSES, isStatus } from "../src/models";
+import { BLOCKED, InMemoryStorage } from "./helpers";
+
+describe("isStatus", () => {
+  it("accepts every known status and rejects anything else", () => {
+    for (const status of MINDSTREAM_STATUSES) {
+      assert.strictEqual(isStatus(status), true);
+    }
+    assert.deepStrictEqual([...MINDSTREAM_STATUSES], ["pending", "in-progress", "done", "canceled"]);
+    for (const value of ["cancelled", "Canceled", "", undefined, null, 3, {}]) {
+      assert.strictEqual(isStatus(value), false);
+    }
+  });
+});
 
 function setup() {
   const storage = new InMemoryStorage(createEmptyData());
@@ -272,6 +284,66 @@ describe("ItemsStore tasks", () => {
     assert.strictEqual(items.setTaskCompleted(id, 1, "Two", true), false);
     assert.strictEqual(storage.saved.length, saves);
     assert.deepStrictEqual(items.get(id)?.tasks, tasks());
+  });
+
+  describe("canceled status", () => {
+    it("create with canceled stores canceledAt and no completedAt", () => {
+      const { items, typeId } = setup();
+      const item = items.create({ typeId, title: "Dropped idea", status: "canceled" });
+      assert.strictEqual(item.status, "canceled");
+      assert.strictEqual(item.canceledAt, item.createdAt);
+      assert.ok(!("completedAt" in item));
+    });
+
+    it("changeStatus keeps exactly one outcome time in step with the status", () => {
+      const { items, typeId } = setup();
+      const item = items.create({ typeId, title: "Idea" });
+
+      items.changeStatus(item.id, "done");
+      assert.ok(items.get(item.id)!.completedAt);
+      assert.ok(!("canceledAt" in items.get(item.id)!));
+
+      items.changeStatus(item.id, "canceled");
+      const canceled = items.get(item.id)!;
+      assert.strictEqual(canceled.status, "canceled");
+      assert.ok(canceled.canceledAt);
+      assert.ok(!("completedAt" in canceled));
+
+      items.changeStatus(item.id, "pending");
+      const reopened = items.get(item.id)!;
+      assert.ok(!("canceledAt" in reopened));
+      assert.ok(!("completedAt" in reopened));
+    });
+
+    it("an unknown status is refused before anything changes", () => {
+      const { storage, items, typeId } = setup();
+      const item = items.create({ typeId, title: "A" });
+      const before = JSON.stringify(storage.getData());
+      const saves = storage.saved.length;
+      assert.throws(() => items.changeStatus(item.id, "rejected" as never), /is not a note status\. Nothing was changed\./);
+      assert.throws(() => items.create({ typeId, title: "B", status: "rejected" as never }), /is not a note status/);
+      assert.strictEqual(JSON.stringify(storage.getData()), before);
+      assert.strictEqual(storage.saved.length, saves);
+    });
+
+    it("a refused save leaves the note and the file unchanged", () => {
+      const { storage, items, typeId } = setup();
+      const item = items.create({ typeId, title: "A" });
+      const before = JSON.stringify(storage.getData());
+      const saves = storage.saved.length;
+      storage.problem = BLOCKED;
+      assert.throws(() => items.changeStatus(item.id, "canceled"), StorageError);
+      assert.strictEqual(JSON.stringify(storage.getData()), before);
+      assert.strictEqual(storage.saved.length, saves);
+    });
+
+    it("an archived note cannot be canceled", () => {
+      const { items, typeId } = setup();
+      const item = items.create({ typeId, title: "Frozen" });
+      items.setArchived(item.id, true);
+      assert.throws(() => items.changeStatus(item.id, "canceled"), ArchivedNoteError);
+      assert.strictEqual(items.get(item.id)!.status, "pending");
+    });
   });
 
   describe("archived notes are read-only", () => {

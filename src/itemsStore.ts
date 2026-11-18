@@ -5,7 +5,7 @@
  * See LICENSE in the project root for details.
  *-------------------------------------------------*/
 
-import { GENERAL_CATEGORY_ID, MindStreamItem, MindStreamLink, MindStreamPriority, MindStreamStatus, MindStreamTask } from "./models";
+import { GENERAL_CATEGORY_ID, MINDSTREAM_STATUSES, MindStreamItem, MindStreamLink, MindStreamPriority, MindStreamStatus, MindStreamTask, isStatus } from "./models";
 import { IStorage } from "./storage";
 import { newId, nowIso } from "./util";
 
@@ -51,6 +51,30 @@ export class ArchivedNoteError extends Error {
   }
 }
 
+/** Refuses a status that is not one of `MINDSTREAM_STATUSES`, before anything changes. */
+function assertStatus(status: unknown): asserts status is MindStreamStatus {
+  if (!isStatus(status)) {
+    throw new Error(`Not saved: "${String(status)}" is not a note status. Nothing was changed. Use one of: ${MINDSTREAM_STATUSES.join(", ")}.`);
+  }
+}
+
+/**
+ * Keeps the outcome timestamps in step with `status`: `completedAt` exists
+ * only while "done", `canceledAt` only while "canceled".
+ */
+function applyOutcomeTime(item: MindStreamItem, status: MindStreamStatus, now: string): void {
+  if (status === "done") {
+    item.completedAt = now;
+  } else {
+    delete item.completedAt;
+  }
+  if (status === "canceled") {
+    item.canceledAt = now;
+  } else {
+    delete item.canceledAt;
+  }
+}
+
 /**
  * Item management (CRUD) with:
  * - An append-only history of status transitions.
@@ -88,6 +112,7 @@ export class ItemsStore {
     const data = this.storage.getData();
     const now = nowIso();
     const status = input.status ?? "pending";
+    assertStatus(status);
     const item: MindStreamItem = {
       id: newId(),
       typeId: input.typeId,
@@ -100,9 +125,7 @@ export class ItemsStore {
       createdAt: now,
       updatedAt: now,
     };
-    if (status === "done") {
-      item.completedAt = now;
-    }
+    applyOutcomeTime(item, status, now);
     if (input.priority !== undefined) {
       item.priority = input.priority;
     }
@@ -216,8 +239,13 @@ export class ItemsStore {
     this.storage.saveData(this.storage.getData());
   }
 
-  /** Changes status; `completedAt` is set on "done" and removed on any other status. Throws `ArchivedNoteError` for an archived note. */
+  /**
+   * Changes status. `completedAt` exists only while "done" and `canceledAt`
+   * only while "canceled". Throws for an unknown status and
+   * `ArchivedNoteError` for an archived note, before changing anything.
+   */
   changeStatus(id: string, status: MindStreamStatus): void {
+    assertStatus(status);
     const data = this.storage.getData();
     const item = data.items.find((it) => it.id === id);
     if (!item) {
@@ -229,11 +257,7 @@ export class ItemsStore {
     }
     const now = nowIso();
     item.status = status;
-    if (status === "done") {
-      item.completedAt = now;
-    } else {
-      delete item.completedAt;
-    }
+    applyOutcomeTime(item, status, now);
     item.updatedAt = now;
     this.storage.saveData(data);
   }

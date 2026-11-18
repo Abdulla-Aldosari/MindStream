@@ -137,7 +137,7 @@ src/
                          wiring of all services, builds the injected CommandsDeps.
   models.ts              Core data types: MindStreamItem, MindStreamLink, MindStreamTypeDef,
                          MindStreamCategoryDef, MindStreamWorkPauseNote, MindStreamData,
-                         status enum, constants.
+                         statuses (MINDSTREAM_STATUSES, isStatus), constants.
   storage.ts              StorageService (IStorage impl): loads/saves the JSON file
                          safely (write to .tmp then rename), default data creation,
                          normalizeData() for incomplete or hand-edited data (a file
@@ -146,7 +146,8 @@ src/
                          the save guard (StorageProblem, StorageError, getProblem()).
   workspaceStorage.ts     Thin helper: binds a StorageService to the open workspace
                          folder (.vscode/mindstream.data.json at the project root).
-  itemsStore.ts           ItemsStore: CRUD for notes, status changes (completedAt set on done),
+  itemsStore.ts           ItemsStore: CRUD for notes, status changes (unknown statuses refused;
+                         completedAt exists only while done, canceledAt only while canceled),
                          archiving independent of status, permanent deletion, and host-side code link
                          tracking (setLink, mapLinks with persist false, save). Archived notes are
                          read-only (ArchivedNoteError); see "Archived notes are read-only".
@@ -230,7 +231,9 @@ media/
                           the archive toggle.
     list.js               Filtering, empty state, groups, FLIP animation.
     card.js               Note cards and their footer actions (archived cards:
-                          no status cycle, no Edit).
+                          no status cycle, no Edit). Status click: None → In
+                          Progress → Done; Ctrl+Click skips; Ctrl+Shift+Click is
+                          the only way into and out of Canceled (back to None).
     linkBadge.js          Code-link badge and its fit-to-width observer (§9).
     noteEditor.js         New/edit note modal, the Save round trip, and the
                           description editor tab link (§12).
@@ -691,6 +694,12 @@ magic numbers:
   hex fallback only for very old VS Code builds that predate those
   variables), so the pending/done status colors stay theme-aware instead of
   being hardcoded hex values that can fail contrast in some themes.
+- `--ms-status-canceled-color` / `--ms-status-canceled-border-color` - the
+  Canceled card title, card border, and status badge. They are defined on
+  `body`, not `:root`, because they mix `--ms-blend-color` /
+  `--ms-deep-color`, which exist only on `body.vscode-dark` /
+  `body.vscode-light`; on `:root` they would always resolve to the fallback.
+  The card keeps the focus-border color on hover.
 
 ### Hover vs. selected state colors (state-based, never theme-specific)
 
@@ -959,7 +968,8 @@ The toolbar `#view-options-btn` opens a `DropdownMenu` built from
 into the next view. The view `{ groupBy, sortBy, hiddenPriorities }` is
 persisted with `vscode.setState` (default `status` + `priority`).
 
-- `groupBy`: `none | status | priority`. Status groups are always three;
+- `groupBy`: `none | status | priority`. None, In Progress, and Done groups
+  are always listed; Canceled (ranked last) only when it has notes;
   priority groups list every visible level (even empty) plus `Unassigned` only
   when it has notes. Group keys are scoped (`status:done`, `priority:high`),
   and collapse state is stored per key.

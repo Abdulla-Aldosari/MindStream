@@ -15,12 +15,14 @@ import { openEdit } from "./noteEditor.js";
 import { openView } from "./noteViewer.js";
 import { buildProgressBar } from "./taskProgress.js";
 
+// "canceled" is deliberately outside the click cycle: only Ctrl+Shift+Click
+// moves a note into or out of it, so a dropped idea is never set by accident.
 const STATUS_CYCLE = ["pending", "in-progress", "done"];
 
 function buildCardBase(item) {
   const t = typeOf(item.typeId);
   const card = document.createElement("div");
-  card.className = "card" + (item.archived ? " archived" : "");
+  card.className = `card${item.archived ? " archived" : ""}${item.status === "canceled" ? " canceled" : ""}`;
   card.dataset.id = item.id;
   card.setAttribute("dir", state.direction);
 
@@ -175,21 +177,32 @@ function btnIcon(codicon, title, onClick, danger) {
 }
 
 function statusTooltip(status) {
+  const cancel = "Ctrl+Shift+Click: Change to 'Canceled'";
   if (status === "pending") {
-    return "Change status to 'In Progress'\nCtrl+Click: Change to 'Done'";
+    return `Change status to 'In Progress'\nCtrl+Click: Change to 'Done'\n${cancel}`;
   }
   if (status === "in-progress") {
-    return "Change status to 'Done'\nCtrl+Click: Change to 'None'";
+    return `Change status to 'Done'\nCtrl+Click: Change to 'None'\n${cancel}`;
+  }
+  if (status === "canceled") {
+    return "Canceled: this note will not be done\nCtrl+Shift+Click: Change to 'None'";
   }
   // done
-  return "Change status to 'None'";
+  return `Change status to 'None'\n${cancel}`;
 }
 
 function cycleStatus(item, event) {
   const ctrl = !!(event && (event.ctrlKey || event.metaKey));
+  const shift = !!(event && event.shiftKey);
   let next;
 
-  if (!ctrl) {
+  if (ctrl && shift) {
+    // The only way into and out of "canceled".
+    next = item.status === "canceled" ? "pending" : "canceled";
+  } else if (item.status === "canceled") {
+    // Any other click leaves a canceled note as it is.
+    return;
+  } else if (!ctrl) {
     // Normal click: forward cycle.
     const i = STATUS_CYCLE.indexOf(item.status);
     next = STATUS_CYCLE[(i + 1) % STATUS_CYCLE.length];

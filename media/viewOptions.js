@@ -21,7 +21,9 @@
 const ViewOptions = (() => {
   const GROUP_BY = ["none", "status", "priority"];
   const SORT_BY = ["date", "fixed", "status", "priority"];
-  const STATUS_ORDER = ["pending", "in-progress", "done"];
+  const STATUS_ORDER = ["pending", "in-progress", "done", "canceled"];
+  /** Status groups listed only when they have notes (the rest are always listed). */
+  const OPTIONAL_STATUS_GROUPS = ["canceled"];
   const GROUP_LABEL = { none: "None", status: "Status", priority: "Priority" };
   const SORT_LABEL = { date: "Date modified", fixed: "Fixed order", status: "Status", priority: "Priority" };
   const UNASSIGNED_LABEL = "Unassigned";
@@ -177,17 +179,23 @@ const ViewOptions = (() => {
   /**
    * Splits already-sorted items into groups, or returns null when not grouping.
    * Status groups and visible priority levels are always listed (even empty);
-   * "Unassigned" only when it has notes, and hidden levels get no group.
+   * "Canceled" and "Unassigned" only when they have notes, and hidden levels
+   * get no group.
    */
   function buildGroups(sortedItems, view, features, statusLabels) {
     const groupBy = effectiveGroupBy(view, features);
     if (groupBy === "status") {
       return STATUS_ORDER.map((status) => ({
-        key: `status:${status}`,
-        label: (statusLabels && statusLabels[status]) || status,
-        level: null,
+        status,
         items: sortedItems.filter((it) => STATUS_ORDER[statusRank(it)] === status),
-      }));
+      }))
+        .filter(({ status, items }) => items.length > 0 || !OPTIONAL_STATUS_GROUPS.includes(status))
+        .map(({ status, items }) => ({
+          key: `status:${status}`,
+          label: (statusLabels && statusLabels[status]) || status,
+          level: null,
+          items,
+        }));
     }
     if (groupBy === "priority") {
       const hidden = hiddenSet(view, features);
