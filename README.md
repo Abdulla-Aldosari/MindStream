@@ -5,7 +5,7 @@
 Capture notes and ideas as they happen, organize them into custom types
 and categories, and track their status.
 
-![Capturing a coding idea as a note in MindStream](docs/images/hero-screenshot.gif)
+![Capturing a coding idea as a note in MindStream](https://raw.githubusercontent.com/Abdulla-Aldosari/repo-assets/refs/heads/main/MindStream/coming-soon-image-pending.png)
 
 _A thought strikes mid-code. One shortcut later, it's a saved note, without ever leaving the editor._
 
@@ -28,7 +28,7 @@ _A thought strikes mid-code. One shortcut later, it's a saved note, without ever
 
 ## Organize & Customize
 
-![Organizing and managing notes in MindStream](docs/images/organize-and-manage.gif)
+![Organizing and managing notes in MindStream](https://raw.githubusercontent.com/Abdulla-Aldosari/repo-assets/refs/heads/main/MindStream/coming-soon-image-pending.png)
 
 _Add a category, create a type with its own icon, cycle a note through its
 statuses, archive it once it's done, then filter the list back down by
