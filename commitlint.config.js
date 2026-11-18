@@ -59,7 +59,7 @@ const baseScopes = [
     "build, lint, format, TypeScript, test-runner, packaging-ignore, and editor/debugger configuration",
     ["esbuild.js", "eslint.config.js", "tsconfig.json", "playwright.config.ts", ".mocharc.json", ".prettierrc", ".prettierignore", ".gitignore", ".vscodeignore", ".vscode/"],
   ],
-  ["ci", "GitHub Actions pipelines for lint, test, audit, and CodeQL", [".github/workflows/"]],
+  ["ci", "GitHub Actions pipelines for lint, test, audit, and CodeQL, and the Dependabot update schedule", [".github/workflows/", ".github/dependabot.yml"]],
   ["husky", "git hook scripts that run on commit and push", [".husky/"]],
   ["commitlint", "commit type and scope rules for this project", ["commitlint.config.js"]],
   ["deps", "adding, removing, or bumping dependencies and package metadata or scripts", ["package.json", "package-lock.json"]],
