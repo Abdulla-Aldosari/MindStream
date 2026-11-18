@@ -148,7 +148,8 @@ src/
                          folder (.vscode/mindstream.data.json at the project root).
   itemsStore.ts           ItemsStore: CRUD for notes, status changes (completedAt set on done),
                          archiving independent of status, permanent deletion, and host-side code link
-                         tracking (setLink, mapLinks with persist false, save).
+                         tracking (setLink, mapLinks with persist false, save). Archived notes are
+                         read-only (ArchivedNoteError); see "Archived notes are read-only".
   typesRegistry.ts        TypesRegistry: manage user-defined note types (add/rename/
                          setIcon/remove/reassign), items reference typeId not label.
   categoriesRegistry.ts   CategoriesRegistry: manage categories, built-in "General"
@@ -228,7 +229,8 @@ media/
     toolbar.js            Category/type filters, the View menu (DropdownMenu),
                           the archive toggle.
     list.js               Filtering, empty state, groups, FLIP animation.
-    card.js               Note cards and their footer actions.
+    card.js               Note cards and their footer actions (archived cards:
+                          no status cycle, no Edit).
     linkBadge.js          Code-link badge and its fit-to-width observer (§9).
     noteEditor.js         New/edit note modal, the Save round trip, and the
                           description editor tab link (§12).
@@ -236,7 +238,8 @@ media/
     noteViewer.js         Read-only viewer and its options menu (Copy ID /
                           Copy content, sent to the host as copyToClipboard).
                           Checks tasks of a task group; refreshView() keeps the
-                          open viewer in line with each state (§11).
+                          open viewer in line with each state (§11). Archived
+                          notes: no Edit, read-only checklist.
     taskEditor.js         The note editor's task rows: add, remove, check,
                           drag and Alt+Up/Down reordering, Focus mode (§11).
     taskProgress.js       buildProgressBar() and the task checkbox, shared by
@@ -473,6 +476,36 @@ nothing at all, and its message alone explains it.
   silently (`flush`, `applyRename`, `applyDelete`, `setLink` calls), and
   `resolveItem` still returns the resolved location; `importJson` reports the
   problem before opening any dialog and catches a save refused later.
+
+### Archived notes are read-only (`itemsStore.ts`)
+
+Archiving freezes a note. The rule lives in `ItemsStore`, so the sidebar and
+any automated caller get the same answer.
+
+| Operation on an archived note                   | Result                                    |
+| ----------------------------------------------- | ----------------------------------------- |
+| `update`, `changeStatus`, `setTaskCompleted`    | throws `ArchivedNoteError`, nothing saved |
+| `setArchived` (archive / unarchive)             | allowed: unarchiving is the way back      |
+| `delete`, `deleteByCategory`                    | allowed                                   |
+| `setLink`, `mapLinks` (host-side link tracking) | allowed: not a user edit                  |
+| Read, export, report, import/merge              | allowed                                   |
+
+- The check runs after the note is found (an unknown id stays a silent no-op)
+  and before any other check, so `changeStatus` to the same status is refused
+  too: an automated caller never mistakes a refusal for success.
+- `ArchivedNoteError` (`code` `NOTE_ARCHIVED`) has a complete message: `Not
+saved: the note "<title>" is archived, and archived notes are read-only.
+Nothing was changed. Unarchive it first, then try again.`
+  `SidebarProvider.handleMessage` shows it and refreshes the view, like a
+  `StorageError`.
+- Work Pause is checked first, at the entry point.
+- Webview: an archived card's status is a plain badge (no click, no tooltip,
+  default cursor) and the card has no Edit button; View, Unarchive, and Delete
+  stay. The viewer hides Edit and shows the checklist read-only (disabled
+  checks, no row click).
+- A note archived elsewhere while its editor is open: Save is refused
+  (`noteSaveResult` `ok: false`), the editor keeps what was typed, and only
+  the user's Cancel closes it. The editor is never closed on the user's behalf.
 
 ### At least one type
 
@@ -1213,9 +1246,11 @@ updated at the wrong position. Work Pause blocks it like every other mutation.
   pointer cursor). Each toggle updates the row and the bar at once, then posts
   `setTaskCompleted`. Each
   `state` message calls `refreshView()`, which re-reads the note (closing the
-  viewer if it was deleted). Rows are rebuilt only when the titles change;
-  otherwise they are updated in place, so the focused checkbox keeps its focus
-  (moving focus by script would show its tooltip).
+  viewer if it was deleted). Rows are rebuilt only when the titles or the
+  archived state change; otherwise they are updated in place, so the focused
+  checkbox keeps its focus (moving focus by script would show its tooltip).
+  For an archived note the list is read-only: checks are disabled, rows do not
+  toggle, and `ItemsStore.setTaskCompleted()` refuses the write as well.
 - **Editor**: `#f-tasks` holds the form's own copy of the list
   (`setFormTasks()` / `getFormTasks()` in `taskEditor.js`). Each row is:
   the sequence number (a `<button class="task-seq">` that is also the drag

@@ -6,7 +6,8 @@
  *-------------------------------------------------*/
 
 // Note cards: layout, priority indicator, and the footer actions (status
-// cycle, view, edit, archive, delete).
+// cycle, view, edit, archive, delete). Archived cards are read-only: no status
+// cycle and no Edit.
 
 import { esc, state, typeOf, vscode } from "./core.js";
 import { buildLinkBadge, linkRowObserver } from "./linkBadge.js";
@@ -125,20 +126,26 @@ function buildPriorityDot(level, label) {
 export function buildCard(item) {
   const card = buildCardBase(item);
 
-  const status = card.querySelector(".card-footer .status");
-  status.dataset.tooltip = statusTooltip(item.status);
-  status.addEventListener("click", (e) => cycleStatus(item, e));
+  // An archived note is read-only: its status is a plain badge and it has no
+  // Edit button (the host refuses those writes too, see ItemsStore).
+  if (!item.archived) {
+    const status = card.querySelector(".card-footer .status");
+    status.dataset.tooltip = statusTooltip(item.status);
+    status.addEventListener("click", (e) => cycleStatus(item, e));
+  }
 
   const footer = card.querySelector(".card-footer");
 
-  // The four card actions travel together on the right side.
+  // The card actions travel together on the right side.
   const actions = document.createElement("div");
   actions.className = "card-actions";
 
   const viewBtn = btnIcon("codicon-eye", "View note", () => openView(item));
   viewBtn.classList.add("card-view-btn");
   actions.appendChild(viewBtn);
-  actions.appendChild(btnIcon("codicon-edit", "Edit", () => openEdit(item)));
+  if (!item.archived) {
+    actions.appendChild(btnIcon("codicon-edit", "Edit", () => openEdit(item)));
+  }
   actions.appendChild(btnIcon("codicon-archive", item.archived ? "Unarchive" : "Archive", () => toggleArchive(item)));
   actions.appendChild(btnIcon("codicon-trash", "Delete permanently", () => deleteItem(item), true));
 

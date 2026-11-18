@@ -38,13 +38,37 @@ export interface UpdateItemInput {
 }
 
 /**
+ * Thrown when a write targets an archived note. Its message is complete and
+ * safe to show as is, to the user or to an automated caller: it states the
+ * reason, that nothing was changed, and how to resolve it.
+ */
+export class ArchivedNoteError extends Error {
+  readonly code = "NOTE_ARCHIVED";
+
+  constructor(title: string) {
+    super(`Not saved: the note "${title}" is archived, and archived notes are read-only. Nothing was changed. Unarchive it first, then try again.`);
+    this.name = "ArchivedNoteError";
+  }
+}
+
+/**
  * Item management (CRUD) with:
  * - An append-only history of status transitions.
  * - Archiving fully independent of status.
  * - Permanent deletion separate from archiving.
+ * - Archived notes are read-only: `update`, `changeStatus`, and
+ *   `setTaskCompleted` throw `ArchivedNoteError` before changing anything.
+ *   Still allowed: `setArchived` (the way back), `delete`/`deleteByCategory`,
+ *   and host-side link tracking (`setLink`/`mapLinks`).
  */
 export class ItemsStore {
   constructor(private readonly storage: IStorage) {}
+
+  private assertNotArchived(item: MindStreamItem): void {
+    if (item.archived) {
+      throw new ArchivedNoteError(item.title);
+    }
+  }
 
   /**
    * Returns items in a stable creation order (ascending `createdAt`).
@@ -99,6 +123,7 @@ export class ItemsStore {
     if (!item) {
       return;
     }
+    this.assertNotArchived(item);
     if (patch.title !== undefined) {
       item.title = patch.title;
     }
@@ -137,6 +162,9 @@ export class ItemsStore {
   setTaskCompleted(id: string, index: number, title: string, completed: boolean): boolean {
     const data = this.storage.getData();
     const item = data.items.find((it) => it.id === id);
+    if (item) {
+      this.assertNotArchived(item);
+    }
     const task = item?.tasks?.[index];
     if (!item || !task || task.title !== title || task.completed === completed) {
       return false;
@@ -188,11 +216,15 @@ export class ItemsStore {
     this.storage.saveData(this.storage.getData());
   }
 
-  /** Changes status; `completedAt` is set on "done" and removed on any other status. */
+  /** Changes status; `completedAt` is set on "done" and removed on any other status. Throws `ArchivedNoteError` for an archived note. */
   changeStatus(id: string, status: MindStreamStatus): void {
     const data = this.storage.getData();
     const item = data.items.find((it) => it.id === id);
-    if (!item || item.status === status) {
+    if (!item) {
+      return;
+    }
+    this.assertNotArchived(item);
+    if (item.status === status) {
       return;
     }
     const now = nowIso();

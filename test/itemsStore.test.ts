@@ -7,7 +7,7 @@
 
 import * as assert from "assert";
 import { createEmptyData } from "../src/storage";
-import { ItemsStore } from "../src/itemsStore";
+import { ArchivedNoteError, ItemsStore } from "../src/itemsStore";
 import { GENERAL_CATEGORY_ID } from "../src/models";
 import { InMemoryStorage } from "./helpers";
 
@@ -272,5 +272,84 @@ describe("ItemsStore tasks", () => {
     assert.strictEqual(items.setTaskCompleted(id, 1, "Two", true), false);
     assert.strictEqual(storage.saved.length, saves);
     assert.deepStrictEqual(items.get(id)?.tasks, tasks());
+  });
+
+  describe("archived notes are read-only", () => {
+    function archivedSetup() {
+      const ctx = setup();
+      const note = ctx.items.create({ typeId: ctx.typeId, title: "Frozen", tasks: tasks() });
+      ctx.items.setArchived(note.id, true);
+      const before = JSON.stringify(ctx.storage.getData());
+      const saves = ctx.storage.saved.length;
+      const unchanged = () => {
+        assert.strictEqual(JSON.stringify(ctx.storage.getData()), before);
+        assert.strictEqual(ctx.storage.saved.length, saves);
+      };
+      return { ...ctx, id: note.id, unchanged };
+    }
+
+    it("update throws ArchivedNoteError and changes nothing", () => {
+      const { items, id, unchanged } = archivedSetup();
+      assert.throws(() => items.update(id, { title: "Changed" }), ArchivedNoteError);
+      unchanged();
+    });
+
+    it("changeStatus throws, even for the same status, and changes nothing", () => {
+      const { items, id, unchanged } = archivedSetup();
+      assert.throws(() => items.changeStatus(id, "done"), ArchivedNoteError);
+      assert.throws(() => items.changeStatus(id, "pending"), ArchivedNoteError);
+      unchanged();
+    });
+
+    it("setTaskCompleted throws and changes nothing", () => {
+      const { items, id, unchanged } = archivedSetup();
+      assert.throws(() => items.setTaskCompleted(id, 0, "One", true), ArchivedNoteError);
+      unchanged();
+    });
+
+    it("the error message names the note, says nothing changed, and how to fix it", () => {
+      const { items, id } = archivedSetup();
+      assert.throws(
+        () => items.update(id, { title: "Changed" }),
+        (err: unknown) =>
+          err instanceof ArchivedNoteError &&
+          err.code === "NOTE_ARCHIVED" &&
+          err.message.includes('"Frozen"') &&
+          err.message.includes("Nothing was changed.") &&
+          err.message.includes("Unarchive it first")
+      );
+    });
+
+    it("an unknown id is still a silent no-op", () => {
+      const { items, unchanged } = archivedSetup();
+      items.update("nope", { title: "X" });
+      items.changeStatus("nope", "done");
+      assert.strictEqual(items.setTaskCompleted("nope", 0, "One", true), false);
+      unchanged();
+    });
+
+    it("link tracking, unarchiving, and deletion still work", () => {
+      const { items, id, storage } = archivedSetup();
+      storage.getData().items.find((it) => it.id === id)!.link = { filePath: "src/a.ts", lineStart: 3, state: "ok" };
+      items.setLink(id, { filePath: "src/a.ts", lineStart: 5, state: "ok" });
+      assert.strictEqual(items.get(id)?.link?.lineStart, 5);
+      items.setArchived(id, false);
+      assert.strictEqual(items.get(id)?.archived, false);
+      items.setArchived(id, true);
+      items.delete(id);
+      assert.strictEqual(items.get(id), undefined);
+    });
+
+    it("unarchiving makes the note editable again", () => {
+      const { items, id } = archivedSetup();
+      items.setArchived(id, false);
+      items.update(id, { title: "Thawed" });
+      items.changeStatus(id, "done");
+      assert.strictEqual(items.setTaskCompleted(id, 0, "One", true), true);
+      const note = items.get(id)!;
+      assert.strictEqual(note.title, "Thawed");
+      assert.strictEqual(note.status, "done");
+      assert.strictEqual(note.tasks?.[0].completed, true);
+    });
   });
 });
