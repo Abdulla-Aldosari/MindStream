@@ -328,8 +328,10 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 }
 
 .card {
+  position: relative;
+  --ms-card-border-color: var(--vscode-widget-border, var(--vscode-panel-border, #333));
   background: var(--ms-card-current-background);
-  border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, #333));
+  border: 1px solid var(--ms-card-border-color);
   border-radius: var(--radius-md);
   padding: 10px;
   display: flex;
@@ -338,7 +340,7 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 }
 
 .card:hover {
-  border-color: var(--vscode-focusBorder);
+  --ms-card-border-color: var(--vscode-focusBorder);
 }
 
 .card-head {
@@ -412,8 +414,17 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 
 .card.archived {
   --ms-card-current-background: var(--ms-card-archived-background);
-  border-style: dashed;
-  border-width: 2px;
+  border-color: transparent;
+}
+
+.card.archived::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  box-sizing: border-box;
+  border: 2px dashed var(--ms-card-border-color);
+  border-radius: inherit;
+  pointer-events: none;
 }
 
 /* Canceled: the work was dropped; the note is kept for reference. */
