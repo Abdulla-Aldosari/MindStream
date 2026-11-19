@@ -42,6 +42,7 @@ export interface WebviewMessage {
     | "openLink"
     | "saveWorkPauseNote"
     | "confirmDiscardWorkPauseDraft"
+    | "confirmCloseNoteForm"
     | "openDescriptionEditor"
     | "closeDescriptionEditor"
     | "setTaskCompleted";
@@ -77,6 +78,9 @@ export interface WebviewMessage {
   completed?: boolean;
 }
 
+/** The answer to "this note form has changes: save, discard, or keep editing?". */
+export type NoteCloseChoice = "save" | "discard" | "cancel";
+
 /** User-facing confirmations and notices the controller needs from the host. */
 export interface SidebarUi {
   confirmDeleteNote(title: string): Promise<boolean>;
@@ -87,6 +91,14 @@ export interface SidebarUi {
   confirmDiscardWorkPauseDraft(): Promise<boolean>;
   /** Sends the user's answer to that question back to the webview. */
   answerWorkPauseDiscard(discard: boolean): void;
+  /**
+   * Asks what to do with the changes of the note form that is being closed:
+   * store them (`save`, which the form runs as its own Save), `discard` them,
+   * or `cancel` and keep editing.
+   */
+  confirmCloseNoteForm(): Promise<NoteCloseChoice>;
+  /** Sends the user's answer to that question back to the webview. */
+  answerCloseNoteForm(choice: NoteCloseChoice): void;
   pickType(types: { id: string; label: string; icon?: string }[]): Promise<string | undefined>;
   showInfo(message: string): void;
   /**
@@ -178,6 +190,10 @@ export class SidebarController {
         break;
       case "confirmDiscardWorkPauseDraft":
         this.ui.answerWorkPauseDiscard(await this.ui.confirmDiscardWorkPauseDraft());
+        break;
+      case "confirmCloseNoteForm":
+        // Only a question: nothing is read or written here. The form runs its own Save when the answer is "save".
+        this.ui.answerCloseNoteForm(await this.ui.confirmCloseNoteForm());
         break;
       case "openDescriptionEditor":
         await this.ui.openDescriptionEditor(typeof msg.title === "string" ? msg.title : "", typeof msg.description === "string" ? msg.description : "");

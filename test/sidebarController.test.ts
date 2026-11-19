@@ -75,6 +75,19 @@ class FakeUi implements SidebarUi {
     this.discardAnswers.push(discard);
   }
 
+  closeFormChoice: "save" | "discard" | "cancel" = "cancel";
+  closeFormQuestions = 0;
+  closeFormAnswers: ("save" | "discard" | "cancel")[] = [];
+
+  async confirmCloseNoteForm(): Promise<"save" | "discard" | "cancel"> {
+    this.closeFormQuestions += 1;
+    return this.closeFormChoice;
+  }
+
+  answerCloseNoteForm(choice: "save" | "discard" | "cancel"): void {
+    this.closeFormAnswers.push(choice);
+  }
+
   async pickType(types: { id: string; label: string; icon?: string }[]): Promise<string | undefined> {
     this.pickedTypes = types;
     return this.pickTypeResult;
@@ -731,6 +744,27 @@ describe("SidebarController note editor save answer", () => {
     assert.strictEqual(ui.saveAnswers.length, 0);
     controller.refuseNoteSave({ type: "updateItem", id: "x", saveId: 4 });
     assert.deepStrictEqual(ui.saveAnswers, [{ saveId: 4, ok: false }]);
+  });
+
+  describe("closing the note form with changes", () => {
+    for (const choice of ["save", "discard", "cancel"] as const) {
+      it(`confirmCloseNoteForm relays the "${choice}" answer and changes nothing`, async () => {
+        const { controller, ui, storage, items } = setup();
+        ui.closeFormChoice = choice;
+        await controller.handleMessage({ type: "confirmCloseNoteForm" });
+        assert.strictEqual(ui.closeFormQuestions, 1);
+        assert.deepStrictEqual(ui.closeFormAnswers, [choice]);
+        assert.strictEqual(storage.saved.length, 0);
+        assert.strictEqual(items.list().length, 0);
+      });
+    }
+
+    it("the question is refused while work is paused, so the form never asks", async () => {
+      const { controller, ui, workPause } = setup();
+      workPause.save("Back soon.", true);
+      await controller.handleMessage({ type: "confirmCloseNoteForm" });
+      assert.strictEqual(ui.closeFormQuestions, 0);
+    });
   });
 
   describe("description editor tab", () => {

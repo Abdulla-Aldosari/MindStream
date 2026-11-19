@@ -7,7 +7,7 @@
 
 import * as fs from "node:fs";
 import type { Frame } from "@playwright/test";
-import { buildData, expect, notification, readData, showSidebar, test, waitForData } from "./helpers";
+import { answerDialog, buildData, expect, notification, readData, showSidebar, test, waitForData } from "./helpers";
 
 // Archived notes are read-only: no status change, no edit, no task check.
 // Viewing, unarchiving, and deleting stay possible.
@@ -120,8 +120,9 @@ test("a note archived elsewhere while its editor is open is not saved, and the e
   expect(saved.title).toBe("Draft note");
   expect(saved.archived).toBe(true);
 
-  // Only the user's Cancel closes it.
+  // Only the user's Cancel closes it (after answering that the typed text may go).
   await sidebar.locator("#modal-cancel").click();
+  await answerDialog(session.page, "Discard");
   await expect(sidebar.locator("#modal")).toBeHidden();
   expect(readData(session).items[0].title).toBe("Draft note");
 });

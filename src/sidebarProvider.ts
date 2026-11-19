@@ -14,7 +14,8 @@ import { CategoriesRegistry } from "./categoriesRegistry";
 import { EmojiRegistry } from "./emojiRegistry";
 import { UiPrefsRegistry } from "./uiPrefs";
 import { WeeklyReportData } from "./report";
-import { SidebarController, SidebarUi, WebviewMessage } from "./sidebarController";
+import { NoteCloseChoice, SidebarController, SidebarUi, WebviewMessage } from "./sidebarController";
+import { normalizeFormCloseBehavior } from "./noteFormSettings";
 import { getBodyClass } from "./util";
 import { DEFAULT_PRIORITY, normalizePriorityStyle, PRIORITIES, PRIORITY_LABEL, PriorityStyle, priorityFeatures } from "./priority";
 import { DescriptionEditor } from "./descriptionEditor";
@@ -295,6 +296,15 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     void this._view?.webview.postMessage({ type: "workPauseDiscardAnswer", discard });
   }
 
+  async confirmCloseNoteForm(): Promise<NoteCloseChoice> {
+    const pick = await vscode.window.showWarningMessage("Save your changes to the note?", { modal: true }, "Save", "Discard");
+    return pick === "Save" ? "save" : pick === "Discard" ? "discard" : "cancel";
+  }
+
+  answerCloseNoteForm(choice: NoteCloseChoice): void {
+    void this._view?.webview.postMessage({ type: "noteCloseAnswer", choice });
+  }
+
   answerNoteSave(saveId: number | undefined, ok: boolean): void {
     void this._view?.webview.postMessage({ type: "noteSaveResult", saveId, ok });
   }
@@ -337,6 +347,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
       emojiRecents: this.emoji.recents(),
       descriptionHeight: this.uiPrefs.descriptionHeight(),
       copyIncludeNoteInfo: this.getCopyIncludeNoteInfo(),
+      noteFormCloseBehavior: this.getFormCloseBehavior(),
       priority: {
         ...priorityFeatures(this.getPriorityStyle()),
         levels: PRIORITIES,
@@ -349,6 +360,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
   /** Reads the priority style setting (an unknown value falls back to the default). */
   private getPriorityStyle(): PriorityStyle {
     return normalizePriorityStyle(vscode.workspace.getConfiguration("mindstream").get<string>("priority.style"));
+  }
+
+  /** Reads what closing the note form with changes does (an unknown value asks first). */
+  private getFormCloseBehavior(): string {
+    return normalizeFormCloseBehavior(vscode.workspace.getConfiguration("mindstream").get<string>("noteForm.onCloseWithChanges"));
   }
 
   /** Reads the UI direction setting (defaults to 'ltr'). */
@@ -377,6 +393,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     const viewOptionsUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "viewOptions.js"));
     const workPauseUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "workPause.js"));
     const taskListUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "taskList.js"));
+    const noteFormUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "noteForm.js"));
     const nonce = getNonce();
     return `<!DOCTYPE html>
 <html lang="en" dir="ltr">
@@ -632,6 +649,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
   <script nonce="${nonce}" src="${viewOptionsUri}"></script>
   <script nonce="${nonce}" src="${workPauseUri}"></script>
   <script nonce="${nonce}" src="${taskListUri}"></script>
+  <script nonce="${nonce}" src="${noteFormUri}"></script>
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;

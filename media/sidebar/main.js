@@ -13,7 +13,7 @@
 import { $, modalEl, viewModalEl, vscode } from "./core.js";
 import { initList } from "./list.js";
 import { initPriorityControl } from "./priorityControl.js";
-import { closeModal, initNoteEditor } from "./noteEditor.js";
+import { initNoteEditor, requestCloseModal } from "./noteEditor.js";
 import { initTaskEditor } from "./taskEditor.js";
 import { closeView, initNoteViewer } from "./noteViewer.js";
 import { initWorkPausePanel, isWorkPauseShown, requestWorkPauseCancel } from "./workPausePanel.js";
@@ -52,7 +52,7 @@ document.addEventListener("keydown", (e) => {
     } else if (!$("emoji-edit-modal").hidden) {
       closeEmojiEditModal();
     } else if (!modalEl.hidden) {
-      closeModal();
+      requestCloseModal();
     } else if (!viewModalEl.hidden) {
       closeView();
     } else if (!$("categories-modal").hidden) {

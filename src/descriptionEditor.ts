@@ -7,9 +7,12 @@
 
 import * as vscode from "vscode";
 import { DESCRIPTION_SCHEME, DescriptionDraft } from "./descriptionDraft";
+import { DEFAULT_TAB_CLOSE_BEHAVIOR, TabCloseBehavior } from "./noteFormSettings";
 
 const SAVED_NOTICE = "MindStream: description updated in the note form. Click Save in the note to store it.";
 const SAVED_NOTICE_MS = 6000;
+/** Pause after the last keystroke before the tab saves itself (keeps the tab from ever staying "modified"). */
+const AUTO_SAVE_DELAY_MS = 150;
 
 function isSchemeTab(tab: vscode.Tab): tab is vscode.Tab & { input: vscode.TabInputText } {
   return tab.input instanceof vscode.TabInputText && tab.input.uri.scheme === DESCRIPTION_SCHEME;
@@ -22,10 +25,17 @@ function isSchemeTab(tab: vscode.Tab): tab is vscode.Tab & { input: vscode.TabIn
  * saves without a "Save As" dialog and never touches the data file: the text
  * only reaches the note form, and the note is stored by the form's own Save.
  * The rules live in `DescriptionDraft`; this class is the `vscode` layer.
+ *
+ * What closing the tab does with edits that were not saved is the
+ * `mindstream.descriptionTab.onClose` setting: with "keep" the tab saves itself
+ * shortly after every edit (so VS Code never asks), with "ask" VS Code's own
+ * Save / Don't Save / Cancel question appears. Either way the text only reaches
+ * the note form, never the data file.
  */
 export class DescriptionEditor implements vscode.FileSystemProvider, vscode.Disposable {
   private readonly draft = new DescriptionDraft();
   private closing = false;
+  private autoSaveTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly fileChanges = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
   private readonly textChanges = new vscode.EventEmitter<string>();
   private readonly userClosed = new vscode.EventEmitter<string>();
@@ -37,7 +47,7 @@ export class DescriptionEditor implements vscode.FileSystemProvider, vscode.Disp
   /** Fires with the final text when the user closes the tab (the draft ends). */
   readonly onDidCloseByUser = this.userClosed.event;
 
-  constructor() {
+  constructor(private readonly tabCloseBehavior: () => TabCloseBehavior = () => DEFAULT_TAB_CLOSE_BEHAVIOR) {
     this.subscriptions = [
       vscode.workspace.registerFileSystemProvider(DESCRIPTION_SCHEME, this, { isCaseSensitive: true }),
       vscode.workspace.onDidChangeTextDocument((e) => this.handleDocumentChange(e)),
@@ -81,6 +91,7 @@ export class DescriptionEditor implements vscode.FileSystemProvider, vscode.Disp
     // The file must stay readable while its tab is reverted and closed, and the
     // tab closing here is not the user ending the draft.
     this.closing = true;
+    this.cancelAutoSave();
     try {
       await this.closeTabs(() => true);
     } finally {
@@ -90,6 +101,7 @@ export class DescriptionEditor implements vscode.FileSystemProvider, vscode.Disp
   }
 
   dispose(): void {
+    this.cancelAutoSave();
     this.subscriptions.forEach((s) => s.dispose());
     this.draft.close();
   }
@@ -119,6 +131,29 @@ export class DescriptionEditor implements vscode.FileSystemProvider, vscode.Disp
     if (this.draft.setLive(doc.uri.path, doc.getText())) {
       this.textChanges.fire(this.draft.liveText() ?? "");
     }
+    // `doc.isDirty` is not up to date yet while this event runs (it still shows the
+    // state before the edit), so it is only checked when the timer fires.
+    if (this.tabCloseBehavior() === "keep") {
+      this.scheduleAutoSave(doc);
+    }
+  }
+
+  /** Saves the tab shortly after the last edit; the save only updates the note form. */
+  private scheduleAutoSave(doc: vscode.TextDocument): void {
+    this.cancelAutoSave();
+    this.autoSaveTimer = setTimeout(() => {
+      this.autoSaveTimer = undefined;
+      if (doc.isDirty && !doc.isClosed) {
+        void Promise.resolve(doc.save()).catch(() => undefined);
+      }
+    }, AUTO_SAVE_DELAY_MS);
+  }
+
+  private cancelAutoSave(): void {
+    if (this.autoSaveTimer !== undefined) {
+      clearTimeout(this.autoSaveTimer);
+      this.autoSaveTimer = undefined;
+    }
   }
 
   private handleTabsClosed(closed: readonly vscode.Tab[]): void {
@@ -134,7 +169,10 @@ export class DescriptionEditor implements vscode.FileSystemProvider, vscode.Disp
     if (vscode.window.tabGroups.all.some((group) => group.tabs.some(isDraftTab))) {
       return;
     }
-    const text = this.draft.liveText() ?? "";
+    // "keep": every edit goes back to the form. "ask": the user answered VS Code's
+    // question, so only what was saved in the tab counts (Don't Save drops the rest).
+    const text = this.draft.finalText(this.tabCloseBehavior() === "keep");
+    this.cancelAutoSave();
     this.draft.close();
     this.userClosed.fire(text);
   }
@@ -175,7 +213,10 @@ export class DescriptionEditor implements vscode.FileSystemProvider, vscode.Disp
       throw vscode.FileSystemError.FileNotFound(uri);
     }
     this.textChanges.fire(this.draft.liveText() ?? "");
-    vscode.window.setStatusBarMessage(SAVED_NOTICE, SAVED_NOTICE_MS);
+    // Automatic saves happen after every edit, so only a save the user asked for is announced.
+    if (this.tabCloseBehavior() === "ask") {
+      vscode.window.setStatusBarMessage(SAVED_NOTICE, SAVED_NOTICE_MS);
+    }
   }
 
   delete(uri: vscode.Uri): void {

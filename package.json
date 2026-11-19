@@ -320,6 +320,32 @@
           ],
           "default": "chip",
           "description": "How note priority is shown on cards, or 'off' to disable the priority system."
+        },
+        "mindstream.descriptionTab.onClose": {
+          "type": "string",
+          "enum": [
+            "keep",
+            "ask"
+          ],
+          "enumDescriptions": [
+            "Keep the edits: closing the description tab hands everything you typed back to the note form without asking.",
+            "Ask: closing the description tab with edits that were not saved shows VS Code's Save / Don't Save question. Don't Save drops those edits."
+          ],
+          "default": "keep",
+          "description": "What closing the description editor tab does with its edits. Either way the text only reaches the open note form; the note is stored when you click Save in the form."
+        },
+        "mindstream.noteForm.onCloseWithChanges": {
+          "type": "string",
+          "enum": [
+            "ask",
+            "discard"
+          ],
+          "enumDescriptions": [
+            "Ask: closing the note form (Cancel, X, or Esc) after changing any field, including the description and the task list, asks whether to save or discard the changes.",
+            "Discard: close the note form at once and lose the changes without asking."
+          ],
+          "default": "ask",
+          "description": "What closing the note form does when a field was changed."
         }
       }
     }

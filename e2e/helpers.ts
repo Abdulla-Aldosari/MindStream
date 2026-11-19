@@ -74,6 +74,8 @@ export interface LaunchOptions {
   rawData?: string;
   /** Workspace files written before VS Code starts: relative path to the file's lines. */
   files?: Record<string, string[]>;
+  /** User settings written before VS Code starts (for example a MindStream setting). */
+  settings?: Record<string, unknown>;
 }
 
 export interface Session {
@@ -113,7 +115,7 @@ export async function launchVscode(options: LaunchOptions = {}): Promise<Session
   for (const [relPath, lines] of Object.entries(options.files ?? {})) {
     writeWorkspaceFile(workspace, relPath, lines);
   }
-  prepareUserData(userData);
+  prepareUserData(userData, options.settings);
 
   const app = await _electron.launch({
     executablePath: await resolveVscodeExecutable(),
@@ -226,6 +228,19 @@ export async function expectCommandHidden(page: Page, title: string): Promise<vo
 export async function clickMoreMenuItem(page: Page, title: string): Promise<void> {
   await page.locator('.part.sidebar .title-actions .action-label[aria-label="More"]').first().click();
   await page.locator(".monaco-menu .action-item", { hasText: title }).first().click();
+}
+
+/** The in-window dialog (`window.dialogStyle` is "custom" in every test window). */
+export function dialog(page: Page) {
+  return page.locator(".monaco-dialog-box");
+}
+
+/** Clicks a button of the open dialog by its label. */
+export async function answerDialog(page: Page, button: string): Promise<void> {
+  const box = dialog(page);
+  await expect(box).toBeVisible();
+  await box.locator(".dialog-buttons .monaco-button", { hasText: button }).click();
+  await expect(box).toBeHidden();
 }
 
 /** A VS Code notification (toast) containing the text. */

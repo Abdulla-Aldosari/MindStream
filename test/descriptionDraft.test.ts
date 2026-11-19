@@ -118,6 +118,20 @@ describe("DescriptionDraft", () => {
     assert.strictEqual(draft.savedText(second.path), "two");
   });
 
+  it("finalText(true) keeps every edit, finalText(false) keeps only what the tab saved", () => {
+    const draft = new DescriptionDraft();
+    const { path } = draft.open("Idea", "one");
+    draft.setLive(path, "one two");
+    assert.strictEqual(draft.finalText(true), "one two");
+    assert.strictEqual(draft.finalText(false), "one");
+    draft.save(path, "one two\r\n");
+    assert.strictEqual(draft.finalText(false), "one two\n");
+  });
+
+  it("finalText() is empty when no draft is open", () => {
+    assert.strictEqual(new DescriptionDraft().finalText(true), "");
+  });
+
   it("uses a scheme VS Code treats as a custom file system", () => {
     assert.strictEqual(DESCRIPTION_SCHEME, "mindstream-desc");
   });

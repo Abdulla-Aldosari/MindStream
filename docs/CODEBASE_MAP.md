@@ -193,6 +193,8 @@ src/
                           draft with its saved and live texts, draftFileName(), normalizeEol().
   descriptionEditor.ts    DescriptionEditor: the `vscode` layer of §12 (a FileSystemProvider
                           for the `mindstream-desc` scheme, tab opening/closing, change events).
+  noteFormSettings.ts     Pure values and normalizers of the two close-with-changes settings
+                          (`descriptionTab.onClose`, `noteForm.onCloseWithChanges`). See §12.
   sidebarProvider.ts      SidebarProvider (WebviewViewProvider): renders the sidebar
                          webview, posts state to the UI, updates the activity-bar
                          badge, implements SidebarUi for confirm dialogs and the
@@ -277,6 +279,9 @@ media/
   workPause.js             WorkPause: view/edit/cancel rules of the Work Pause note
                           (pure, no DOM, loaded as a global before sidebar.js).
                           See §10.
+  noteForm.js              NoteForm: snapshot(), hasChanges(), closeAction(): whether closing the
+                          note form would lose changes (pure, loaded as a global before
+                          sidebar.js). See §12.
   taskList.js              TaskList: isTaskGroup(), progress(), move(),
                           focusAvailable() for task group notes (pure, loaded as
                           a global before sidebar.js).
@@ -1320,32 +1325,79 @@ Save.
   operation refused), plus the tab handling. A virtual file is used so Ctrl+S
   saves without a Save As dialog. The files are Markdown, which VS Code wraps by
   default. It exposes `onDidChangeText` (every edit or save) and
-  `onDidCloseByUser` (the final text when the user closes the tab).
+  `onDidCloseByUser` (the final text when the user closes the tab). It reads
+  `mindstream.descriptionTab.onClose` through an injected function.
+- `DescriptionDraft.finalText(keepEdits)` is the text handed back on a user
+  close: every edit (`live`) when `keepEdits`, otherwise only what the tab saved.
+- `noteFormSettings.ts` (no `vscode`) holds the two setting types and their
+  normalizers: an unknown `descriptionTab.onClose` means `keep`, an unknown
+  `noteForm.onCloseWithChanges` means `ask`, so a bad value never loses text.
 - `SidebarProvider` receives the `DescriptionEditor` through its constructor,
   forwards both events to the webview, and implements
   `SidebarUi.openDescriptionEditor` / `closeDescriptionEditor`.
 
+### Settings
+
+| Setting                                  | Values             | Default | Effect                                                                                                                                                                |
+| ---------------------------------------- | ------------------ | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mindstream.descriptionTab.onClose`      | `keep` \| `ask`    | `keep`  | `keep`: the tab saves itself 150 ms after every edit (so it is never "modified" and VS Code never asks); `ask`: VS Code's Save / Don't Save / Cancel question appears |
+| `mindstream.noteForm.onCloseWithChanges` | `ask` \| `discard` | `ask`   | `ask`: closing the form (Cancel, X, Esc) after any field changed asks Save / Discard / Cancel; `discard`: closes at once                                              |
+
+Neither setting writes the data file: the tab only updates the form, and the
+form's own Save stores the note. The second setting reaches the webview as
+`state.noteFormCloseBehavior` (`state` message field `noteFormCloseBehavior`).
+
 ### Behavior
 
-| Situation                                                     | Result                                                                                                      |
-| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Click `#f-desc-external`                                      | the tab opens with the form's description; a second click only reveals the tab                              |
-| Edit in the tab                                               | the form's textarea follows at once                                                                         |
-| Ctrl+S in the tab                                             | updates the form only (the data file is not written) and shows a status bar message                         |
-| Description field while the tab is open                       | read-only (`#f-desc-external-note` with `Focus editor`); no emoji is inserted into it                       |
-| Form closed (Save ok, Cancel, X, Esc), or another note opened | the tab closes without a Save prompt; unsaved tab text is discarded with the form                           |
-| Save refused (storage problem, work paused)                   | the form and the tab stay open, nothing is lost                                                             |
-| The user closes the tab                                       | the textarea is editable again with the latest text                                                         |
-| Work is paused                                                | the tab closes (`SidebarProvider.syncWorkPauseContext()`); the open message is refused like any write       |
-| Sidebar page rebuilt, or window reloaded                      | leftover `mindstream-desc` tabs are closed (`resolveWebviewView()` and the `DescriptionEditor` constructor) |
+| Situation                                                  | Result                                                                                                      |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Click `#f-desc-external`                                   | the tab opens with the form's description; a second click only reveals the tab                              |
+| Edit in the tab                                            | the form's textarea follows at once                                                                         |
+| Ctrl+S in the tab                                          | updates the form only (the data file is not written); with `ask` it shows a status bar message              |
+| Description field while the tab is open                    | read-only (`#f-desc-external-note` with `Focus editor`); no emoji is inserted into it                       |
+| Form closed after a save succeeded, or another note opened | the tab closes without a Save prompt                                                                        |
+| Cancel, X or Esc with no field changed                     | the form closes at once                                                                                     |
+| Cancel, X or Esc with a changed field (`ask`)              | a modal asks Save / Discard / Cancel before anything closes (see "Closing the form" below)                  |
+| Cancel, X or Esc with a changed field (`discard`)          | the form and the tab close at once; the changes are lost                                                    |
+| Save refused (storage problem, work paused)                | the form and the tab stay open, nothing is lost                                                             |
+| The user closes the tab (`keep`)                           | the textarea is editable again with the latest text, with no question                                       |
+| The user closes the tab with unsaved edits (`ask`)         | VS Code asks; Save and Don't Save both end the draft, Don't Save returns only the text saved in the tab     |
+| Work is paused                                             | the tab closes (`SidebarProvider.syncWorkPauseContext()`); the open message is refused like any write       |
+| Sidebar page rebuilt, or window reloaded                   | leftover `mindstream-desc` tabs are closed (`resolveWebviewView()` and the `DescriptionEditor` constructor) |
 
 ### Messages
 
-- Webview → host: `openDescriptionEditor` (`title`, `description`) and
-  `closeDescriptionEditor`. Both are blocked while work is paused.
+- Webview → host: `openDescriptionEditor` (`title`, `description`),
+  `closeDescriptionEditor`, and `confirmCloseNoteForm`. All are blocked while
+  work is paused.
+- `confirmCloseNoteForm` only asks: `SidebarUi.confirmCloseNoteForm()` shows a
+  modal `showWarningMessage` ("Save your changes to the note?", Save / Discard,
+  Esc = cancel) and `answerCloseNoteForm()` replies `noteCloseAnswer { choice }`
+  with `save`, `discard`, or `cancel`. The host never reads or writes a note here.
 - Host → webview: `descriptionEditorOpened` (`text`: the draft's text, which may
   be newer than the form's when the tab was already open),
-  `descriptionEditorText` (`text`), and `descriptionEditorClosed` (`text`).
+  `descriptionEditorText` (`text`), `descriptionEditorClosed` (`text`), and
+  `noteCloseAnswer` (`choice`).
+
+### Closing the form
+
+`noteEditor.js` takes `NoteForm.snapshot()` of the title, description, type,
+category, priority (only while the priority system is on), and the task list
+when the form opens (`rememberInitialForm()`). X (`#modal-close`), Cancel
+(`#modal-cancel`), and Esc all call `requestCloseModal()`, which compares the
+current fields with that snapshot through `NoteForm.closeAction()`:
+
+- `close`: nothing changed, or the setting is `discard`: `closeModal()` runs.
+- `confirm`: the form posts `confirmCloseNoteForm` and stays open
+  (`closeConfirming` blocks a second question). The answer `save` runs the
+  form's own `saveModal()`, so the form closes only once the host confirms the
+  note was stored and a refused save keeps everything; `discard` runs
+  `closeModal()`; `cancel` keeps the form.
+
+The comparison ignores what Save drops anyway (title padding, tasks with a blank
+title) and treats CRLF and LF as the same, because the description tab may use
+CRLF. The text typed in the description tab counts as a change because it flows
+into `#f-desc` while the tab is open.
 
 ### Webview
 

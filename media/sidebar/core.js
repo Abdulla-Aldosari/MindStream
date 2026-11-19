@@ -52,6 +52,8 @@ export const state = {
   emojiRecents: [],
   descriptionHeight: DEFAULT_DESCRIPTION_HEIGHT,
   copyIncludeNoteInfo: true,
+  // What closing the note form with changes does: "ask" or "discard" (mindstream.noteForm.onCloseWithChanges).
+  noteFormCloseBehavior: "ask",
   emojiTarget: null,
 };
 

@@ -24,10 +24,14 @@ const PROFILE_WINDOW = path.join(PROFILE_DIR, "window.json");
 export const EXTENSION_ROOT = path.resolve(__dirname, "..");
 const VSCODE_CACHE = path.join(os.homedir(), ".vscode-test");
 
-/** User settings written for every window: no AI chat, and no secondary side bar. */
+/**
+ * User settings written for every window: no AI chat, no secondary side bar, and
+ * in-window dialogs (a native dialog cannot be answered by the tests).
+ */
 const WINDOW_SETTINGS = {
   "chat.disableAIFeatures": true,
   "workbench.secondarySideBar.defaultVisibility": "hidden",
+  "window.dialogStyle": "custom",
 };
 
 /** The window rectangle VS Code stores (`mode` 1 is a normal window). */
@@ -88,10 +92,10 @@ function readSavedWindow(): WindowState | undefined {
  * local profile when one was captured (a missing or unreadable profile is
  * skipped, never an error).
  */
-export function prepareUserData(userData: string): void {
+export function prepareUserData(userData: string, extraSettings: Record<string, unknown> = {}): void {
   const settingsDir = path.join(userData, "User");
   fs.mkdirSync(settingsDir, { recursive: true });
-  fs.writeFileSync(path.join(settingsDir, "settings.json"), JSON.stringify(WINDOW_SETTINGS, null, 2), "utf8");
+  fs.writeFileSync(path.join(settingsDir, "settings.json"), JSON.stringify({ ...WINDOW_SETTINGS, ...extraSettings }, null, 2), "utf8");
 
   const storageDir = globalStorageDir(userData);
   const window = readSavedWindow();

@@ -10,7 +10,15 @@
 import { $, DEFAULT_DESCRIPTION_HEIGHT, modalEl, state } from "./core.js";
 import { renderList } from "./list.js";
 import { fillPriorityControl } from "./priorityControl.js";
-import { handleDescriptionEditorClosed, handleDescriptionEditorOpened, handleDescriptionEditorText, handleNoteSaveResult, openAdd, takePendingFlashId } from "./noteEditor.js";
+import {
+  handleDescriptionEditorClosed,
+  handleDescriptionEditorOpened,
+  handleDescriptionEditorText,
+  handleNoteCloseAnswer,
+  handleNoteSaveResult,
+  openAdd,
+  takePendingFlashId,
+} from "./noteEditor.js";
 import { refreshView } from "./noteViewer.js";
 import { applyWorkPauseState, handleWorkPauseDiscardAnswer, isWorkPaused, openWorkPauseEditor } from "./workPausePanel.js";
 import { openCategoriesModal, renderCategories } from "./categoriesModal.js";
@@ -35,6 +43,10 @@ export function initMessages() {
       if (!isWorkPaused()) {
         openWorkPauseEditor();
       }
+      return;
+    }
+    if (msg.type === "noteCloseAnswer") {
+      handleNoteCloseAnswer(msg);
       return;
     }
     if (msg.type === "noteSaveResult") {
@@ -108,6 +120,7 @@ export function initMessages() {
     }
     state.descriptionHeight = typeof msg.descriptionHeight === "number" ? msg.descriptionHeight : DEFAULT_DESCRIPTION_HEIGHT;
     state.copyIncludeNoteInfo = msg.copyIncludeNoteInfo !== false;
+    state.noteFormCloseBehavior = msg.noteFormCloseBehavior === "discard" ? "discard" : "ask";
     const prevPriorityEditor = state.priority.editor;
     state.priority = ViewOptions.normalizeFeatures(msg.priority);
     renderViewOptions();

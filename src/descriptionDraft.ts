@@ -95,6 +95,17 @@ export class DescriptionDraft {
     return { size: Buffer.byteLength(this.active.saved, "utf8"), mtime: this.active.mtime };
   }
 
+  /**
+   * The text the form receives when the tab closes: every edit when `keepEdits`
+   * is true, otherwise only what was saved in the tab (edits left unsaved are dropped).
+   */
+  finalText(keepEdits: boolean): string {
+    if (!this.active) {
+      return "";
+    }
+    return keepEdits ? this.active.live : normalizeEol(this.active.saved);
+  }
+
   /** Records an edit made in the tab. Returns true when the live text changed. */
   setLive(path: string, text: string): boolean {
     if (!this.active || this.active.path !== path) {

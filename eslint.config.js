@@ -46,6 +46,7 @@ module.exports = [
       "test/viewOptions.test.ts",
       "test/workPauseWebview.test.ts",
       "test/taskList.test.ts",
+      "test/noteForm.test.ts",
     ],
     rules: {
       "@typescript-eslint/no-require-imports": "off",
@@ -82,6 +83,7 @@ module.exports = [
         ViewOptions: "readonly",
         WorkPause: "readonly",
         TaskList: "readonly",
+        NoteForm: "readonly",
       },
     },
   },
@@ -98,6 +100,7 @@ module.exports = [
       "media/viewOptions.js",
       "media/workPause.js",
       "media/taskList.js",
+      "media/noteForm.js",
     ],
     languageOptions: {
       globals: {

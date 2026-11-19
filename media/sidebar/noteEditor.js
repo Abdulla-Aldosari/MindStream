@@ -25,6 +25,11 @@ let appliedDescHeight = null;
 // null. The editor closes only once the host confirms the note was stored.
 let pendingNoteSave = null;
 let nextNoteSaveId = 1;
+// The form's fields as they were when it opened (NoteForm.snapshot), to tell
+// whether closing the form would lose changes.
+let initialForm = null;
+// True while the host's "save or discard your changes?" question is open.
+let closeConfirming = false;
 // True while the description is being edited in an editor tab. The textarea is
 // then read-only and shows the tab's text, so the text has a single source.
 let descExternal = false;
@@ -79,6 +84,58 @@ export function handleDescriptionEditorText(msg) {
 export function handleDescriptionEditorClosed(msg) {
   if (descExternal && !modalEl.hidden) {
     setDescExternal(false, msg.text);
+  }
+}
+
+// The form's current fields in the shape NoteForm compares.
+function currentForm() {
+  return NoteForm.snapshot({
+    title: $("f-title").value,
+    description: $("f-desc").value,
+    typeId: state.formTypeId,
+    categoryId: state.formCategoryId,
+    priority: state.priority.editor ? state.formPriority : null,
+    tasks: getFormTasks(),
+  });
+}
+
+// Remembers the fields a freshly opened form starts with.
+function rememberInitialForm() {
+  closeConfirming = false;
+  initialForm = currentForm();
+}
+
+// X, Cancel and Esc share this path: close at once when nothing would be lost
+// (or the setting says to leave without asking), otherwise ask the host, which
+// answers with "noteCloseAnswer".
+export function requestCloseModal() {
+  if (modalEl.hidden || pendingNoteSave || closeConfirming) {
+    return;
+  }
+  if (NoteForm.closeAction(state.noteFormCloseBehavior, initialForm, currentForm()) === "close") {
+    closeModal();
+    return;
+  }
+  closeConfirming = true;
+  vscode.postMessage({ type: "confirmCloseNoteForm" });
+}
+
+// The host's answer: "save" runs the form's own Save (the form closes only once
+// the host confirms the note was stored), "discard" closes it, "cancel" keeps it.
+export function handleNoteCloseAnswer(msg) {
+  if (!closeConfirming) {
+    return;
+  }
+  closeConfirming = false;
+  if (modalEl.hidden) {
+    return;
+  }
+  if (msg.choice === "save") {
+    saveModal();
+  } else if (msg.choice === "discard") {
+    closeModal();
+  } else {
+    $("f-title").focus();
   }
 }
 
@@ -183,6 +240,7 @@ export function openAdd(link) {
   modalEl.hidden = false;
   resetTaskListScroll();
   applyDescHeight();
+  rememberInitialForm();
   $("f-title").focus();
 }
 
@@ -203,6 +261,7 @@ export function openEdit(item) {
   modalEl.hidden = false;
   resetTaskListScroll();
   applyDescHeight();
+  rememberInitialForm();
   $("f-title").focus();
 }
 
@@ -230,6 +289,8 @@ export function closeModal(options) {
   const itemId = state.editingId;
   clearPendingNoteSave();
   endExternalDescription();
+  closeConfirming = false;
+  initialForm = null;
   modalEl.hidden = true;
   $("emoji-picker").hidden = true;
   $("emoji-edit-modal").hidden = true;
@@ -299,8 +360,8 @@ export function takePendingFlashId() {
 }
 
 export function initNoteEditor() {
-  $("modal-close").addEventListener("click", closeModal);
-  $("modal-cancel").addEventListener("click", closeModal);
+  $("modal-close").addEventListener("click", requestCloseModal);
+  $("modal-cancel").addEventListener("click", requestCloseModal);
   $("modal-save").addEventListener("click", saveModal);
   $("f-desc-external").addEventListener("click", openDescriptionEditor);
   // Asks the host again, which only reveals the tab that is already open.

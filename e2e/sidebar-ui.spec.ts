@@ -7,7 +7,7 @@
 
 import type { Frame, Page } from "@playwright/test";
 import { GENERAL_CATEGORY_ID, type MindStreamData } from "../src/models";
-import { buildData, expect, readData, runCommand, showSidebar, test, waitForData } from "./helpers";
+import { answerDialog, buildData, expect, readData, runCommand, showSidebar, test, waitForData } from "./helpers";
 
 // Sidebar interactions not covered by the note/link/work-pause specs: the
 // toolbar (filters, View menu, archive), groups, the priority control, the
@@ -392,6 +392,8 @@ test("emoji: the picker inserts at the caret, the shortcut repeats the last one,
   await session.page.keyboard.press("Escape");
   await expect(sidebar.locator("#emoji-picker")).toBeHidden();
   await session.page.keyboard.press("Escape");
+  // The title was changed, so closing asks first.
+  await answerDialog(session.page, "Discard");
   await expect(sidebar.locator("#modal")).toBeHidden();
   await expect(sidebar.locator(".card")).toHaveCount(0);
   expect(readData(session).items.filter((n) => n.categoryId === GENERAL_CATEGORY_ID)).toHaveLength(0);
