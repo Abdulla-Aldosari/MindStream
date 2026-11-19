@@ -9,11 +9,11 @@ npm run lint || exit 1
 # modified. Re-staging a clean file with a pathspec refreshes its stat; files
 # with real unstaged changes are skipped and stay legitimately modified.
 
-# git diff --cached --name-only -z --diff-filter=ACM | while IFS= read -r -d '' file; do
-#   if git diff --raw --quiet -- "$file"; then
-#     git update-index --refresh -- "$file" || true
-#   fi
-# done
+git diff --cached --name-only -z --diff-filter=ACM | while IFS= read -r -d '' file; do
+  if git diff --raw --quiet -- "$file"; then
+    git update-index --refresh -- "$file" || true
+  fi
+done
 
 # --------------------------------------------------------------------------------------
 
