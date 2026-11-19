@@ -443,16 +443,13 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
         <div class="field-label-row">
           <label for="f-desc">Description (optional)</label>
           <div class="field-label-actions">
-            <button id="f-desc-external" class="icon-btn" type="button" aria-label="Edit description in an editor tab" data-tooltip="Edit in an editor tab">
+            <span id="f-desc-external-hint" class="desc-external-hint" hidden data-tooltip="Editing in the editor tab. Save there to update this note form." data-tooltip-footer="Click the icon to reveal the open tab.">Editor tab...</span>
+            <button id="f-desc-external" class="icon-btn" type="button" aria-label="Edit description in an editor tab" aria-pressed="false" data-tooltip="Edit in an editor tab">
               <span class="codicon codicon-go-to-file" aria-hidden="true"></span>
             </button>
           </div>
         </div>
         <textarea id="f-desc" rows="3" placeholder="Extra details..."></textarea>
-        <div id="f-desc-external-note" class="desc-external-note" hidden>
-          <span>Editing in the editor tab. Save there to update this note form.</span>
-          <button id="f-desc-focus" class="link-btn" type="button">Focus editor</button>
-        </div>
       </div>
       <div class="field">
         <div class="field-label-row">

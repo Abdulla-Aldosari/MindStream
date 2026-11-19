@@ -881,16 +881,51 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   cursor: default;
 }
 
-.desc-external-note {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+/* The "Editor tab..." hint: shown beside the open-in-editor button while the
+   description tab is open. Its color ripples left to right like a thinking
+   indicator. */
+.desc-external-hint {
+  font-size: 11px;
+  white-space: nowrap;
+  background-image: linear-gradient(
+    90deg,
+    var(--vscode-descriptionForeground) 0%,
+    var(--vscode-descriptionForeground) 40%,
+    color-mix(in srgb, var(--vscode-descriptionForeground) 30%, transparent) 50%,
+    var(--vscode-descriptionForeground) 60%,
+    var(--vscode-descriptionForeground) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: desc-external-shimmer 2s linear infinite;
 }
 
-.desc-external-note[hidden],
-#f-desc-external[hidden] {
+.desc-external-hint[hidden] {
   display: none;
+}
+
+@keyframes desc-external-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* While the tab is open the button stays visible, permanently in its hovered
+   look with a blue icon; clicking it again only reveals the open tab. */
+.field-label-actions #f-desc-external.active {
+  background: var(--vscode-toolbar-hoverBackground);
+  color: var(--vscode-focusBorder);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .desc-external-hint {
+    animation: none;
+  }
 }
 
 .modal-actions {

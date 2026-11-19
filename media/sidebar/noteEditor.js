@@ -43,8 +43,10 @@ function setDescExternal(on, text) {
     desc.value = text;
   }
   desc.readOnly = on;
-  $("f-desc-external-note").hidden = !on;
-  $("f-desc-external").hidden = on;
+  $("f-desc-external-hint").hidden = !on;
+  const btn = $("f-desc-external");
+  btn.classList.toggle("active", on);
+  btn.setAttribute("aria-pressed", String(on));
 }
 
 // Ends the description tab when the form no longer needs it (the host closes it).
@@ -364,8 +366,6 @@ export function initNoteEditor() {
   $("modal-cancel").addEventListener("click", requestCloseModal);
   $("modal-save").addEventListener("click", saveModal);
   $("f-desc-external").addEventListener("click", openDescriptionEditor);
-  // Asks the host again, which only reveals the tab that is already open.
-  $("f-desc-focus").addEventListener("click", openDescriptionEditor);
 
   // Persist the description height only when the user manually resizes the
   // textarea (never on the programmatic apply that runs when the editor opens).

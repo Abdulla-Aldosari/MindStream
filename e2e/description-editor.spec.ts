@@ -41,7 +41,9 @@ test("the description opens in an editor tab, a save there updates the form, and
   await expect(descriptionTab(session.page, "Big note.md")).toBeVisible();
   // The textarea only mirrors the tab while it is open.
   await expect(sidebar.locator("#f-desc")).toHaveJSProperty("readOnly", true);
-  await expect(sidebar.locator("#f-desc-external-note")).toBeVisible();
+  await expect(sidebar.locator("#f-desc-external-hint")).toBeVisible();
+  await expect(sidebar.locator("#f-desc-external")).toBeVisible();
+  await expect(sidebar.locator("#f-desc-external")).toHaveAttribute("aria-pressed", "true");
 
   await typeInTabAndSave(session.page, longText);
   await expect(sidebar.locator("#f-desc")).toHaveValue(longText);
@@ -221,6 +223,8 @@ test("closing the tab by hand makes the description editable again with the late
   await expect(sidebar.locator("#f-desc")).toHaveJSProperty("readOnly", false);
   await expect(sidebar.locator("#f-desc")).toHaveValue("kept after closing");
   await expect(sidebar.locator("#f-desc-external")).toBeVisible();
+  await expect(sidebar.locator("#f-desc-external")).toHaveAttribute("aria-pressed", "false");
+  await expect(sidebar.locator("#f-desc-external-hint")).toBeHidden();
   await expect(sidebar.locator("#modal")).toBeVisible();
 });
 

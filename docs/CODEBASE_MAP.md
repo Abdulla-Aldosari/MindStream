@@ -1349,21 +1349,21 @@ form's own Save stores the note. The second setting reaches the webview as
 
 ### Behavior
 
-| Situation                                                  | Result                                                                                                      |
-| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Click `#f-desc-external`                                   | the tab opens with the form's description; a second click only reveals the tab                              |
-| Edit in the tab                                            | the form's textarea follows at once                                                                         |
-| Ctrl+S in the tab                                          | updates the form only (the data file is not written); with `ask` it shows a status bar message              |
-| Description field while the tab is open                    | read-only (`#f-desc-external-note` with `Focus editor`); no emoji is inserted into it                       |
-| Form closed after a save succeeded, or another note opened | the tab closes without a Save prompt                                                                        |
-| Cancel, X or Esc with no field changed                     | the form closes at once                                                                                     |
-| Cancel, X or Esc with a changed field (`ask`)              | a modal asks Save / Discard / Cancel before anything closes (see "Closing the form" below)                  |
-| Cancel, X or Esc with a changed field (`discard`)          | the form and the tab close at once; the changes are lost                                                    |
-| Save refused (storage problem, work paused)                | the form and the tab stay open, nothing is lost                                                             |
-| The user closes the tab (`keep`)                           | the textarea is editable again with the latest text, with no question                                       |
-| The user closes the tab with unsaved edits (`ask`)         | VS Code asks; Save and Don't Save both end the draft, Don't Save returns only the text saved in the tab     |
-| Work is paused                                             | the tab closes (`SidebarProvider.syncWorkPauseContext()`); the open message is refused like any write       |
-| Sidebar page rebuilt, or window reloaded                   | leftover `mindstream-desc` tabs are closed (`resolveWebviewView()` and the `DescriptionEditor` constructor) |
+| Situation                                                  | Result                                                                                                                                   |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Click `#f-desc-external`                                   | the tab opens with the form's description; the button stays active (blue icon) and further clicks only reveal the tab                    |
+| Edit in the tab                                            | the form's textarea follows at once                                                                                                      |
+| Ctrl+S in the tab                                          | updates the form only (the data file is not written); with `ask` it shows a status bar message                                           |
+| Description field while the tab is open                    | read-only and mirrored from the tab; the button stays active and an "Editor tab..." hint ripples beside it; no emoji is inserted into it |
+| Form closed after a save succeeded, or another note opened | the tab closes without a Save prompt                                                                                                     |
+| Cancel, X or Esc with no field changed                     | the form closes at once                                                                                                                  |
+| Cancel, X or Esc with a changed field (`ask`)              | a modal asks Save / Discard / Cancel before anything closes (see "Closing the form" below)                                               |
+| Cancel, X or Esc with a changed field (`discard`)          | the form and the tab close at once; the changes are lost                                                                                 |
+| Save refused (storage problem, work paused)                | the form and the tab stay open, nothing is lost                                                                                          |
+| The user closes the tab (`keep`)                           | the textarea is editable again with the latest text, with no question                                                                    |
+| The user closes the tab with unsaved edits (`ask`)         | VS Code asks; Save and Don't Save both end the draft, Don't Save returns only the text saved in the tab                                  |
+| Work is paused                                             | the tab closes (`SidebarProvider.syncWorkPauseContext()`); the open message is refused like any write                                    |
+| Sidebar page rebuilt, or window reloaded                   | leftover `mindstream-desc` tabs are closed (`resolveWebviewView()` and the `DescriptionEditor` constructor)                              |
 
 ### Messages
 
@@ -1402,7 +1402,8 @@ into `#f-desc` while the tab is open.
 ### Webview
 
 `noteEditor.js` keeps `descExternal`. `setDescExternal()` toggles the textarea's
-`readOnly`, `#f-desc-external-note`, and the button. `openAdd()`, `openEdit()`,
-and `closeModal()` end the draft first. A `descriptionEditorOpened` answer that
-arrives after the form closed sends `closeDescriptionEditor`, so no tab is left
-without an owner. Focus mode hides the whole description field, button included.
+`readOnly`, the `#f-desc-external-hint` note (`Editor tab...`), and the button's
+`active` class / `aria-pressed`. `openAdd()`, `openEdit()`, and `closeModal()`
+end the draft first. A `descriptionEditorOpened` answer that arrives after the
+form closed sends `closeDescriptionEditor`, so no tab is left without an owner.
+Focus mode hides the whole description field, button included.
