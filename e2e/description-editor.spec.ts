@@ -149,6 +149,8 @@ test("closing the tab with unsaved edits keeps them in the form and shows no que
   await expect(descriptionTab(session.page, "Silent keep.md")).toBeVisible();
   // Typed, never saved with Ctrl+S: the tab saves itself, so it never stays "modified".
   await typeInTab(session.page, "typed and closed at once");
+  // The tab saves itself shortly after the last edit; closing within that gap is a race, not the case under test.
+  await expect(descriptionTab(session.page, "Silent keep.md")).not.toHaveClass(/dirty/);
 
   await runCommand(session.page, "View: Close Editor");
   await expect(dialog(session.page)).toHaveCount(0);
