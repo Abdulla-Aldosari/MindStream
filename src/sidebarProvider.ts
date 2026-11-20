@@ -141,10 +141,27 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     }
   }
 
-  /** Tells the webview to open the note editor modal. */
-  openAddNote(): void {
-    this.controller.setPendingLink(undefined);
-    this._view?.webview.postMessage({ type: "openAddNote" });
+  /** Shows the MindStream sidebar (creating its view on first use). Returns false when it never appeared. */
+  private async revealView(): Promise<boolean> {
+    await vscode.commands.executeCommand("workbench.view.extension.mindstream");
+    if (!this._view) {
+      // The panel was never opened: wait (bounded) for it to be created.
+      await Promise.race([this.viewReady, new Promise<void>((resolve) => setTimeout(resolve, VIEW_READY_TIMEOUT_MS))]);
+    }
+    return !!this._view;
+  }
+
+  /**
+   * Shows the sidebar and asks the note editor to open a new note. The webview
+   * decides whether it may replace a form that is already open (it asks about
+   * unsaved changes first), so nothing typed is lost.
+   */
+  async openAddNote(): Promise<void> {
+    if (!(await this.revealView())) {
+      return;
+    }
+    this.controller.offerLink(undefined);
+    void this._view?.webview.postMessage({ type: "openAddNote" });
   }
 
   /**
@@ -152,16 +169,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
    * The link stays in the host; the webview only receives what it must display.
    */
   async openAddNoteForLink(link: MindStreamLink): Promise<void> {
-    await vscode.commands.executeCommand("workbench.view.extension.mindstream");
-    if (!this._view) {
-      // The panel was never opened: wait (bounded) for it to be created.
-      await Promise.race([this.viewReady, new Promise<void>((resolve) => setTimeout(resolve, VIEW_READY_TIMEOUT_MS))]);
-    }
-    if (!this._view) {
+    if (!(await this.revealView())) {
       return;
     }
-    this.controller.setPendingLink(link);
-    void this._view.webview.postMessage({ type: "openAddNote", link });
+    this.controller.offerLink(link);
+    void this._view?.webview.postMessage({ type: "openAddNote", link });
   }
 
   /** Tells the webview to open the categories management modal. */

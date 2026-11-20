@@ -1032,10 +1032,12 @@ A note may carry `link` (`MindStreamLink`): a workspace-relative `filePath`
 - Only the editor context command `mindstream.addNoteToLine` ("Add note to this
   line", hidden from the Command Palette) creates a link. It uses the cursor
   line, or the selected lines, of a `file:` editor inside the workspace folder.
-- The link stays in the host: `SidebarProvider.openAddNoteForLink()` stores it as
-  the controller's pending link and posts it to the webview for display only.
-  The webview sends `addItem` with `linked: true`, and the controller attaches
-  the pending link. A link sent by the webview is never read, and
+- The link stays in the host: `SidebarProvider.openAddNoteForLink()` offers it to
+  the controller (`offerLink()`) and posts it to the webview for display only.
+  Once the webview opens the new form it sends `newNoteFormOpened`, and the link
+  becomes the controller's pending link (see "Opening a new note while a form is
+  open"). The webview sends `addItem` with `linked: true`, and the controller
+  attaches the pending link. A link sent by the webview is never read, and
   `updateItem` / `UpdateItemInput` have no link, so it cannot be edited, added,
   or removed from the note editor.
 - The note editor, the viewer, and cards show a read-only badge
@@ -1393,6 +1395,27 @@ current fields with that snapshot through `NoteForm.closeAction()`:
   form's own `saveModal()`, so the form closes only once the host confirms the
   note was stored and a refused save keeps everything; `discard` runs
   `closeModal()`; `cancel` keeps the form.
+
+### Opening a new note while a form is open
+
+`mindstream.addNote` (Ctrl+Alt+M) and `mindstream.addNoteToLine` are async: both
+go through `SidebarProvider.revealView()` (runs `workbench.view.extension.mindstream`
+and waits, bounded, for a never-opened view), so the sidebar always shows. The
+host posts `openAddNote`, and the webview calls `requestOpenAdd(link)` instead
+of `openAdd()` directly:
+
+- Form hidden, or unchanged (`NoteForm.closeAction()` is `close`): the new form
+  opens at once (an open description tab ends with the old form).
+- Changed and the setting is `ask`: the same Save / Discard / Cancel question as
+  closing (`confirmCloseNoteForm`). `save` opens the new form only after the host
+  confirms the note was stored (`openAfterSave`); `discard` opens it; `cancel`
+  keeps the current form and its text.
+- A Save in flight or an open question ignores the request.
+
+The code link of the request is held by the controller (`offerLink()`) and
+becomes the pending link only when the webview sends `newNoteFormOpened`
+(`linked: true` for a code link), so a cancelled request never changes the link
+of the form that stays open.
 
 The comparison ignores what Save drops anyway (title padding, tasks with a blank
 title) and treats CRLF and LF as the same, because the description tab may use

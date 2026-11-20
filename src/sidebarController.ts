@@ -43,6 +43,7 @@ export interface WebviewMessage {
     | "saveWorkPauseNote"
     | "confirmDiscardWorkPauseDraft"
     | "confirmCloseNoteForm"
+    | "newNoteFormOpened"
     | "openDescriptionEditor"
     | "closeDescriptionEditor"
     | "setTaskCompleted";
@@ -141,9 +142,21 @@ export class SidebarController {
     private readonly priorityEnabled: () => boolean = () => true
   ) {}
 
+  /** Link of a new-note request the webview has not accepted yet (it may keep its current form instead). */
+  private offeredLink: MindStreamLink | undefined;
+
   /** Sets (or clears, with `undefined`) the link the next linked note will be created with. */
   setPendingLink(link: MindStreamLink | undefined): void {
     this.pendingLink = link;
+  }
+
+  /**
+   * Remembers the link of a new-note request. It becomes the pending link only
+   * when the webview confirms it opened the new form (`newNoteFormOpened`), so a
+   * request the user cancelled never changes the form that stays open.
+   */
+  offerLink(link: MindStreamLink | undefined): void {
+    this.offeredLink = link;
   }
 
   /** Answers a note editor Save that is ignored (work paused), so the editor keeps its text. */
@@ -194,6 +207,11 @@ export class SidebarController {
       case "confirmCloseNoteForm":
         // Only a question: nothing is read or written here. The form runs its own Save when the answer is "save".
         this.ui.answerCloseNoteForm(await this.ui.confirmCloseNoteForm());
+        break;
+      case "newNoteFormOpened":
+        // The webview opened the new form requested by a command: only now does its link apply.
+        this.pendingLink = msg.linked === true ? this.offeredLink : undefined;
+        this.offeredLink = undefined;
         break;
       case "openDescriptionEditor":
         await this.ui.openDescriptionEditor(typeof msg.title === "string" ? msg.title : "", typeof msg.description === "string" ? msg.description : "");

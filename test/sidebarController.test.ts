@@ -161,6 +161,35 @@ describe("SidebarController.handleMessage", () => {
       assert.strictEqual(items.list()[0].link, undefined);
     });
 
+    it("an offered link becomes the pending link only once the webview opened the new form", async () => {
+      const { items, controller, typeId } = setup();
+      controller.offerLink(link);
+      await controller.handleMessage({ type: "addItem", title: "A", typeId, linked: true });
+      assert.strictEqual(items.list()[0].link, undefined);
+
+      controller.offerLink(link);
+      await controller.handleMessage({ type: "newNoteFormOpened", linked: true });
+      await controller.handleMessage({ type: "addItem", title: "B", typeId, linked: true });
+      assert.deepStrictEqual(items.list()[1].link, link);
+    });
+
+    it("a new form opened without a link clears any earlier link", async () => {
+      const { items, controller, typeId } = setup();
+      controller.setPendingLink(link);
+      controller.offerLink(undefined);
+      await controller.handleMessage({ type: "newNoteFormOpened", linked: false });
+      await controller.handleMessage({ type: "addItem", title: "A", typeId, linked: true });
+      assert.strictEqual(items.list()[0].link, undefined);
+    });
+
+    it("a cancelled new-note request leaves the pending link of the open form alone", async () => {
+      const { items, controller, typeId } = setup();
+      controller.setPendingLink(link);
+      controller.offerLink(undefined);
+      await controller.handleMessage({ type: "addItem", title: "A", typeId, linked: true });
+      assert.deepStrictEqual(items.list()[0].link, link);
+    });
+
     it("addItem never trusts a link sent by the webview", async () => {
       const { items, controller, typeId } = setup();
       const forged = { type: "addItem", title: "A", typeId, linked: true, link: { filePath: "../x", lineStart: 1 } };

@@ -214,7 +214,9 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand(
       "mindstream.addNote",
-      unlessWorkPaused(() => sidebar?.openAddNote())
+      unlessWorkPaused(async () => {
+        await sidebar?.openAddNote();
+      })
     )
   );
   context.subscriptions.push(

@@ -30,6 +30,11 @@ let nextNoteSaveId = 1;
 let initialForm = null;
 // True while the host's "save or discard your changes?" question is open.
 let closeConfirming = false;
+// A host request for a new note that waits for the user's answer about the
+// open form's changes ({ link }), or null.
+let pendingOpenRequest = null;
+// The request to honor once the Save chosen in that question is confirmed, or null.
+let openAfterSave = null;
 // True while the description is being edited in an editor tab. The textarea is
 // then read-only and shows the tab's text, so the text has a single source.
 let descExternal = false;
@@ -129,16 +134,50 @@ export function handleNoteCloseAnswer(msg) {
     return;
   }
   closeConfirming = false;
+  const request = pendingOpenRequest;
+  pendingOpenRequest = null;
   if (modalEl.hidden) {
+    if (request) {
+      startNewNote(request.link);
+    }
     return;
   }
   if (msg.choice === "save") {
     saveModal();
+    // The new form opens only once the host confirms the note was stored.
+    openAfterSave = pendingNoteSave ? request : null;
   } else if (msg.choice === "discard") {
     closeModal();
+    if (request) {
+      startNewNote(request.link);
+    }
   } else {
     $("f-title").focus();
   }
+}
+
+// Opens the empty form and tells the host, which then applies the code link of
+// the request (a link never comes from the webview).
+function startNewNote(link) {
+  openAdd(link);
+  vscode.postMessage({ type: "newNoteFormOpened", linked: !!link });
+}
+
+// A command asked for a new note (Ctrl+Alt+M, "Add note to this line"). A form
+// that is already open is never replaced silently: with unsaved changes the
+// user is asked first (Save / Discard / Cancel), following the same setting as
+// closing the form.
+export function requestOpenAdd(link) {
+  if (pendingNoteSave || closeConfirming) {
+    return;
+  }
+  if (modalEl.hidden || NoteForm.closeAction(state.noteFormCloseBehavior, initialForm, currentForm()) === "close") {
+    startNewNote(link);
+    return;
+  }
+  closeConfirming = true;
+  pendingOpenRequest = { link };
+  vscode.postMessage({ type: "confirmCloseNoteForm" });
 }
 
 function fillTypeSelect(selectedTypeId) {
@@ -270,6 +309,7 @@ export function openEdit(item) {
 // Forgets a Save that is still waiting, so a late answer cannot close a newer form.
 function clearPendingNoteSave() {
   pendingNoteSave = null;
+  openAfterSave = null;
   $("modal-save").disabled = false;
 }
 
@@ -280,9 +320,13 @@ export function handleNoteSaveResult(msg) {
     return;
   }
   const isEditing = pendingNoteSave.isEditing;
+  const request = openAfterSave;
   clearPendingNoteSave();
   if (msg.ok) {
     closeModal(isEditing ? { deferFlash: true } : undefined);
+    if (request) {
+      startNewNote(request.link);
+    }
   }
 }
 

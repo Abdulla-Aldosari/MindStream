@@ -16,7 +16,7 @@ import {
   handleDescriptionEditorText,
   handleNoteCloseAnswer,
   handleNoteSaveResult,
-  openAdd,
+  requestOpenAdd,
   takePendingFlashId,
 } from "./noteEditor.js";
 import { refreshView } from "./noteViewer.js";
@@ -70,7 +70,7 @@ export function initMessages() {
       return;
     }
     if (msg.type === "openAddNote") {
-      openAdd(msg.link);
+      requestOpenAdd(msg.link);
       return;
     }
     if (msg.type === "openCategories") {
