@@ -11,6 +11,7 @@ import { $, DEFAULT_DESCRIPTION_HEIGHT, modalEl, state } from "./core.js";
 import { renderList } from "./list.js";
 import { fillPriorityControl } from "./priorityControl.js";
 import {
+  applyFormDirection,
   handleDescriptionEditorClosed,
   handleDescriptionEditorOpened,
   handleDescriptionEditorText,
@@ -111,6 +112,7 @@ export function initMessages() {
     state.statusLabels = msg.statusLabels || {};
     state.includeArchived = !!msg.includeArchived;
     state.direction = msg.direction === "rtl" ? "rtl" : "ltr";
+    applyFormDirection();
     state.emojiPalette = msg.emojiPalette || [];
     state.emojiRecents = msg.emojiRecents || [];
     // Keep the open emoji edit modal in sync after a server-side restore.

@@ -169,3 +169,13 @@ test("editing a note changes it in place and keeps its id", async ({ launch }) =
   expect(readData(session).items).toHaveLength(1);
   expect(readData(session).items[0].id).toBe("seed-1");
 });
+
+test("the note editor title and description follow the ui direction setting", async ({ launch }) => {
+  const session = await launch({ data: buildData([{ title: "Direction note" }]), settings: { "mindstream.ui.direction": "rtl" } });
+  const sidebar = await showSidebar(session.page);
+
+  await sidebar.locator(".card", { hasText: "Direction note" }).dblclick();
+  await sidebar.locator("#view-edit").click();
+  await expect(sidebar.locator("#f-title")).toHaveAttribute("dir", "rtl");
+  await expect(sidebar.locator("#f-desc")).toHaveAttribute("dir", "rtl");
+});

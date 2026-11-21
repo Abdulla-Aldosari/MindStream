@@ -258,6 +258,12 @@ function renderFormLink(item) {
   }
 }
 
+// The title and description follow the `mindstream.ui.direction` setting.
+export function applyFormDirection() {
+  $("f-title").setAttribute("dir", state.direction);
+  $("f-desc").setAttribute("dir", state.direction);
+}
+
 // `link` is present only when the host started the form from the editor
 // context menu ("Add note to this line").
 export function openAdd(link) {
@@ -278,6 +284,7 @@ export function openAdd(link) {
   // New notes start at the host's default priority (saved even if untouched).
   fillPriorityControl(state.priority.defaultValue);
   setFormTasks([]);
+  applyFormDirection();
   modalEl.hidden = false;
   resetTaskListScroll();
   applyDescHeight();
@@ -299,6 +306,7 @@ export function openEdit(item) {
   // A note without a priority opens with nothing selected (plus a hint).
   fillPriorityControl(item.priority || null);
   setFormTasks(item.tasks);
+  applyFormDirection();
   modalEl.hidden = false;
   resetTaskListScroll();
   applyDescHeight();
