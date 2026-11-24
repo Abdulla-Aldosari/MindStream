@@ -33,6 +33,7 @@ export interface WebviewMessage {
     | "renameType"
     | "setTypeIcon"
     | "deleteType"
+    | "restoreDefaultTypes"
     | "recordEmojiUse"
     | "updateEmojiPalette"
     | "restoreEmojiPalette"
@@ -386,6 +387,14 @@ export class SidebarController {
         if (await this.ui.confirmDeleteType(typeDef.label)) {
           this.notes.deleteType(typeDef.id);
         }
+        break;
+      }
+      case "restoreDefaultTypes": {
+        // Adds only what is missing, so it needs no confirmation.
+        const added = this.notes.restoreDefaultTypes();
+        this.ui.showInfo(
+          added.length > 0 ? `Restored ${added.length} default type(s): ${added.map((t) => t.label).join(", ")}.` : "All default types already exist. Nothing was changed."
+        );
         break;
       }
       case "recordEmojiUse":

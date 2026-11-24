@@ -575,6 +575,20 @@ export class NotesService {
     this.emit();
   }
 
+  /**
+   * Adds back every default type that is missing (matched by label, ignoring
+   * case), after the existing types. Existing types are never changed. Returns
+   * the added types; empty when none was missing (nothing is written).
+   */
+  restoreDefaultTypes(): MindStreamTypeDef[] {
+    this.beginWrite();
+    const added = this.deps.types.restoreDefaults();
+    if (added.length > 0) {
+      this.emit();
+    }
+    return added;
+  }
+
   // --- Work Pause note ---
 
   /**

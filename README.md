@@ -117,6 +117,7 @@ A single JSON file inside the workspace: `.vscode/mindstream.data.json`. Because
 
 - `MindStream: Quick Note`
 - `MindStream: Manage Types`
+- `MindStream: Restore Default Types`
 - `MindStream: Manage Categories`
 - `MindStream: Refresh`
 - `MindStream: Open MindStream Panel`

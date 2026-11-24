@@ -98,6 +98,55 @@ describe("TypesRegistry", () => {
     assert.ok(types.get(last.id));
   });
 
+  it("restoreDefaults adds back only the missing default types, after the existing ones", () => {
+    const { storage, types } = setup();
+    const before = types.list();
+    const removed = [before[2], before[5]];
+    for (const t of removed) {
+      types.remove(t.id);
+    }
+    const kept = types.list().map((t) => ({ ...t }));
+    const added = types.restoreDefaults();
+    assert.deepStrictEqual(
+      added.map((t) => t.label),
+      removed.map((t) => t.label)
+    );
+    const after = types.list();
+    assert.deepStrictEqual(after.slice(0, kept.length), kept);
+    assert.deepStrictEqual(
+      after.slice(kept.length).map((t) => [t.label, t.icon]),
+      removed.map((t) => [t.label, t.icon])
+    );
+    assert.ok((after[after.length - 1].order ?? 0) > (after[kept.length - 1].order ?? 0));
+    assert.strictEqual(new Set(after.map((t) => t.id)).size, after.length);
+    assert.strictEqual(storage.getData().types.length, before.length);
+  });
+
+  it("restoreDefaults never duplicates: it ignores case and spaces, and writes nothing when all exist", () => {
+    const { storage, types } = setup();
+    const task = types.list().find((t) => t.label === "Task")!;
+    types.rename(task.id, "  TASK ");
+    const saves = storage.saved.length;
+    const snapshot = JSON.stringify(storage.getData());
+    assert.deepStrictEqual(types.restoreDefaults(), []);
+    assert.strictEqual(storage.saved.length, saves);
+    assert.strictEqual(JSON.stringify(storage.getData()), snapshot);
+  });
+
+  it("restoreDefaults keeps user types and a renamed default is added again", () => {
+    const { types } = setup();
+    for (const t of types.list().slice(1)) {
+      types.remove(t.id);
+    }
+    const mine = types.add("Mine", "bug");
+    types.rename(types.list()[0].id, "Everything");
+    const added = types.restoreDefaults();
+    assert.strictEqual(added.length, 11);
+    assert.ok(types.get(mine.id));
+    assert.strictEqual(types.list().filter((t) => t.label === "General").length, 1);
+    assert.strictEqual(types.list().length, 11 + 2);
+  });
+
   it("reassign moves items and updates their updatedAt", () => {
     const { types, items } = setup();
     const a = types.add("A");

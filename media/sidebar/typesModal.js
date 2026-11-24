@@ -281,6 +281,9 @@ function commitIcon(icon) {
 export function initTypesModal() {
   $("types-close").addEventListener("click", closeTypesModal);
   $("btn-add-type").addEventListener("click", addTypeFromInput);
+  $("btn-restore-types").addEventListener("click", () => {
+    vscode.postMessage({ type: "restoreDefaultTypes" });
+  });
   $("btn-type-icon").addEventListener("click", () => {
     if (isIconsModalOpen() && state.iconsModalMode && state.iconsModalMode.mode === "new") {
       closeIconsModal();

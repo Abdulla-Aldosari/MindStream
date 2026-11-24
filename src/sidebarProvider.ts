@@ -192,6 +192,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     this._view?.webview.postMessage({ type: "openTypes" });
   }
 
+  /** Adds back the missing default types (the same action as the Manage Types button). */
+  async restoreDefaultTypes(): Promise<void> {
+    await this.handleMessage({ type: "restoreDefaultTypes" });
+  }
+
   /** Tells the webview to open the weekly report modal. */
   openWeeklyReport(report: WeeklyReportData): void {
     this._view?.webview.postMessage({ type: "openWeeklyReport", report });
@@ -607,7 +612,12 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
           <span class="modal-title">Manage Types</span>
           <span class="modal-subtitle">Create, rename, and delete your note types</span>
         </div>
-        <button id="types-close" class="icon-btn close-x-btn" data-tooltip="Close">✕</button>
+        <div class="modal-header-actions">
+          <button id="btn-restore-types" class="icon-btn" type="button" data-tooltip="Restore default types" data-tooltip-footer="Adds back any default type that is missing. Your existing types stay as they are." aria-label="Restore default types">
+            <span class="codicon codicon-history"></span>
+          </button>
+          <button id="types-close" class="icon-btn close-x-btn" data-tooltip="Close">✕</button>
+        </div>
       </div>
       <div id="types-list" class="types-list"></div>
       <div class="mgmt-form">

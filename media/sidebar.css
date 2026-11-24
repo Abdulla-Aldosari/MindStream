@@ -708,6 +708,13 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   color: var(--vscode-input-placeholderForeground);
 }
 
+/* Icon buttons at the end of a modal header, next to the close button. */
+.modal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .mgmt-rename-input {
   flex: 1;
   font-family: inherit;

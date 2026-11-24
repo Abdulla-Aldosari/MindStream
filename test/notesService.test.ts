@@ -63,6 +63,7 @@ describe("NotesService refusals change nothing", () => {
       () => notes.renameType(typeId, "T3"),
       () => notes.setTypeIcon(typeId, "bug"),
       () => notes.deleteType(typeId),
+      () => notes.restoreDefaultTypes(),
       () => notes.checkWritable(),
       // Without the user's own panel flag, the note cannot change either.
       () => notes.saveWorkPauseNote("New text", { base: "Away" }),
@@ -427,6 +428,39 @@ describe("NotesService categories and types", () => {
       notes.deleteType(t.id);
     }
     assert.match(notes.typeDeletionProblem(typeId) ?? "", /last type/);
+  });
+
+  it("restoreDefaultTypes adds the missing ones once and tells the listeners", () => {
+    const { notes, types, changes } = setup();
+    const removed = types.list().slice(-2);
+    for (const t of removed) {
+      types.remove(t.id);
+    }
+    const before = changes();
+    assert.deepStrictEqual(
+      notes.restoreDefaultTypes().map((t) => t.label),
+      removed.map((t) => t.label)
+    );
+    assert.strictEqual(changes(), before + 1);
+    assert.strictEqual(types.list().length, 11);
+  });
+
+  it("restoreDefaultTypes writes and notifies nothing when no default is missing", () => {
+    const { notes, snapshot, changes } = setup();
+    const unchanged = snapshot();
+    const before = changes();
+    assert.deepStrictEqual(notes.restoreDefaultTypes(), []);
+    unchanged();
+    assert.strictEqual(changes(), before);
+  });
+
+  it("restoreDefaultTypes refuses while saving is off and changes nothing", () => {
+    const { notes, types, storage, snapshot } = setup();
+    types.remove(types.list()[3].id);
+    const unchanged = snapshot();
+    storage.problem = BLOCKED;
+    assert.throws(() => notes.restoreDefaultTypes(), code("STORAGE_BLOCKED"));
+    unchanged();
   });
 
   it("renames and icons write nothing when unchanged", () => {

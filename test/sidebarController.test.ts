@@ -981,6 +981,32 @@ describe("SidebarController note editor save answer", () => {
     assert.ok(ui.infos.some((m) => m.includes("last type")));
   });
 
+  it("restoreDefaultTypes adds the missing default types and reports them", async () => {
+    const { types, ui, controller } = setup();
+    const gone = types.list()[4].label;
+    types.remove(types.list()[4].id);
+    await controller.handleMessage({ type: "restoreDefaultTypes" });
+    assert.strictEqual(types.list().length, 11);
+    assert.ok(types.list().some((t) => t.label === gone));
+    assert.ok(ui.infos.some((m) => m.includes("Restored 1") && m.includes(gone)));
+  });
+
+  it("restoreDefaultTypes says so when nothing is missing, and writes nothing", async () => {
+    const { storage, ui, controller } = setup();
+    const saves = storage.saved.length;
+    await controller.handleMessage({ type: "restoreDefaultTypes" });
+    assert.strictEqual(storage.saved.length, saves);
+    assert.ok(ui.infos.some((m) => m.includes("All default types already exist")));
+  });
+
+  it("restoreDefaultTypes is refused while work is paused", async () => {
+    const { types, workPause, controller } = setup();
+    types.remove(types.list()[4].id);
+    workPause.save("Away", true);
+    await controller.handleMessage({ type: "restoreDefaultTypes" });
+    assert.strictEqual(types.list().length, 10);
+  });
+
   it("answers not ok while work is paused, so the editor keeps its text", async () => {
     const { controller, ui, typeId, items } = setup();
     await controller.handleMessage({ type: "saveWorkPauseNote", text: "Locked", pause: true });

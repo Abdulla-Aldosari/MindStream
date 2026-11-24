@@ -113,6 +113,12 @@
         "icon": "$(tag)"
       },
       {
+        "command": "mindstream.restoreDefaultTypes",
+        "title": "Restore Default Types",
+        "category": "MindStream",
+        "icon": "$(tag)"
+      },
+      {
         "command": "mindstream.manageCategories",
         "title": "Manage Categories",
         "category": "MindStream",
@@ -192,6 +198,10 @@
         },
         {
           "command": "mindstream.manageTypes",
+          "when": "!mindstream.workPaused"
+        },
+        {
+          "command": "mindstream.restoreDefaultTypes",
           "when": "!mindstream.workPaused"
         },
         {

@@ -7,7 +7,7 @@
 
 import type { Frame, Page } from "@playwright/test";
 import { GENERAL_CATEGORY_ID, type MindStreamData } from "../src/models";
-import { answerDialog, buildData, expect, readData, runCommand, showSidebar, test, waitForData } from "./helpers";
+import { answerDialog, buildData, expect, notification, readData, runCommand, showSidebar, test, waitForData } from "./helpers";
 
 // Sidebar interactions not covered by the note/link/work-pause specs: the
 // toolbar (filters, View menu, archive), groups, the priority control, the
@@ -277,6 +277,38 @@ test("types: add one with a picked icon, rename it, and change another type's ic
 
   await session.page.keyboard.press("Escape");
   await expect(sidebar.locator("#types-modal")).toBeHidden();
+});
+
+test("types: Restore default types adds back only the missing ones, from the modal and from the command", async ({ launch }) => {
+  const data = buildData();
+  data.types = data.types.filter((t) => t.label !== "Plan" && t.label !== "Docs");
+  data.types.push({ id: "mine", label: "Mine", icon: "bug", createdAt: "2026-11-01T10:00:00.000Z" });
+  const session = await launch({ data });
+  const sidebar = await showSidebar(session.page);
+
+  await runCommand(session.page, "MindStream: Manage Types");
+  await expect(sidebar.locator("#types-modal")).toBeVisible();
+  await expect(sidebar.locator("#types-list .mgmt-row")).toHaveCount(10);
+
+  await sidebar.locator("#btn-restore-types").click();
+  await waitForData(session, (d) => d.types.length === 11 + 1);
+  await expect(sidebar.locator("#types-list .mgmt-row")).toHaveCount(12);
+  await expect(notification(session.page, /Restored 2 default type\(s\): Plan, Docs/)).toBeVisible();
+  const labels = readData(session).types.map((t) => t.label);
+  expect(labels.filter((l) => l === "Plan")).toHaveLength(1);
+  expect(labels).toContain("Mine");
+
+  // Nothing is missing now: a second run says so and writes nothing.
+  await sidebar.locator("#btn-restore-types").click();
+  await expect(notification(session.page, /All default types already exist/)).toBeVisible();
+  expect(readData(session).types).toHaveLength(12);
+
+  // The command does the same when one more default type is deleted.
+  await sidebar.locator("#types-list .mgmt-row", { hasText: "Resource" }).locator('[data-tooltip="Delete"]').click();
+  await answerDialog(session.page, "Delete");
+  await waitForData(session, (d) => d.types.length === 11);
+  await runCommand(session.page, "MindStream: Restore Default Types");
+  await waitForData(session, (d) => d.types.length === 12);
 });
 
 test("categories: add, rename, and a default type that the editor pre-selects", async ({ launch }) => {

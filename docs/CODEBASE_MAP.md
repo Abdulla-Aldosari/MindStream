@@ -156,7 +156,7 @@ src/
                          tracking (setLink, mapLinks with persist false, save). Archived notes are
                          read-only (ArchivedNoteError); see "Archived notes are read-only".
   typesRegistry.ts        TypesRegistry: manage user-defined note types (add/rename/
-                         setIcon/remove/reassign), items reference typeId not label.
+                         setIcon/remove/reassign/restoreDefaults), items reference typeId not label.
   categoriesRegistry.ts   CategoriesRegistry: manage categories, built-in "General"
                          category can be renamed but never deleted; each category
                          can carry an optional defaultTypeId (setDefaultType).
@@ -642,6 +642,15 @@ Nothing was changed. Unarchive it first, then try again.`
 A note cannot be saved without a type, so the data always holds one.
 
 - `normalizeData()` restores the default types when `types` is missing or empty.
+- `NotesService.restoreDefaultTypes()` (`TypesRegistry.restoreDefaults()`) adds
+  every `DEFAULT_TYPES` entry whose label is missing (trimmed, case-insensitive),
+  after the existing types and in one save. Existing types are never changed or
+  reordered, a renamed default counts as missing, and nothing is written (or
+  announced) when none is missing. It is reached by the "Restore default types"
+  icon button beside the close button in the Manage Types modal header
+  (`restoreDefaultTypes` message, no confirmation)
+  and by the `mindstream.restoreDefaultTypes` command; both show an info message
+  with the added labels, and both are refused while work is paused.
 - `TypesRegistry.remove()` throws when asked to remove the last type.
   `NotesService.typeDeletionProblem()` states why a type cannot be deleted (the
   last one, or used by notes); the `deleteType` message shows it before any

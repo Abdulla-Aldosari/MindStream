@@ -6,7 +6,7 @@
  *-------------------------------------------------*/
 
 import { MindStreamTypeDef } from "./models";
-import { IStorage } from "./storage";
+import { DEFAULT_TYPES, IStorage } from "./storage";
 import { newId, nowIso } from "./util";
 
 /**
@@ -62,6 +62,36 @@ export class TypesRegistry {
     }
     def.icon = icon;
     this.storage.saveData(data);
+  }
+
+  /**
+   * The default types whose label is not among the current types (compared
+   * ignoring case and surrounding spaces). A renamed default type counts as missing.
+   */
+  missingDefaults(): typeof DEFAULT_TYPES {
+    const present = new Set(this.storage.getData().types.map((t) => t.label.trim().toLocaleLowerCase()));
+    return DEFAULT_TYPES.filter((d) => !present.has(d.label.trim().toLocaleLowerCase()));
+  }
+
+  /**
+   * Adds every missing default type after the existing ones, in one save, and
+   * returns the added types. Existing types are never changed or reordered,
+   * and nothing is written when no default type is missing.
+   */
+  restoreDefaults(): MindStreamTypeDef[] {
+    const missing = this.missingDefaults();
+    if (missing.length === 0) {
+      return [];
+    }
+    const data = this.storage.getData();
+    let order = data.types.reduce((max, t) => Math.max(max, t.order ?? 0), 0);
+    const added = missing.map((d) => {
+      order += 10;
+      return { ...d, id: newId(), order, createdAt: nowIso() };
+    });
+    data.types.push(...added);
+    this.storage.saveData(data);
+    return added;
   }
 
   /**

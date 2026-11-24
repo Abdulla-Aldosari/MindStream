@@ -130,6 +130,7 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(vscode.commands.registerCommand("mindstream.addNote", () => requireWorkspace(deps)));
     context.subscriptions.push(vscode.commands.registerCommand("mindstream.addNoteToLine", () => requireWorkspace(deps)));
     context.subscriptions.push(vscode.commands.registerCommand("mindstream.manageTypes", () => requireWorkspace(deps)));
+    context.subscriptions.push(vscode.commands.registerCommand("mindstream.restoreDefaultTypes", () => requireWorkspace(deps)));
     context.subscriptions.push(vscode.commands.registerCommand("mindstream.manageCategories", () => requireWorkspace(deps)));
     context.subscriptions.push(vscode.commands.registerCommand("mindstream.exportMarkdown", () => requireWorkspace(deps)));
     context.subscriptions.push(vscode.commands.registerCommand("mindstream.exportJson", () => requireWorkspace(deps)));
@@ -272,6 +273,12 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand(
       "mindstream.manageTypes",
       unlessWorkPaused(() => sidebar?.openTypes())
+    )
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "mindstream.restoreDefaultTypes",
+      unlessWorkPaused(() => sidebar?.restoreDefaultTypes())
     )
   );
   context.subscriptions.push(
