@@ -30,7 +30,7 @@ export const addNote = defineTool({
   description: [
     "Creates a note. Use it for out-of-scope findings you must not fix now and for 'verify by hand' items.",
     "codeLocation links the note to code: filePath is relative to the project root with / separators, and the lines must exist; the extension builds the link from the file's real content.",
-    "Omit typeId to use the category's default type and categoryId to use General. Omit priority to use the default; while priority is turned off a priority is refused.",
+    "Pick typeId from list_types_and_categories when a type's label fits the note (a problem found, a plan, an open question); omit it to use the category's default type, and omit categoryId to use General. Omit priority to use the default; while priority is turned off a priority is refused.",
     "Do not use it to change an existing note: use update_note.",
     TASKS_RULE,
     WRITE_RULE,

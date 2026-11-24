@@ -185,6 +185,7 @@ describe("MCP tool definitions", () => {
     assert.ok(findTool("update_note")!.description.includes("CONFLICT"));
     assert.ok(findTool("update_note")!.description.includes("Code links cannot be edited"));
     assert.ok(findTool("add_note")!.description.includes("verify by hand"));
+    assert.ok(findTool("add_note")!.description.includes("Pick typeId from list_types_and_categories"));
     assert.ok(findTool("add_note")!.description.includes("relative to the project root"));
   });
 
