@@ -16,7 +16,9 @@ export const WRITE_RULE =
   "While work is paused every write is refused with WORK_PAUSED; do not retry, and do not ask the user to resume so that you can write: tell the user. Resuming is their decision alone.";
 export const STATUS_RULE = [
   "Change a status only as the user wants it.",
-  "Move a note from pending to in-progress only when the user explicitly asks you to start working on that note.",
+  "When the user asks you to carry out a note, in any words or language (for example 'implement note 3', 'start note 3', 'fix this note', 'do it'), move it from pending to in-progress with set_note_status before you change anything for it. The user does not have to mention the status.",
+  "Reading, explaining, evaluating, or planning a note is not carrying it out: leave its status as it is.",
+  "Move only the notes the user asked you to carry out, each one when you start on it. If a note is not pending, do not move it; if it is done or canceled, tell the user.",
   "Never change the status of a done note unless the user asks for that change, even when you work on it again: the user may still see parts to finish or fix.",
   "Never mark a note done or canceled on your own: when the conversation suggests the work is finished, ask the user whether it is finished and should be marked done, and leave it in-progress if they do not confirm.",
   "When the user asks whether everything is finished, list the notes still in progress and say that they still need to be marked done.",

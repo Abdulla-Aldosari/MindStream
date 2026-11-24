@@ -1816,8 +1816,11 @@ already says it.
   it at the start of a session or to write it at the end.
 - Statuses follow the user (`STATUS_RULE`, in `set_note_status`, the prompts
   `continue_work` and `review_stale_links`, the rules snippet, and the server
-  instructions): pending moves to in-progress only when the user asks to start that
-  note; a done note is never changed unless the user asks; an agent never marks a note
+  instructions): when the user asks to carry out a note, in any words, the agent moves
+  it from pending to in-progress before changing anything for it, one note at a time as
+  it starts each; reading, explaining, evaluating, or planning a note leaves its status
+  as it is; a note that is not pending is not moved; a done note is never changed
+  unless the user asks; an agent never marks a note
   done or canceled on its own, but asks when the work seems finished and leaves it
   in-progress otherwise; asked whether everything is finished, it lists the notes still
   in progress.

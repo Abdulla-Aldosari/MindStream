@@ -70,7 +70,7 @@ Read the project summary, list and read notes (with an excerpt of the linked cod
 - **There is no tool that deletes anything,** and none that pauses or resumes work, writes the Work Pause note, edits a code link, imports, exports, or changes settings.
 - **The Work Pause note is yours.** It is the note you write for yourself before a long absence; an agent never writes it and reads it only when you ask.
 - **Work Pause blocks every write,** including an agent's. Reads still work. Only you can resume, and the agent is told never to ask you to.
-- **Statuses follow you.** The agent moves a note to in-progress only when you ask it to start that note, never changes a done note unless you ask, and never marks a note done on its own: it asks you when the work seems finished.
+- **Statuses follow you.** The agent moves a note to in-progress when you ask it to carry out that note (not when you only ask it to read or evaluate it), never changes a done note unless you ask, and never marks a note done on its own: it asks you when the work seems finished.
 - **Your own rules come first.** The agent is told that MindStream's instructions are defaults and that yours always take precedence.
 - Every refusal comes with a stable code (`WORK_PAUSED`, `CONFLICT`, ...), a reason, and what to do. A refused write changes nothing.
 - A note you edit while an agent changes it is never overwritten: the form tells you it changed elsewhere and refuses the Save until you reopen it.

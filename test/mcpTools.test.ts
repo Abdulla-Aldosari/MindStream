@@ -133,7 +133,12 @@ describe("MCP tool definitions", () => {
     assert.ok(description.includes(STATUS_RULE));
     assert.ok(!description.includes("when you start working on a note"));
     for (const phrase of [
-      "only when the user explicitly asks",
+      "in any words or language",
+      "move it from pending to in-progress with set_note_status before you change anything for it",
+      "The user does not have to mention the status",
+      "Reading, explaining, evaluating, or planning a note is not carrying it out",
+      "each one when you start on it",
+      "If a note is not pending, do not move it",
       "Never change the status of a done note",
       "Never mark a note done or canceled on your own",
       "still need to be marked done",
