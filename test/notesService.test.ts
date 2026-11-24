@@ -147,7 +147,7 @@ const code = (expected: string) => (err: unknown) => errorCodeOf(err) === expect
 describe("NotesService notes", () => {
   it("addNote applies the defaults: General, the category's default type, pending, the default priority", () => {
     const { notes, types, categories, changes } = setup();
-    const fix = types.list().find((t) => t.label === "Fix")!;
+    const fix = types.list().find((t) => t.label === "Issue")!;
     const cat = categories.add("Bugs");
     categories.setDefaultType(cat.id, fix.id);
     const plain = notes.addNote({ title: "  Plain  " });
@@ -381,7 +381,7 @@ describe("NotesService categories and types", () => {
       () => notes.addCategory("before release"),
       (err: unknown) => err instanceof DomainError && err.code === "DUPLICATE" && (err.current as { id: string }).id === cat.id
     );
-    assert.throws(() => notes.addType("fix"), code("DUPLICATE"));
+    assert.throws(() => notes.addType("issue"), code("DUPLICATE"));
     assert.throws(() => notes.addCategory(""), code("INVALID_INPUT"));
     assert.throws(() => notes.addType("Bug", "<b>"), code("INVALID_INPUT"));
     unchanged();

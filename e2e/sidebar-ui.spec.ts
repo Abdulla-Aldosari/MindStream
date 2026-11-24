@@ -409,3 +409,17 @@ test("the viewer shows the Created and Updated dates and times as dd/MM/yyyy hh:
     /^Created: \d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2} (?:AM|PM)\s+·\s+Updated: \d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2} (?:AM|PM)$/
   );
 });
+
+test("a new project starts with the default types, General first, and Plan uses the ordered-list icon", async ({ launch }) => {
+  const session = await launch({ data: buildData() });
+  const sidebar = await showSidebar(session.page);
+
+  await runCommand(session.page, "MindStream: Manage Types");
+  await expect(sidebar.locator("#types-modal")).toBeVisible();
+  const labels = ["General", "Task", "Issue", "Idea", "Feature", "Plan", "Refactor", "Question", "Docs", "Test", "Resource"];
+  await expect(sidebar.locator("#types-list .mgmt-row")).toHaveCount(labels.length);
+  for (const [i, label] of labels.entries()) {
+    await expect(sidebar.locator("#types-list .mgmt-row").nth(i)).toContainText(label);
+  }
+  await expect(sidebar.locator("#types-list .mgmt-row", { hasText: "Plan" }).locator(".codicon-list-ordered")).toBeVisible();
+});

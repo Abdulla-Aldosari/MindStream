@@ -430,7 +430,7 @@ describe("SidebarController.handleMessage", () => {
   it("setCategoryDefaultType saves the picked type", async () => {
     const { types, categories, ui, controller } = setup();
     const cat = categories.add("Fixes");
-    const fix = types.list().find((t) => t.label === "Fix")!;
+    const fix = types.list().find((t) => t.label === "Issue")!;
     ui.pickTypeResult = fix.id;
     await controller.handleMessage({ type: "setCategoryDefaultType", id: cat.id });
     assert.strictEqual(categories.get(cat.id)!.defaultTypeId, fix.id);

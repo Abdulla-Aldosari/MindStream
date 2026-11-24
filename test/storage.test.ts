@@ -108,6 +108,26 @@ describe("DEFAULT_TYPES / DEFAULT_CATEGORIES", () => {
     assert.strictEqual(DEFAULT_TYPES.length, 11);
   });
 
+  it("lists the default types by expected use, with General first", () => {
+    assert.deepStrictEqual(
+      DEFAULT_TYPES.map((t) => [t.label, t.icon]),
+      [
+        ["General", "note"],
+        ["Task", "tasklist"],
+        ["Issue", "issues"],
+        ["Idea", "lightbulb"],
+        ["Feature", "star"],
+        ["Plan", "list-ordered"],
+        ["Refactor", "sync"],
+        ["Question", "question"],
+        ["Docs", "book"],
+        ["Test", "beaker"],
+        ["Resource", "link"],
+      ]
+    );
+    assert.strictEqual(createEmptyData().types[0].label, "General");
+  });
+
   it("ships the General default category", () => {
     assert.strictEqual(DEFAULT_CATEGORIES.length, 1);
     assert.strictEqual(DEFAULT_CATEGORIES[0].id, GENERAL_CATEGORY_ID);

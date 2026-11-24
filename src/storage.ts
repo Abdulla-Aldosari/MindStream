@@ -101,17 +101,23 @@ export interface IStorage {
   getProblem(): StorageProblem | undefined;
 }
 
+/**
+ * The types a new project starts with, most used first. "General" must stay
+ * first: it is the type a note gets when nothing else picks one (the first type
+ * of the list, see `NotesService.defaultTypeId` and `resolveCategoryDefaultTypeId`).
+ * Only new data files (or files with no types) get this list; existing projects keep theirs.
+ */
 export const DEFAULT_TYPES: Omit<MindStreamTypeDef, "id" | "createdAt">[] = [
   { label: "General", icon: "note" },
-  { label: "Idea", icon: "lightbulb" },
   { label: "Task", icon: "tasklist" },
+  { label: "Issue", icon: "issues" },
+  { label: "Idea", icon: "lightbulb" },
   { label: "Feature", icon: "star" },
-  { label: "Fix", icon: "wrench" },
+  { label: "Plan", icon: "list-ordered" },
   { label: "Refactor", icon: "sync" },
-  { label: "Test", icon: "beaker" },
+  { label: "Question", icon: "question" },
   { label: "Docs", icon: "book" },
-  { label: "Chore", icon: "gear" },
-  { label: "Code", icon: "code" },
+  { label: "Test", icon: "beaker" },
   { label: "Resource", icon: "link" },
 ];
 
