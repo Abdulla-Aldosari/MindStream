@@ -385,6 +385,11 @@ media/
                           focusAvailable() for task group notes (pure, loaded as
                           a global before sidebar.js).
                           See §11.
+  dateFormat.js            DateFormat: formatDate() (dd/MM/yyyy) and formatDateTime()
+                          (dd/MM/yyyy hh:mm:ss AM|PM, 12-hour; used for the Created /
+                          Updated line of the note viewer and the Work Pause dates),
+                          both in local time, "" for a missing or invalid value
+                          (pure, loaded as a global before sidebar.js).
 
 
 
@@ -1303,7 +1308,7 @@ note list, filter, or Markdown export.
 
 - `text` is trimmed and capped at `MAX_WORK_PAUSE_TEXT` (10000 characters).
   `updatedAt` only moves when the text changes; the note shows it as
-  `Updated: <date> (<age>)` at the bottom (`today`, `yesterday`, `N days ago`,
+  `Updated: <dd/MM/yyyy hh:mm:ss AM|PM> (<age>)` at the bottom (`today`, `yesterday`, `N days ago`,
   counted in calendar days by `WorkPause.daysSince()`).
 - `normalizeWorkPauseNote()` drops a value that is not a plain object and falls
   back to empty values for wrong field types. Work is never paused without

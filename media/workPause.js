@@ -119,7 +119,7 @@ const WorkPause = (() => {
 
   /**
    * Builds the "last updated" line, or "" when no valid date is known.
-   * `format` turns a Date into text (the webview passes toLocaleString). With
+   * `format` turns a Date into text (the webview passes DateFormat.formatDateTime). With
    * `now`, the age follows: "Updated: <date> (84 days ago)".
    */
   function updatedLabel(updatedAt, format, now) {

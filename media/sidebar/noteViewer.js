@@ -17,12 +17,7 @@ import { buildProgressBar, buildTaskCheck, setTaskCheck } from "./taskProgress.j
 
 let viewingItem = null;
 
-function formatDate(value) {
-  if (!value) {
-    return "";
-  }
-  return new Date(value).toLocaleString();
-}
+const { formatDateTime: formatDate } = DateFormat;
 
 export function openView(item) {
   closeAllModals();

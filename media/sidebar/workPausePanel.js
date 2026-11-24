@@ -44,7 +44,7 @@ const wpExampleView = $("work-pause-example-view");
 const wpExampleRaw = $("work-pause-example-raw");
 const wpExampleSource = $("work-pause-example-source");
 
-const formatDate = (d) => d.toLocaleString();
+const { formatDateTime: formatDate } = DateFormat;
 
 // The preview toggle names what a click does next, and shows its state.
 function renderPreviewToggle(previewing) {

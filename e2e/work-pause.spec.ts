@@ -66,6 +66,9 @@ test("pausing with a note from an earlier break opens it in the editor with the 
   await expect(sidebar.locator("#work-pause-input")).toHaveValue("Old break: finish the importer.");
   await expect(sidebar.locator("#work-pause-earlier")).toBeVisible();
   await expect(sidebar.locator("#work-pause-earlier-text")).toContainText("earlier break");
+  await expect(sidebar.locator("#work-pause-earlier-text")).toHaveText(
+    /^This note is from \d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2} (?:AM|PM) \(\d+ days ago\)\. It was written for an earlier break\.$/
+  );
   await expect(sidebar.locator("#work-pause-hint")).toContainText("Saving pauses work");
   await expect(sidebar.locator("body")).not.toHaveClass(/work-pause-locked/);
 
@@ -104,6 +107,7 @@ test("Resume work on the note unlocks and keeps the note", async ({ launch }) =>
   const sidebar = await showSidebar(session.page);
 
   await expect(sidebar.locator("#work-pause-updated")).toContainText("days ago");
+  await expect(sidebar.locator("#work-pause-updated")).toHaveText(/^Updated: \d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2} (?:AM|PM) \(\d+ days ago\)$/);
   await sidebar.locator("#work-pause-resume").click();
   await expect(sidebar.locator("body")).not.toHaveClass(/work-pause-locked/);
   await expect(sidebar.locator(".card")).toHaveCount(1);

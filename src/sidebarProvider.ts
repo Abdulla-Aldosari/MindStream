@@ -462,6 +462,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     const workPauseUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "workPause.js"));
     const taskListUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "taskList.js"));
     const noteFormUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "noteForm.js"));
+    const dateFormatUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist", "media", "dateFormat.js"));
     const nonce = getNonce();
     return `<!DOCTYPE html>
 <html lang="en" dir="ltr">
@@ -772,6 +773,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
   <script nonce="${nonce}" src="${workPauseUri}"></script>
   <script nonce="${nonce}" src="${taskListUri}"></script>
   <script nonce="${nonce}" src="${noteFormUri}"></script>
+  <script nonce="${nonce}" src="${dateFormatUri}"></script>
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;

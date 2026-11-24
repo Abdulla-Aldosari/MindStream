@@ -47,6 +47,7 @@ module.exports = [
       "test/workPauseWebview.test.ts",
       "test/taskList.test.ts",
       "test/noteForm.test.ts",
+      "test/dateFormat.test.ts",
     ],
     rules: {
       "@typescript-eslint/no-require-imports": "off",
@@ -84,6 +85,7 @@ module.exports = [
         WorkPause: "readonly",
         TaskList: "readonly",
         NoteForm: "readonly",
+        DateFormat: "readonly",
       },
     },
   },
@@ -101,6 +103,7 @@ module.exports = [
       "media/workPause.js",
       "media/taskList.js",
       "media/noteForm.js",
+      "media/dateFormat.js",
     ],
     languageOptions: {
       globals: {

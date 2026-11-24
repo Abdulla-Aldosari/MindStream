@@ -398,3 +398,14 @@ test("emoji: the picker inserts at the caret, the shortcut repeats the last one,
   await expect(sidebar.locator(".card")).toHaveCount(0);
   expect(readData(session).items.filter((n) => n.categoryId === GENERAL_CATEGORY_ID)).toHaveLength(0);
 });
+
+test("the viewer shows the Created and Updated dates and times as dd/MM/yyyy hh:mm:ss AM|PM", async ({ launch }) => {
+  const session = await launch({ data: buildData([{ title: "Dated note" }]) });
+  const sidebar = await showSidebar(session.page);
+
+  await card(sidebar, "Dated note").dblclick();
+  await expect(sidebar.locator("#view-modal")).toBeVisible();
+  await expect(sidebar.locator("#view-timestamps")).toHaveText(
+    /^Created: \d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2} (?:AM|PM)\s+·\s+Updated: \d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2} (?:AM|PM)$/
+  );
+});
