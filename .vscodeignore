@@ -15,6 +15,7 @@ node_modules/
 
 esbuild.js
 tsconfig.json
+CONTRIBUTING.md
 .gitignore
 .mocharc.json
 .prettierignore
