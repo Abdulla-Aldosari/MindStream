@@ -1165,17 +1165,34 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   user-select: none;
 }
 
+/* The card shares its height: fixed rows keep their size, the description and
+   the checklist shrink to what is left, and the description scroller takes the
+   height of its parent instead of overflowing it. */
+.viewer-card > * {
+  flex-shrink: 0;
+}
+
+/* The description gives up its height first (a shrink factor far above the
+   checklist's), so a long description never squeezes the checklist. */
 .viewer-desc {
+  display: flex;
+  flex-direction: column;
+  flex: 1 100 auto;
+  min-height: 85px;
   background-color: var(--vscode-sideBar-background);
   border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, #333));
   border-radius: var(--radius);
   overflow: hidden;
 }
 
+.viewer-desc[hidden] {
+  display: none;
+}
+
 .viewer-desc-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
-  max-height: calc(60vh - 50px);
-  min-height: 85px;
   background: var(--vscode-editor-background);
 }
 
@@ -1336,16 +1353,20 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 /* Viewer: the checklist sits under the description. */
 .viewer-tasks {
   display: flex;
+  flex: 0 1 auto;
   flex-direction: column;
   gap: 6px;
+  min-height: 0;
 }
 
 .viewer-tasks[hidden] {
   display: none;
 }
 
+/* About ten rows; a longer checklist scrolls inside this cap. */
 .task-list-view {
-  max-height: 40vh;
+  max-height: 300px;
+  min-height: 0;
   overflow-y: auto;
 }
 

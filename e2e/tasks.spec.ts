@@ -63,6 +63,46 @@ test("clicking anywhere in a viewer task row toggles its check", async ({ launch
   await waitForData(session, (d) => d.items[0].tasks?.[1].completed === true);
 });
 
+test("a long description with a long checklist stays inside the viewer, and its scroller stays inside the description box", async ({ launch }) => {
+  const description = Array.from({ length: 120 }, (_, i) => `Description line ${i + 1}`).join("\n");
+  const tasks = Array.from({ length: 40 }, (_, i) => ({ title: `Task number ${i + 1}`, completed: false }));
+  const session = await launch({ data: buildData([{ title: "Huge plan", description, tasks }]) });
+  const sidebar = await showSidebar(session.page);
+
+  await sidebar.locator(".card", { hasText: "Huge plan" }).dblclick();
+  const viewer = sidebar.locator("#view-modal");
+  await expect(viewer).toBeVisible();
+
+  const box = async (selector: string) => {
+    const rect = await viewer.locator(selector).boundingBox();
+    if (!rect) {
+      throw new Error(`No box for ${selector}`);
+    }
+    return rect;
+  };
+
+  const desc = await box("#view-desc");
+  const scroller = await box("#view-desc-scroll");
+  expect(scroller.y + scroller.height).toBeLessThanOrEqual(desc.y + desc.height + 1);
+
+  const card = await box(".viewer-card");
+  const actions = await box(".viewer-card .modal-actions");
+  expect(actions.y + actions.height).toBeLessThanOrEqual(card.y + card.height + 1);
+
+  // The description gives up height first: the checklist keeps at least six
+  // rows (a row is about 30px), and never grows past its 300px cap.
+  const checklist = await box("#view-tasks-list");
+  expect(checklist.height).toBeGreaterThanOrEqual(180);
+  expect(checklist.height).toBeLessThanOrEqual(301);
+
+  // Scrolled to the end, the scroller still ends inside the description box.
+  await viewer.locator("#view-desc-scroll").evaluate((el) => {
+    el.scrollTop = el.scrollHeight;
+  });
+  const scrolled = await box("#view-desc-scroll");
+  expect(scrolled.y + scrolled.height).toBeLessThanOrEqual(desc.y + desc.height + 1);
+});
+
 test("the editor adds, reorders, checks and removes tasks, then saves them in order", async ({ launch }) => {
   const session = await launch();
   const sidebar = await showSidebar(session.page);
