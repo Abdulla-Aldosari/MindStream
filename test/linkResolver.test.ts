@@ -7,7 +7,7 @@
 
 import * as assert from "assert";
 import * as path from "path";
-import { buildLink, MAX_ANCHOR_LINES, resolveLink, toRelativePath } from "../src/linkResolver";
+import { buildLink, buildLinkAt, isSafeRelativePath, MAX_ANCHOR_LINES, resolveLink, toRelativePath } from "../src/linkResolver";
 import { MindStreamLink } from "../src/models";
 
 const ROOT = path.resolve("ws-root");
@@ -53,6 +53,22 @@ describe("buildLink", () => {
     assert.strictEqual(buildLink(ROOT, FILE, SOURCE, 0, 1), undefined);
     assert.strictEqual(buildLink(ROOT, FILE, SOURCE, 5, 3), undefined);
     assert.strictEqual(buildLink(ROOT, path.resolve("other", "a.ts"), SOURCE, 1, 1), undefined);
+  });
+});
+
+describe("buildLinkAt and isSafeRelativePath", () => {
+  it("buildLinkAt builds the same link as buildLink from a relative path", () => {
+    assert.deepStrictEqual(buildLinkAt("src/a.ts", SOURCE, 4, 4), link(4));
+    assert.strictEqual(buildLinkAt("src/a.ts", SOURCE, 0, 1), undefined);
+  });
+
+  it("accepts only paths that stay inside the workspace", () => {
+    for (const ok of ["a.ts", "src/a.ts", "src/.config/x.json"]) {
+      assert.strictEqual(isSafeRelativePath(ok), true, ok);
+    }
+    for (const bad of ["", "/a.ts", "C:/a.ts", "c:a.ts", "src\\a.ts", "../a.ts", "src/../../a.ts", "src//a.ts", "src/", 5, undefined]) {
+      assert.strictEqual(isSafeRelativePath(bad), false, String(bad));
+    }
   });
 });
 

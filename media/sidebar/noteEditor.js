@@ -30,6 +30,8 @@ let nextNoteSaveId = 1;
 let initialForm = null;
 // True while the host's "save or discard your changes?" question is open.
 let closeConfirming = false;
+// The edited note's stored fields when the form opened (NoteForm.baseOf), or null.
+let openedNote = null;
 // A host request for a new note that waits for the user's answer about the
 // open form's changes ({ link }), or null.
 let pendingOpenRequest = null;
@@ -110,6 +112,42 @@ function currentForm() {
 function rememberInitialForm() {
   closeConfirming = false;
   initialForm = currentForm();
+  // The stored note as it was when the form opened (edit only), sent with Save
+  // so a change made elsewhere meanwhile is never overwritten.
+  const item = state.editingId ? state.items.find((it) => it.id === state.editingId) : null;
+  openedNote = item ? NoteForm.baseOf(item) : null;
+  setChangedElsewhere([]);
+}
+
+// The base the Save is checked against: what the form showed when it opened.
+// A priority the editor does not show is left out, so it is never compared.
+function baseForSave() {
+  if (!openedNote) {
+    return undefined;
+  }
+  const base = { ...openedNote };
+  if (!state.priority.editor) {
+    delete base.priority;
+  }
+  return base;
+}
+
+// Shows (or hides) the notice that the open note changed elsewhere.
+function setChangedElsewhere(fields) {
+  const notice = $("f-changed-notice");
+  notice.hidden = fields.length === 0;
+  notice.textContent = fields.length ? NoteForm.changedNotice(fields) : "";
+}
+
+// Called with every state: warns as soon as the open note's stored fields no
+// longer match what the form opened with, before the user presses Save.
+export function checkOpenNoteChanged() {
+  if (modalEl.hidden || !state.editingId || !openedNote) {
+    return;
+  }
+  const item = state.items.find((it) => it.id === state.editingId);
+  // Gone from the list: deleted, or archived (hidden while the archive is not shown).
+  setChangedElsewhere(item ? NoteForm.changedFields(baseForSave(), NoteForm.baseOf(item)) : [NoteForm.GONE]);
 }
 
 // X, Cancel and Esc share this path: close at once when nothing would be lost
@@ -345,6 +383,8 @@ export function closeModal(options) {
   endExternalDescription();
   closeConfirming = false;
   initialForm = null;
+  openedNote = null;
+  setChangedElsewhere([]);
   modalEl.hidden = true;
   $("emoji-picker").hidden = true;
   $("emoji-edit-modal").hidden = true;
@@ -396,6 +436,9 @@ function saveModal() {
   }
   if (isEditing) {
     payload.id = state.editingId;
+    // The fields as the form showed them when it opened: the host refuses the
+    // Save when the note was changed elsewhere since then, so nothing is overwritten.
+    payload.base = baseForSave();
   } else if (state.formLinked) {
     // Only a flag: the host owns the link and attaches it itself.
     payload.linked = true;

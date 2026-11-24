@@ -77,6 +77,24 @@ export class CategoriesRegistry {
     return true;
   }
 
+  /**
+   * Removes a category and every note in it (archived ones too) in a single
+   * save, so a refused save leaves both untouched. Returns the number of notes
+   * removed, or -1 (nothing changed) for an unknown id or the protected
+   * default category.
+   */
+  removeWithNotes(id: string): number {
+    const data = this.storage.getData();
+    if (id === GENERAL_CATEGORY_ID || !data.categories.some((c) => c.id === id)) {
+      return -1;
+    }
+    const before = data.items.length;
+    data.items = data.items.filter((it) => it.categoryId !== id);
+    data.categories = data.categories.filter((c) => c.id !== id);
+    this.storage.saveData(data);
+    return before - data.items.length;
+  }
+
   /** Number of items (including archived) that belong to a category. */
   countItems(categoryId: string): number {
     return this.storage.getData().items.filter((it) => it.categoryId === categoryId).length;

@@ -12,6 +12,7 @@ import { renderList } from "./list.js";
 import { fillPriorityControl } from "./priorityControl.js";
 import {
   applyFormDirection,
+  checkOpenNoteChanged,
   handleDescriptionEditorClosed,
   handleDescriptionEditorOpened,
   handleDescriptionEditorText,
@@ -21,7 +22,7 @@ import {
   takePendingFlashId,
 } from "./noteEditor.js";
 import { refreshView } from "./noteViewer.js";
-import { applyWorkPauseState, handleWorkPauseDiscardAnswer, isWorkPaused, openWorkPauseEditor } from "./workPausePanel.js";
+import { applyWorkPauseState, handleWorkPauseDiscardAnswer, handleWorkPauseSaveResult, isWorkPaused, openWorkPauseEditor } from "./workPausePanel.js";
 import { openCategoriesModal, renderCategories } from "./categoriesModal.js";
 import { openWeeklyReportModal } from "./weeklyReport.js";
 import { openTypesModal, renderIcons, renderTypes } from "./typesModal.js";
@@ -38,6 +39,10 @@ export function initMessages() {
     }
     if (msg.type === "workPauseDiscardAnswer") {
       handleWorkPauseDiscardAnswer(msg);
+      return;
+    }
+    if (msg.type === "workPauseSaveResult") {
+      handleWorkPauseSaveResult(msg);
       return;
     }
     if (msg.type === "openWorkPauseEditor") {
@@ -166,6 +171,8 @@ export function initMessages() {
     renderList(changedIds);
     // The open viewer follows the stored note (checked tasks, external edits).
     refreshView();
+    // The open note form warns, before Save, when its note changed elsewhere.
+    checkOpenNoteChanged();
 
     prevStatusById = {};
     newItems.forEach((it) => {

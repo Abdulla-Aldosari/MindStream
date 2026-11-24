@@ -18,6 +18,30 @@ function setup() {
 }
 
 describe("CategoriesRegistry", () => {
+  it("removeWithNotes removes the category and its notes in one save", () => {
+    const { storage, categories, items } = setup();
+    const cat = categories.add("Temp");
+    const typeId = storage.getData().types[0].id;
+    items.create({ typeId, title: "In it", categoryId: cat.id });
+    items.create({ typeId, title: "Kept" });
+    const saves = storage.saved.length;
+    assert.strictEqual(categories.removeWithNotes(cat.id), 1);
+    assert.strictEqual(storage.saved.length, saves + 1);
+    assert.strictEqual(categories.get(cat.id), undefined);
+    assert.deepStrictEqual(
+      items.list().map((n) => n.title),
+      ["Kept"]
+    );
+  });
+
+  it("removeWithNotes changes nothing for the General category or an unknown id", () => {
+    const { storage, categories } = setup();
+    const saves = storage.saved.length;
+    assert.strictEqual(categories.removeWithNotes(GENERAL_CATEGORY_ID), -1);
+    assert.strictEqual(categories.removeWithNotes("missing"), -1);
+    assert.strictEqual(storage.saved.length, saves);
+  });
+
   it("starts with the default General category", () => {
     const { categories } = setup();
     assert.strictEqual(categories.list().length, 1);

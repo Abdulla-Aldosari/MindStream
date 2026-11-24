@@ -5,17 +5,16 @@
  * See LICENSE in the project root for details.
  *-------------------------------------------------*/
 
-import { MindStreamLink, MindStreamStatus } from "./models";
-import { DEFAULT_PRIORITY, isPriority } from "./priority";
+import { GENERAL_CATEGORY_ID, MindStreamLink, MindStreamStatus } from "./models";
+import { isPriority } from "./priority";
 import { ItemsStore } from "./itemsStore";
 import { TypesRegistry } from "./typesRegistry";
 import { CategoriesRegistry } from "./categoriesRegistry";
 import { DEFAULT_EMOJI_PALETTE, EmojiRegistry } from "./emojiRegistry";
 import { UiPrefsRegistry } from "./uiPrefs";
 import { WorkPauseStore } from "./workPauseStore";
-import { LinkTracker } from "./linkTracker";
+import { NotesService } from "./notesService";
 import { isAllowedDuringWorkPause } from "./workPause";
-import { sanitizeTasks } from "./tasks";
 
 export interface WebviewMessage {
   type:
@@ -50,6 +49,12 @@ export interface WebviewMessage {
   id?: string;
   /** `saveWorkPauseNote` only: also pause work (lock the UI) once saved. */
   pause?: boolean;
+  /**
+   * What a Save is based on: `updateItem` sends the note's fields as they were
+   * when the form opened, `saveWorkPauseNote` the text when editing started.
+   * A change made elsewhere since then refuses the Save (`CONFLICT`).
+   */
+  base?: unknown;
   /**
    * Set by the webview on `addItem` when the open form was started from the
    * editor context menu. The link itself never comes from the webview: the
@@ -92,6 +97,8 @@ export interface SidebarUi {
   confirmDiscardWorkPauseDraft(): Promise<boolean>;
   /** Sends the user's answer to that question back to the webview. */
   answerWorkPauseDiscard(discard: boolean): void;
+  /** Tells the webview whether the Work Pause note was stored; a refused save keeps the draft open. */
+  answerWorkPauseSave(ok: boolean): void;
   /**
    * Asks what to do with the changes of the note form that is being closed:
    * store them (`save`, which the form runs as its own Save), `discard` them,
@@ -120,9 +127,10 @@ export interface SidebarUi {
 
 /**
  * Message-handling logic for the sidebar, extracted from the webview provider
- * so it can be unit-tested without the `vscode` module. Mutates data through
- * the injected registries and asks for confirmations through the injected `ui`.
- * Unarchiving a linked note re-finds its code through the injected `links`.
+ * so it can be unit-tested without the `vscode` module. Every write goes
+ * through the injected `NotesService` (the same rules as any other caller);
+ * this class only reads the registries to word its questions, and asks for
+ * confirmations through the injected `ui`.
  */
 export class SidebarController {
   /** Link prepared by the "Add note to this line" command, consumed by the next `addItem`. */
@@ -135,8 +143,7 @@ export class SidebarController {
     private readonly emoji: EmojiRegistry,
     private readonly uiPrefs: UiPrefsRegistry,
     private readonly workPause: WorkPauseStore,
-    /** Re-finds a note's code when it is unarchived (archived notes are not re-checked meanwhile). */
-    private readonly links: LinkTracker,
+    private readonly notes: NotesService,
     private readonly ui: SidebarUi,
     /** Reads the live `mindstream.priority.style` setting (true unless "off"). */
     private readonly priorityEnabled: () => boolean = () => true
@@ -177,18 +184,19 @@ export class SidebarController {
     this.ui.answerNoteSave(msg.saveId, true);
   }
 
-  /**
-   * Refuses a note whose type or category does not exist, so a save is never
-   * answered as stored when nothing was written. The message reaches the user
-   * through the host, and the editor keeps what was typed.
-   */
-  private assertKnownTypeAndCategory(typeId: string | undefined, categoryId: string | undefined): void {
-    if (typeId !== undefined && !this.types.get(typeId)) {
-      throw new Error("The note's type no longer exists. Pick an existing type, or add one from Manage Types. Nothing was changed.");
+  /** The base fields sent by the note form, keeping only the editable ones. */
+  private static formBase(raw: unknown): Record<string, unknown> | undefined {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      return undefined;
     }
-    if (categoryId !== undefined && !this.categories.get(categoryId)) {
-      throw new Error("The note's category no longer exists. Pick an existing category. Nothing was changed.");
+    const src = raw as Record<string, unknown>;
+    const base: Record<string, unknown> = {};
+    for (const field of ["title", "description", "typeId", "categoryId", "priority", "tasks"]) {
+      if (field in src) {
+        base[field] = src[field];
+      }
     }
+    return base;
   }
 
   async handleMessage(msg: WebviewMessage): Promise<void> {
@@ -199,7 +207,14 @@ export class SidebarController {
     }
     switch (msg.type) {
       case "saveWorkPauseNote":
-        this.workPause.save(msg.text, msg.pause === true);
+        try {
+          // The user's own note panel: the only write allowed while work is paused.
+          this.notes.saveWorkPauseNote(msg.text, { pause: msg.pause === true, base: msg.base, userEditWhilePaused: true });
+        } catch (err) {
+          this.ui.answerWorkPauseSave(false);
+          throw err;
+        }
+        this.ui.answerWorkPauseSave(true);
         break;
       case "confirmDiscardWorkPauseDraft":
         this.ui.answerWorkPauseDiscard(await this.ui.confirmDiscardWorkPauseDraft());
@@ -225,21 +240,20 @@ export class SidebarController {
         this.pendingLink = undefined;
         try {
           this.saveNote(msg, () => {
-            if (msg.title?.trim()) {
-              // A missing type id (no types) is refused too, never skipped silently.
-              this.assertKnownTypeAndCategory(msg.typeId ?? "", msg.categoryId);
-              this.items.create({
-                link,
-                typeId: msg.typeId as string,
-                title: msg.title.trim(),
+            this.notes.addNote(
+              {
+                title: msg.title,
                 description: msg.description,
-                categoryId: msg.categoryId,
-                tasks: sanitizeTasks(msg.tasks),
-                // Enabled: always written (the editor's default when untouched).
-                // Disabled: never written, so the note stays unassigned.
-                priority: this.priorityEnabled() ? (isPriority(msg.priority) ? msg.priority : DEFAULT_PRIORITY) : undefined,
-              });
-            }
+                // The form always sends a type: a missing one (no types) is refused, never defaulted.
+                typeId: msg.typeId ?? null,
+                categoryId: msg.categoryId ?? GENERAL_CATEGORY_ID,
+                tasks: Array.isArray(msg.tasks) ? msg.tasks : undefined,
+                // Only a valid choice is sent on; the service applies the default
+                // while priority is on and writes none while it is off.
+                priority: this.priorityEnabled() && isPriority(msg.priority) ? msg.priority : undefined,
+              },
+              link
+            );
           });
         } catch (err) {
           // The editor stays open with its link, so the next Save still has it.
@@ -250,9 +264,9 @@ export class SidebarController {
       }
       case "updateItem":
         this.saveNote(msg, () => {
-          if (msg.id) {
-            this.assertKnownTypeAndCategory(msg.typeId, msg.categoryId);
-            this.items.update(msg.id, {
+          this.notes.updateNote(
+            msg.id,
+            {
               title: msg.title,
               description: msg.description,
               typeId: msg.typeId,
@@ -261,116 +275,79 @@ export class SidebarController {
               // disabled the stored value (or its absence) is left untouched.
               priority: this.priorityEnabled() && isPriority(msg.priority) ? msg.priority : undefined,
               // A sent list replaces the stored one (empty clears it); no list leaves it untouched.
-              tasks: Array.isArray(msg.tasks) ? (sanitizeTasks(msg.tasks) ?? []) : undefined,
-            });
-          }
+              tasks: Array.isArray(msg.tasks) ? msg.tasks : undefined,
+            },
+            // The fields as the form showed them: a change made elsewhere since then refuses the Save.
+            { base: SidebarController.formBase(msg.base) ?? {} }
+          );
         });
         break;
       case "setTaskCompleted":
-        if (msg.id && Number.isInteger(msg.index) && typeof msg.title === "string" && typeof msg.completed === "boolean") {
-          this.items.setTaskCompleted(msg.id, msg.index as number, msg.title, msg.completed);
+        this.notes.setTaskCompleted(msg.id, msg.index, msg.title, msg.completed);
+        break;
+      case "deleteItem": {
+        const item = this.notes.getNote(msg.id);
+        this.notes.checkWritable();
+        if (await this.ui.confirmDeleteNote(item.title)) {
+          this.notes.deleteNote(item.id);
         }
         break;
-      case "deleteItem":
-        if (msg.id) {
-          const item = this.items.get(msg.id);
-          if (!item) {
-            break;
-          }
-          if (await this.ui.confirmDeleteNote(item.title)) {
-            this.items.delete(msg.id);
-          }
-        }
-        break;
+      }
       case "changeStatus":
-        if (msg.id && msg.status) {
-          this.items.changeStatus(msg.id, msg.status);
-        }
+        this.notes.changeStatus(msg.id, msg.status);
         break;
       case "toggleArchive":
-        if (msg.id && typeof msg.archived === "boolean") {
-          const wasArchived = this.items.get(msg.id)?.archived === true;
-          this.items.setArchived(msg.id, msg.archived);
-          if (wasArchived && !msg.archived) {
-            // The link was not re-checked while archived; a refused write is dropped silently.
-            await this.links.resolveItem(msg.id);
-          }
-        }
+        await this.notes.setArchived(msg.id, msg.archived);
         break;
       case "addCategory":
-        if (msg.label?.trim()) {
-          this.categories.add(msg.label.trim());
-        }
+        this.notes.addCategory(msg.label);
         break;
       case "renameCategory":
-        if (msg.id && msg.label?.trim()) {
-          this.categories.rename(msg.id, msg.label.trim());
-        }
+        this.notes.renameCategory(msg.id, msg.label);
         break;
       case "deleteCategory": {
-        if (!msg.id) {
-          break;
+        const cat = this.notes.getCategory(msg.id);
+        this.notes.checkWritable();
+        if (cat.id === GENERAL_CATEGORY_ID) {
+          // Refused with its reason before any question.
+          this.notes.deleteCategory(cat.id);
         }
-        const cat = this.categories.get(msg.id);
-        if (!cat) {
-          break;
-        }
-        const count = this.categories.countItems(msg.id);
+        const count = this.categories.countItems(cat.id);
         if (await this.ui.confirmDeleteCategory(cat.label, count)) {
-          this.items.deleteByCategory(msg.id);
-          this.categories.remove(msg.id);
+          this.notes.deleteCategory(cat.id);
         }
         break;
       }
       case "setCategoryDefaultType": {
-        if (!msg.id) {
-          break;
-        }
-        const cat = this.categories.get(msg.id);
-        if (!cat) {
-          break;
-        }
+        const cat = this.notes.getCategory(msg.id);
+        this.notes.checkWritable();
         const types = this.types.list();
         const picked = await this.ui.pickType(types.map((t) => ({ id: t.id, label: t.label, icon: t.icon })));
         if (picked) {
-          this.categories.setDefaultType(msg.id, picked);
+          this.notes.setCategoryDefaultType(cat.id, picked);
         }
         break;
       }
       case "addType":
-        if (msg.label?.trim()) {
-          this.types.add(msg.label.trim(), msg.icon);
-        }
+        this.notes.addType(msg.label, msg.icon);
         break;
       case "renameType":
-        if (msg.id && msg.label?.trim()) {
-          this.types.rename(msg.id, msg.label.trim());
-        }
+        this.notes.renameType(msg.id, msg.label);
         break;
       case "setTypeIcon":
-        if (msg.id && msg.icon) {
-          this.types.setIcon(msg.id, msg.icon);
-        }
+        this.notes.setTypeIcon(msg.id, msg.icon);
         break;
       case "deleteType": {
-        if (!msg.id) {
-          break;
-        }
-        const typeDef = this.types.get(msg.id);
-        if (!typeDef) {
-          break;
-        }
-        if (this.types.list().length <= 1) {
-          this.ui.showInfo(`Type "${typeDef.label}" is the last type. Add another type before deleting it: notes need at least one type.`);
-          break;
-        }
-        const linked = this.types.countItems(msg.id);
-        if (linked > 0) {
-          this.ui.showInfo(`Type "${typeDef.label}" is used by ${linked} note(s). Change those notes to a different type before deleting it.`);
+        const typeDef = this.notes.getType(msg.id);
+        this.notes.checkWritable();
+        // Explained before any question, so the user is never asked for nothing.
+        const problem = this.notes.typeDeletionProblem(typeDef.id);
+        if (problem) {
+          this.ui.showInfo(problem);
           break;
         }
         if (await this.ui.confirmDeleteType(typeDef.label)) {
-          this.types.remove(msg.id);
+          this.notes.deleteType(typeDef.id);
         }
         break;
       }

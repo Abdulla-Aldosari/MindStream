@@ -11,7 +11,11 @@
 //                An empty array means the scope has no single home file.
 const baseScopes = [
   // Extension runtime
-  ["extension", "activate()/deactivate(), command registration, wiring all services together", ["src/extension.ts"]],
+  [
+    "extension",
+    "activate()/deactivate(), command registration, wiring all services together, the one function that picks the workspace folder",
+    ["src/extension.ts", "src/workspaceFolder.ts"],
+  ],
   ["commands", "command handler logic for export, import, weekly report, and workspace requirement checks", ["src/commands.ts"]],
   [
     "sidebar",
@@ -28,8 +32,8 @@ const baseScopes = [
   ],
   [
     "notes",
-    "note CRUD, status history, archiving, deletion, and the user-defined note types and categories registries",
-    ["src/itemsStore.ts", "src/typesRegistry.ts", "src/categoriesRegistry.ts", "src/tasks.ts"],
+    "note CRUD, statuses, archiving, deletion, the user-defined note types and categories registries, and NotesService: the single write entry point with input checks, refusal codes, and conflict rules",
+    ["src/itemsStore.ts", "src/typesRegistry.ts", "src/categoriesRegistry.ts", "src/tasks.ts", "src/notesService.ts", "src/noteInput.ts", "src/domainError.ts"],
   ],
   [
     "links",
@@ -45,6 +49,12 @@ const baseScopes = [
     "workPause",
     "Work Pause note: the single hand-off note stored in the data file, its lock rules, the lock guard, and its store (the webview parts live under media/)",
     ["src/workPause.ts", "src/workPauseStore.ts"],
+  ],
+
+  [
+    "mcp",
+    "MCP server for AI agents: read layer, tools, prompts, workspace router, HTTP transport and its security checks, client configuration, and the extension controller",
+    ["src/mcp/"],
   ],
 
   // Tests, docs, and assets

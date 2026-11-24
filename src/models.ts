@@ -133,9 +133,10 @@ export interface MindStreamCategoryDef {
 }
 
 /**
- * The single "Work Pause" note: a hand-off note written before stepping away
- * for a long time. While `paused` is true the whole UI is locked and shows
- * only this note. It lives beside the notes, never inside `items`.
+ * The single "Work Pause" note: the user's own note, written before stepping
+ * away from the project for a long time. While `paused` is true the whole UI
+ * is locked and shows only this note. Only the user writes it, never an agent.
+ * It lives beside the notes, never inside `items`.
  */
 export interface MindStreamWorkPauseNote {
   text: string;

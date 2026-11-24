@@ -11,7 +11,7 @@ const options = {
   bundle: true,
   format: "cjs",
   platform: "node",
-  target: "node18",
+  target: "node22",
   external: ["vscode"],
   outfile: "dist/extension.js",
   sourcemap: !production,

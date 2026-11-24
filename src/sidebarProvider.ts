@@ -20,7 +20,10 @@ import { getBodyClass } from "./util";
 import { DEFAULT_PRIORITY, normalizePriorityStyle, PRIORITIES, PRIORITY_LABEL, PriorityStyle, priorityFeatures } from "./priority";
 import { DescriptionEditor } from "./descriptionEditor";
 import { WorkPauseStore } from "./workPauseStore";
+import { NotesService } from "./notesService";
+import { MAX_LABEL, MAX_NOTE_DESCRIPTION, MAX_NOTE_TITLE } from "./noteInput";
 import { WORK_PAUSE_CONTEXT_KEY, isAllowedDuringWorkPause } from "./workPause";
+import { resolveWorkspaceFolder } from "./workspaceFolder";
 
 export const VIEW_TYPE = "mindstream.sidebar";
 
@@ -57,10 +60,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     private readonly uiPrefs: UiPrefsRegistry,
     private readonly workPause: WorkPauseStore,
     private readonly links: LinkTracker,
+    private readonly notes: NotesService,
     private readonly descriptionEditor: DescriptionEditor,
     private readonly isDevMode: boolean = false
   ) {
-    this.controller = new SidebarController(items, types, categories, this.emoji, this.uiPrefs, this.workPause, this.links, this, () => this.getPriorityStyle() !== "off");
+    this.controller = new SidebarController(items, types, categories, this.emoji, this.uiPrefs, this.workPause, this.notes, this, () => this.priorityEnabled());
     // The text follows every edit and save made in the description tab; closing
     // the tab hands the final text back and unlocks the form's field.
     this.descriptionEditor.onDidChangeText((text) => {
@@ -199,7 +203,30 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     this._view.badge = inProgress > 0 ? { value: inProgress, tooltip: `${inProgress} in progress` } : undefined;
   }
 
+  /**
+   * A change was stored through `NotesService` (by any caller). While a
+   * webview message is being handled the view is refreshed once at its end,
+   * so a second render (which would cut the card animations short) is skipped.
+   */
+  onDataChanged(): void {
+    if (this.handlingMessages === 0) {
+      this.refresh();
+    }
+  }
+
+  /** Webview messages being handled right now (a dialog may keep one open). */
+  private handlingMessages = 0;
+
   private async handleMessage(msg: WebviewMessage): Promise<void> {
+    this.handlingMessages += 1;
+    try {
+      await this.handleMessageNow(msg);
+    } finally {
+      this.handlingMessages -= 1;
+    }
+  }
+
+  private async handleMessageNow(msg: WebviewMessage): Promise<void> {
     try {
       // The lock is enforced here as well as in the controller, because the
       // messages handled below never reach the controller.
@@ -245,7 +272,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     }
     this.refresh();
     const { link, outcome } = resolved;
-    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    const root = resolveWorkspaceFolder(vscode.workspace.workspaceFolders)?.uri;
     if (outcome === "missing" || !root) {
       void vscode.window.showWarningMessage(`MindStream: "${link.filePath}" no longer exists at this path. The note is kept.`);
       return;
@@ -308,6 +335,10 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     void this._view?.webview.postMessage({ type: "workPauseDiscardAnswer", discard });
   }
 
+  answerWorkPauseSave(ok: boolean): void {
+    void this._view?.webview.postMessage({ type: "workPauseSaveResult", ok });
+  }
+
   async confirmCloseNoteForm(): Promise<NoteCloseChoice> {
     const pick = await vscode.window.showWarningMessage("Save your changes to the note?", { modal: true }, "Save", "Discard");
     return pick === "Save" ? "save" : pick === "Discard" ? "discard" : "cancel";
@@ -367,6 +398,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
         defaultValue: DEFAULT_PRIORITY,
       },
     });
+  }
+
+  /** True unless the priority system is turned off in the settings. */
+  priorityEnabled(): boolean {
+    return this.getPriorityStyle() !== "off";
   }
 
   /** Reads the priority style setting (an unknown value falls back to the default). */
@@ -441,7 +477,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
         <span>Linked to code</span>
         <div id="f-link" class="link-readonly"></div>
       </div>
-      <label class="field"><span>Title</span><input id="f-title" type="text" placeholder="Write the idea/task briefly"></label>
+      <div id="f-changed-notice" class="form-notice" role="status" hidden></div>
+      <label class="field"><span>Title</span><input id="f-title" type="text" maxlength="${MAX_NOTE_TITLE}" placeholder="Write the idea/task briefly"></label>
       <div class="field"><span>Type</span><div id="f-type-container"></div></div>
       <div class="field"><span>Category</span><div id="f-category-container"></div></div>
       <div id="f-priority-field" class="field" hidden>
@@ -461,7 +498,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
             </button>
           </div>
         </div>
-        <textarea id="f-desc" rows="3" placeholder="Extra details..."></textarea>
+        <textarea id="f-desc" rows="3" maxlength="${MAX_NOTE_DESCRIPTION}" placeholder="Extra details..."></textarea>
       </div>
       <div class="field">
         <div class="field-label-row">
@@ -533,7 +570,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
       </div>
       <div id="categories-list" class="categories-list"></div>
       <div class="mgmt-form">
-        <input id="f-category-name" type="text" placeholder="New category name" autocomplete="off">
+        <input id="f-category-name" type="text" maxlength="${MAX_LABEL}" placeholder="New category name" autocomplete="off">
         <button id="btn-add-category" class="btn btn-primary">Add</button>
       </div>
     </div>
@@ -552,7 +589,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
         <button id="btn-type-icon" class="icon-btn type-icon-btn choose-icon" data-tooltip="Choose icon">
           <span id="btn-type-icon-glyph" class="codicon codicon-tag"></span>
         </button>
-        <input id="f-type-name" type="text" placeholder="New type name" autocomplete="off">
+        <input id="f-type-name" type="text" maxlength="${MAX_LABEL}" placeholder="New type name" autocomplete="off">
         <button id="btn-add-type" class="btn btn-primary">Add</button>
       </div>
       <div id="icons-modal" class="icons-modal" hidden>

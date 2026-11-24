@@ -16,6 +16,8 @@ import { DEFAULT_DESCRIPTION_HEIGHT, UiPrefsRegistry } from "../src/uiPrefs";
 import { DEFAULT_PRIORITY } from "../src/priority";
 import { WorkPauseStore } from "../src/workPauseStore";
 import { LinkTracker } from "../src/linkTracker";
+import { NotesService } from "../src/notesService";
+import { DomainError } from "../src/domainError";
 import { BLOCKED, FakeFiles, InMemoryStorage } from "./helpers";
 import { StorageError } from "../src/storage";
 
@@ -75,6 +77,12 @@ class FakeUi implements SidebarUi {
     this.discardAnswers.push(discard);
   }
 
+  workPauseSaveAnswers: boolean[] = [];
+
+  answerWorkPauseSave(ok: boolean): void {
+    this.workPauseSaveAnswers.push(ok);
+  }
+
   closeFormChoice: "save" | "discard" | "cancel" = "cancel";
   closeFormQuestions = 0;
   closeFormAnswers: ("save" | "discard" | "cancel")[] = [];
@@ -125,7 +133,9 @@ function setup(priorityEnabled = true) {
   const ui = new FakeUi();
   const workPause = new WorkPauseStore(storage);
   const files = new FakeFiles();
-  const controller = new SidebarController(items, types, categories, emoji, uiPrefs, workPause, new LinkTracker(items, files), ui, () => priorityEnabled);
+  const links = new LinkTracker(items, files);
+  const notes = new NotesService({ storage, items, types, categories, workPause, links, files, priorityEnabled: () => priorityEnabled });
+  const controller = new SidebarController(items, types, categories, emoji, uiPrefs, workPause, notes, ui, () => priorityEnabled);
   const typeId = storage.getData().types[0].id;
   return { storage, items, types, categories, emoji, uiPrefs, workPause, ui, controller, typeId, files };
 }
@@ -138,10 +148,14 @@ describe("SidebarController.handleMessage", () => {
     assert.strictEqual(items.list()[0].title, "Idea");
   });
 
-  it("addItem ignores a blank title", async () => {
-    const { items, controller, typeId } = setup();
-    await controller.handleMessage({ type: "addItem", title: "   ", typeId });
+  it("addItem refuses a blank title with a reason and answers not ok", async () => {
+    const { items, ui, controller, typeId } = setup();
+    await assert.rejects(
+      controller.handleMessage({ type: "addItem", title: "   ", typeId, saveId: 1 }),
+      (err: unknown) => err instanceof DomainError && err.code === "INVALID_INPUT"
+    );
     assert.strictEqual(items.list().length, 0);
+    assert.deepStrictEqual(ui.saveAnswers, [{ saveId: 1, ok: false }]);
   });
 
   describe("code link", () => {
@@ -285,10 +299,19 @@ describe("SidebarController.handleMessage", () => {
     assert.ok(items.get(item.id));
   });
 
-  it("deleteItem does not prompt for an unknown id", async () => {
+  it("deleteItem refuses an unknown id (NOT_FOUND) without prompting", async () => {
     const { ui, controller } = setup();
-    await controller.handleMessage({ type: "deleteItem", id: "missing" });
+    await assert.rejects(controller.handleMessage({ type: "deleteItem", id: "missing" }), (err: unknown) => err instanceof DomainError && err.code === "NOT_FOUND");
     assert.strictEqual(ui.confirmedNotes.length, 0);
+  });
+
+  it("deleteItem refuses before asking while saving is off, so the user is never asked for nothing", async () => {
+    const { items, ui, storage, controller, typeId } = setup();
+    const item = items.create({ typeId, title: "Kept" });
+    storage.problem = BLOCKED;
+    await assert.rejects(controller.handleMessage({ type: "deleteItem", id: item.id }), StorageError);
+    assert.strictEqual(ui.confirmedNotes.length, 0);
+    assert.ok(items.get(item.id));
   });
 
   it("changeStatus updates the status", async () => {
@@ -404,11 +427,33 @@ describe("SidebarController.handleMessage", () => {
     assert.strictEqual(categories.get(cat.id)!.defaultTypeId, undefined);
   });
 
-  it("setCategoryDefaultType ignores an unknown category without prompting", async () => {
+  it("setCategoryDefaultType refuses an unknown category (NOT_FOUND) without prompting", async () => {
     const { ui, controller } = setup();
     ui.pickTypeResult = "anything";
-    await controller.handleMessage({ type: "setCategoryDefaultType", id: "missing" });
+    await assert.rejects(controller.handleMessage({ type: "setCategoryDefaultType", id: "missing" }), (err: unknown) => err instanceof DomainError && err.code === "NOT_FOUND");
     assert.strictEqual(ui.pickedTypes.length, 0);
+  });
+
+  it("addCategory and renameCategory refuse a name already in use (DUPLICATE), ignoring case", async () => {
+    const { categories, storage, controller } = setup();
+    const cat = categories.add("Release");
+    const other = categories.add("Backlog");
+    const before = JSON.stringify(storage.getData());
+    await assert.rejects(controller.handleMessage({ type: "addCategory", label: " release " }), (err: unknown) => err instanceof DomainError && err.code === "DUPLICATE");
+    await assert.rejects(
+      controller.handleMessage({ type: "renameCategory", id: other.id, label: "RELEASE" }),
+      (err: unknown) => err instanceof DomainError && err.code === "DUPLICATE"
+    );
+    assert.strictEqual(JSON.stringify(storage.getData()), before);
+    // Renaming a category to its own name in another case is allowed.
+    await controller.handleMessage({ type: "renameCategory", id: cat.id, label: "RELEASE" });
+    assert.strictEqual(categories.label(cat.id), "RELEASE");
+  });
+
+  it("deleteCategory refuses the built-in category with a reason, before asking", async () => {
+    const { ui, controller } = setup();
+    await assert.rejects(controller.handleMessage({ type: "deleteCategory", id: "general" }), /cannot be deleted/);
+    assert.strictEqual(ui.confirmedCategories.length, 0);
   });
 
   it("deleteCategory confirms with the item count and removes both", async () => {
@@ -531,12 +576,32 @@ describe("SidebarController Work Pause", () => {
     assert.strictEqual(workPause.isPaused(), true);
   });
 
-  it("saveWorkPauseNote never pauses on blank or non-string text", async () => {
-    const { workPause, controller, storage } = setup();
-    await controller.handleMessage({ type: "saveWorkPauseNote", text: "   ", pause: true });
-    await controller.handleMessage({ type: "saveWorkPauseNote", text: undefined, pause: true });
+  it("saveWorkPauseNote refuses blank or non-string text, never pauses, and answers not ok", async () => {
+    const { workPause, controller, storage, ui } = setup();
+    await assert.rejects(controller.handleMessage({ type: "saveWorkPauseNote", text: "   ", pause: true }), /the note text is empty/);
+    await assert.rejects(controller.handleMessage({ type: "saveWorkPauseNote", text: undefined, pause: true }), /the note text is empty/);
     assert.strictEqual(workPause.isPaused(), false);
     assert.strictEqual(storage.saved.length, 0);
+    assert.deepStrictEqual(ui.workPauseSaveAnswers, [false, false]);
+  });
+
+  it("saveWorkPauseNote answers ok once stored", async () => {
+    const { controller, ui } = setup();
+    await controller.handleMessage({ type: "saveWorkPauseNote", text: "Stopped here" });
+    assert.deepStrictEqual(ui.workPauseSaveAnswers, [true]);
+  });
+
+  it("saveWorkPauseNote refuses (CONFLICT) when the note changed after editing started, keeping the newer text", async () => {
+    const { workPause, controller, ui } = setup();
+    workPause.save("First version");
+    // The panel started editing "First version"; meanwhile the text changed elsewhere.
+    workPause.save("Written elsewhere");
+    await assert.rejects(
+      controller.handleMessage({ type: "saveWorkPauseNote", text: "Mine", base: "First version" }),
+      (err: unknown) => err instanceof DomainError && err.code === "CONFLICT"
+    );
+    assert.strictEqual(workPause.get().text, "Written elsewhere");
+    assert.deepStrictEqual(ui.workPauseSaveAnswers, [false]);
   });
 
   it("confirmDiscardWorkPauseDraft asks the host and relays the answer, either way", async () => {
@@ -595,7 +660,7 @@ describe("SidebarController Work Pause", () => {
 
     it("still lets the note itself be edited", async () => {
       const { controller, workPause } = await locked();
-      await controller.handleMessage({ type: "saveWorkPauseNote", text: "Updated" });
+      await controller.handleMessage({ type: "saveWorkPauseNote", text: "Updated", base: "Locked" });
       assert.strictEqual(workPause.get().text, "Updated");
       assert.strictEqual(workPause.isPaused(), true);
     });
@@ -645,20 +710,21 @@ describe("SidebarController tasks", () => {
     assert.strictEqual(items.get(id)?.tasks?.[0].completed, false);
   });
 
-  it("setTaskCompleted ignores malformed requests", async () => {
+  it("setTaskCompleted refuses malformed or stale requests with a code, changing nothing", async () => {
     const { storage, items, controller, typeId } = setup();
     const id = items.create({ typeId, title: "G", tasks: [{ title: "A", completed: false }] }).id;
     const saves = storage.saved.length;
     const bad = [
-      { type: "setTaskCompleted", index: 0, title: "A", completed: true },
-      { type: "setTaskCompleted", id, index: 0.5, title: "A", completed: true },
-      { type: "setTaskCompleted", id, title: "A", completed: true },
-      { type: "setTaskCompleted", id, index: 0, completed: true },
-      { type: "setTaskCompleted", id, index: 0, title: "A" },
-      { type: "setTaskCompleted", id, index: 0, title: "Other", completed: true },
+      [{ type: "setTaskCompleted", index: 0, title: "A", completed: true }, "NOT_FOUND"],
+      [{ type: "setTaskCompleted", id, index: 0.5, title: "A", completed: true }, "INVALID_INPUT"],
+      [{ type: "setTaskCompleted", id, title: "A", completed: true }, "INVALID_INPUT"],
+      [{ type: "setTaskCompleted", id, index: 0, completed: true }, "INVALID_INPUT"],
+      [{ type: "setTaskCompleted", id, index: 0, title: "A" }, "INVALID_INPUT"],
+      // The list changed since the viewer drew it.
+      [{ type: "setTaskCompleted", id, index: 0, title: "Other", completed: true }, "CONFLICT"],
     ] as const;
-    for (const m of bad) {
-      await controller.handleMessage(m);
+    for (const [m, code] of bad) {
+      await assert.rejects(controller.handleMessage(m), (err: unknown) => err instanceof DomainError && err.code === code);
     }
     assert.strictEqual(storage.saved.length, saves);
     assert.strictEqual(items.get(id)?.tasks?.[0].completed, false);
@@ -738,6 +804,88 @@ describe("SidebarController note editor save answer", () => {
     await controller.handleMessage({ type: "toggleArchive", id: note.id, archived: false });
     await controller.handleMessage({ type: "changeStatus", id: note.id, status: "done" });
     assert.strictEqual(items.get(note.id)?.status, "done");
+  });
+
+  describe("a note changed elsewhere while its form was open", () => {
+    function opened() {
+      const ctx = setup();
+      const note = ctx.items.create({ typeId: ctx.typeId, title: "Fix save", description: "Line 40", tasks: [{ title: "Repro", completed: false }] });
+      // What the form showed when it opened (the webview sends this as `base`).
+      const base = { title: "Fix save", description: "Line 40", typeId: ctx.typeId, categoryId: "general", priority: null, tasks: [{ title: "Repro", completed: false }] };
+      return { ...ctx, note, base };
+    }
+
+    it("refuses the Save (CONFLICT) naming the changed fields, keeps the other writer's text, and answers not ok", async () => {
+      const { controller, ui, items, storage, note, base, typeId } = opened();
+      // An automated caller appended to the description and checked a task meanwhile.
+      items.update(note.id, { description: "Line 40\n\nCause: the file is locked." });
+      items.setTaskCompleted(note.id, 0, "Repro", true);
+      const before = JSON.stringify(storage.getData());
+      await assert.rejects(
+        controller.handleMessage({
+          type: "updateItem",
+          id: note.id,
+          saveId: 9,
+          base,
+          title: "Fix the save",
+          description: "Line 40",
+          typeId,
+          categoryId: "general",
+          tasks: base.tasks,
+        }),
+        (err: unknown) =>
+          err instanceof DomainError &&
+          err.code === "CONFLICT" &&
+          /changed elsewhere after you opened it \(description, tasks\)/.test(err.message) &&
+          err.message.includes("Nothing was changed.")
+      );
+      assert.deepStrictEqual(ui.saveAnswers, [{ saveId: 9, ok: false }]);
+      assert.strictEqual(JSON.stringify(storage.getData()), before);
+    });
+
+    it("a status change made elsewhere is no conflict: the form never edits the status", async () => {
+      const { controller, items, note, base, typeId } = opened();
+      items.changeStatus(note.id, "in-progress");
+      await controller.handleMessage({
+        type: "updateItem",
+        id: note.id,
+        saveId: 1,
+        base,
+        title: "Fix the save",
+        description: "Line 40",
+        typeId,
+        categoryId: "general",
+        tasks: base.tasks,
+      });
+      const stored = items.get(note.id)!;
+      assert.strictEqual(stored.title, "Fix the save");
+      assert.strictEqual(stored.status, "in-progress");
+    });
+
+    it("line endings and title spaces in the base are not differences", async () => {
+      const { controller, items, note, base, typeId } = opened();
+      await controller.handleMessage({
+        type: "updateItem",
+        id: note.id,
+        saveId: 1,
+        base: { ...base, title: " Fix save ", description: "Line 40" },
+        title: "Renamed",
+        typeId,
+        categoryId: "general",
+      });
+      assert.strictEqual(items.get(note.id)!.title, "Renamed");
+    });
+
+    it("refuses a Save for a note deleted elsewhere (NOT_FOUND), never answering it as stored", async () => {
+      const { controller, ui, items, note, base } = opened();
+      items.delete(note.id);
+      await assert.rejects(
+        controller.handleMessage({ type: "updateItem", id: note.id, saveId: 3, base, title: "Typed" }),
+        (err: unknown) => err instanceof DomainError && err.code === "NOT_FOUND"
+      );
+      assert.deepStrictEqual(ui.saveAnswers, [{ saveId: 3, ok: false }]);
+      assert.strictEqual(items.list(true).length, 0);
+    });
   });
 
   it("refuses to move a note to an unknown type", async () => {

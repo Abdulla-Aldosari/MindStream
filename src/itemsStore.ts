@@ -76,8 +76,10 @@ function applyOutcomeTime(item: MindStreamItem, status: MindStreamStatus, now: s
 }
 
 /**
- * Item management (CRUD) with:
- * - An append-only history of status transitions.
+ * Item management (CRUD). Callers that act for the user or an automated
+ * caller go through `NotesService`, which validates input, applies the Work
+ * Pause lock, and refuses unknown ids; this store only applies a change:
+ * - Status outcome times (`completedAt`/`canceledAt`) kept in step with the status.
  * - Archiving fully independent of status.
  * - Permanent deletion separate from archiving.
  * - Archived notes are read-only: `update`, `changeStatus`, and

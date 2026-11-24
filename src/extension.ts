@@ -20,9 +20,14 @@ import { IStorage, StorageProblem, describeStorageTransition } from "./storage";
 import { debounce, isDemoCapture } from "./util";
 import { CommandsDeps, exportJson, exportMarkdown, exportWeeklyReport, importJson, requireWorkspace } from "./commands";
 import { WorkPauseStore } from "./workPauseStore";
+import { NotesService } from "./notesService";
+import { normalizePriorityStyle } from "./priority";
 import { DescriptionEditor } from "./descriptionEditor";
 import { normalizeTabCloseBehavior } from "./noteFormSettings";
 import { WORK_PAUSE_CONTEXT_KEY, guardWhenWorkPaused } from "./workPause";
+import { resolveWorkspaceFolder } from "./workspaceFolder";
+import { McpController } from "./mcp/mcpController";
+import { NotesQuery } from "./mcp/notesQuery";
 
 /** Milliseconds to coalesce bursts of filesystem-watcher events (e.g. the
  *  temp-file-then-rename write in `StorageService`) into a single reload. */
@@ -73,6 +78,7 @@ function watchDataFile(context: vscode.ExtensionContext, folder: vscode.Workspac
 }
 
 let sidebar: SidebarProvider | undefined;
+let mcp: McpController | undefined;
 
 /**
  * Sidebar view provider shown when no folder is open:
@@ -115,7 +121,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const deps = createCommandsDeps();
 
-  const folder = vscode.workspace.workspaceFolders?.[0];
+  const folder = resolveWorkspaceFolder(vscode.workspace.workspaceFolders);
 
   if (!folder) {
     // No folder is open: show an explanatory message only, commands show an alert.
@@ -132,6 +138,9 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(vscode.commands.registerCommand("mindstream.refresh", () => requireWorkspace(deps)));
     context.subscriptions.push(vscode.commands.registerCommand("mindstream.workPause.pause", () => requireWorkspace(deps)));
     context.subscriptions.push(vscode.commands.registerCommand("mindstream.workPause.resume", () => requireWorkspace(deps)));
+    context.subscriptions.push(vscode.commands.registerCommand("mindstream.mcp.regenerateToken", () => requireWorkspace(deps)));
+    context.subscriptions.push(vscode.commands.registerCommand("mindstream.mcp.connect", () => requireWorkspace(deps)));
+    context.subscriptions.push(vscode.commands.registerCommand("mindstream.mcp.copyRules", () => requireWorkspace(deps)));
     context.subscriptions.push(
       vscode.commands.registerCommand("mindstream.showSidebar", async () => {
         await vscode.commands.executeCommand("workbench.view.extension.mindstream");
@@ -167,16 +176,42 @@ export function activate(context: vscode.ExtensionContext): void {
   const uiPrefs = new UiPrefsRegistry(uiPrefsMemento);
 
   const isDevMode = context.extensionMode === vscode.ExtensionMode.Development && !isDemoCapture();
-  const linkTracker = new LinkTracker(items, createLinkFiles(folder.uri));
+  const linkFiles = createLinkFiles(folder.uri);
+  const linkTracker = new LinkTracker(items, linkFiles);
   const workPause = new WorkPauseStore(storage);
+  const notesPriorityEnabled = () => normalizePriorityStyle(vscode.workspace.getConfiguration("mindstream").get<string>("priority.style")) !== "off";
+  // Every change to the data, from the sidebar or any other caller, goes through this service.
+  const notes = new NotesService({
+    storage,
+    items,
+    types,
+    categories,
+    workPause,
+    links: linkTracker,
+    files: linkFiles,
+    priorityEnabled: notesPriorityEnabled,
+  });
   // Set before the view exists so global entry points (editor menu, keybinding)
   // already see the lock after a restart. The sidebar keeps it in sync afterwards.
   void vscode.commands.executeCommand("setContext", WORK_PAUSE_CONTEXT_KEY, workPause.isPaused());
   const unlessWorkPaused = guardWhenWorkPaused(() => workPause.isPaused());
   const descriptionEditor = new DescriptionEditor(() => normalizeTabCloseBehavior(vscode.workspace.getConfiguration("mindstream").get<string>("descriptionTab.onClose")));
   context.subscriptions.push(descriptionEditor);
-  sidebar = new SidebarProvider(context.extensionUri, items, types, categories, emoji, uiPrefs, workPause, linkTracker, descriptionEditor, isDevMode);
+  sidebar = new SidebarProvider(context.extensionUri, items, types, categories, emoji, uiPrefs, workPause, linkTracker, notes, descriptionEditor, isDevMode);
+  // A change stored by any caller (or an outside change picked up before a write) reaches the view.
+  context.subscriptions.push(notes.onDidChange(() => sidebar?.onDataChanged()));
   registerLinkTracking(context, folder, linkTracker, () => sidebar?.refresh());
+
+  // Agents reach the notes through MCP, always on, with no user action. A failure here never stops the window from working.
+  mcp = new McpController({
+    context,
+    folder,
+    notes,
+    query: new NotesQuery({ storage, items, types, categories, workPause, links: linkTracker, files: linkFiles, priorityEnabled: notesPriorityEnabled }),
+    output: outputChannel,
+  });
+  context.subscriptions.push(mcp);
+  mcp.start().catch((err: unknown) => outputChannel.appendLine(`[mcp] could not start: ${err instanceof Error ? err.message : String(err)}`));
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(VIEW_TYPE, sidebar, {
@@ -292,14 +327,15 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 }
 
-export function deactivate(): void {
-  /* nothing to do */
+/** Stops both MCP servers and removes this window's registry entry, so another window can take the fixed port at once. */
+export async function deactivate(): Promise<void> {
+  await mcp?.shutdown();
 }
 
 function createCommandsDeps(): CommandsDeps {
   return {
     get workspacePath(): string | undefined {
-      return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      return resolveWorkspaceFolder(vscode.workspace.workspaceFolders)?.uri.fsPath;
     },
     joinPath(basePath, fileName) {
       return vscode.Uri.joinPath(vscode.Uri.file(basePath), fileName);

@@ -53,7 +53,47 @@ const NoteForm = (() => {
     return hasChanges(initial, current) ? "confirm" : "close";
   }
 
-  return { normalizeText, snapshot, hasChanges, closeAction };
+  /** The editable fields of a stored note, in the shape the host compares a Save's `base` with. */
+  function baseOf(item) {
+    const it = item || {};
+    return {
+      title: it.title == null ? "" : String(it.title),
+      description: it.description == null ? "" : String(it.description),
+      typeId: it.typeId == null ? null : it.typeId,
+      categoryId: it.categoryId == null ? null : it.categoryId,
+      priority: it.priority == null ? null : it.priority,
+      tasks: Array.isArray(it.tasks) ? it.tasks.map((t) => ({ title: String(t && t.title != null ? t.title : ""), completed: !!(t && t.completed === true) })) : [],
+    };
+  }
+
+  const FIELD_LABELS = { title: "title", description: "description", typeId: "type", categoryId: "category", priority: "priority", tasks: "tasks" };
+
+  /**
+   * The user-facing names of the fields listed in `base` whose value differs
+   * in `current`, compared as `snapshot()` compares them (line endings, the
+   * title's outer spaces, and blank tasks are not differences).
+   */
+  function changedFields(base, current) {
+    if (!base || !current) {
+      return [];
+    }
+    const a = snapshot(base);
+    const b = snapshot(current);
+    return Object.keys(FIELD_LABELS)
+      .filter((field) => field in base && JSON.stringify(a[field]) !== JSON.stringify(b[field]))
+      .map((field) => FIELD_LABELS[field]);
+  }
+
+  /** Marker for a note that is no longer in the list (deleted, or archived). */
+  const GONE = "gone";
+
+  /** The notice shown in the open form once its note changed elsewhere. */
+  function changedNotice(fields) {
+    const what = fields.includes(GONE) ? "This note was archived or deleted elsewhere." : `This note was changed elsewhere (${fields.join(", ")}).`;
+    return `${what} Saving it will be refused so nothing is overwritten: copy what you need, then cancel and open the note again.`;
+  }
+
+  return { normalizeText, snapshot, hasChanges, closeAction, baseOf, changedFields, changedNotice, GONE };
 })();
 
 // Node-only export for the unit tests; the browser keeps the global above.

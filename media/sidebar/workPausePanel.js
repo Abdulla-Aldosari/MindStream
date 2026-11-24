@@ -17,7 +17,10 @@ import { closeAllModals } from "./overlays.js";
 //   wp.mode      "view" | "edit"
 //   wp.enabling  the editor is open before the lock is on ("Pause work" with no note yet)
 //   wp.confirming  a discard question is waiting for the host's answer
-const wp = { note: { text: "", updatedAt: "", paused: false }, mode: "view", enabling: false, confirming: false };
+//   wp.base      the saved text when editing started, sent with Save so a text
+//                changed elsewhere meanwhile is never overwritten
+//   wp.saving    a Save is waiting for the host's answer ("workPauseSaveResult")
+const wp = { note: { text: "", updatedAt: "", paused: false }, mode: "view", enabling: false, confirming: false, base: "", saving: null };
 const workPauseEl = $("work-pause");
 const wpCard = $("work-pause-card");
 const wpView = $("work-pause-view");
@@ -45,11 +48,13 @@ function renderWorkPause() {
   wpActions.hidden = !editing;
   wpCard.classList.toggle("is-editing", editing);
   $("work-pause-updated").textContent = WorkPause.updatedLabel(wp.note.updatedAt, (d) => d.toLocaleString());
-  wpSave.disabled = editing && !WorkPause.canSave(wpInput.value);
+  wpSave.disabled = editing && (!!wp.saving || !WorkPause.canSave(wpInput.value));
 }
 
 function enterWorkPauseEdit() {
   wp.mode = "edit";
+  wp.base = wp.note.text;
+  wp.saving = null;
   wpInput.value = wp.note.text;
   renderWorkPause();
   wpInput.focus();
@@ -69,7 +74,7 @@ function leaveWorkPauseEdit() {
 // Cancel and Esc share this path: leave at once when nothing would be lost,
 // otherwise ask the host (the answer comes back as "workPauseDiscardAnswer").
 export function requestWorkPauseCancel() {
-  if (wp.mode !== "edit" || wp.confirming) {
+  if (wp.mode !== "edit" || wp.confirming || wp.saving) {
     return;
   }
   if (WorkPause.cancelAction(wp.note.text, wpInput.value) === "leave") {
@@ -81,16 +86,28 @@ export function requestWorkPauseCancel() {
 }
 
 function saveWorkPause() {
-  if (wp.mode !== "edit" || !WorkPause.canSave(wpInput.value)) {
+  if (wp.mode !== "edit" || wp.saving || !WorkPause.canSave(wpInput.value)) {
     return;
   }
   const text = wpInput.value.trim();
   // Not locked yet means this save is the Enable: the host saves, then locks.
   const pause = !wp.note.paused;
-  // Shown at once; the saved copy (with its new date) arrives right after.
-  wp.note = { ...wp.note, text };
-  wp.mode = "view";
-  vscode.postMessage({ type: "saveWorkPauseNote", text, pause });
+  // The draft stays open until the host answers: a refused save keeps it.
+  wp.saving = { text };
+  vscode.postMessage({ type: "saveWorkPauseNote", text, pause, base: wp.base });
+  renderWorkPause();
+}
+
+// The host's answer to Save: show the note on success; otherwise keep the
+// draft (the host shows the reason, for example a note changed elsewhere).
+export function handleWorkPauseSaveResult(msg) {
+  const saving = wp.saving;
+  wp.saving = null;
+  if (saving && msg.ok && wp.mode === "edit") {
+    // Shown at once; the saved copy (with its new date) arrives right after.
+    wp.note = { ...wp.note, text: saving.text };
+    wp.mode = "view";
+  }
   renderWorkPause();
 }
 

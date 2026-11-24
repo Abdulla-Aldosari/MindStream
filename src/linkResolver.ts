@@ -70,12 +70,33 @@ function createAnchor(norm: string[], lineStart: number, lineEnd: number): MindS
 }
 
 /**
+ * True for a workspace-relative path with `/` separators that cannot point
+ * outside the workspace: no drive, no leading `/`, no `\`, no `..`, and no
+ * empty segment.
+ */
+export function isSafeRelativePath(filePath: unknown): filePath is string {
+  if (typeof filePath !== "string" || !filePath || filePath.includes("\\") || filePath.startsWith("/") || /^[a-zA-Z]:/.test(filePath)) {
+    return false;
+  }
+  return !filePath.split("/").some((segment) => segment === ".." || segment === "");
+}
+
+/**
  * Builds a link for a 1-based line range of a file. Returns undefined when the
  * file is outside the workspace or the range is invalid.
  */
 export function buildLink(root: string, fsPath: string, lines: string[], lineStart: number, lineEnd: number): MindStreamLink | undefined {
   const filePath = toRelativePath(root, fsPath);
-  if (!filePath || !Number.isInteger(lineStart) || !Number.isInteger(lineEnd) || lineStart < 1 || lineEnd < lineStart) {
+  return filePath ? buildLinkAt(filePath, lines, lineStart, lineEnd) : undefined;
+}
+
+/**
+ * Builds a link for a 1-based line range of a file given by its
+ * workspace-relative path. A range that runs past the end of the file is cut
+ * to the last line. Returns undefined when the range is invalid.
+ */
+export function buildLinkAt(filePath: string, lines: string[], lineStart: number, lineEnd: number): MindStreamLink | undefined {
+  if (!Number.isInteger(lineStart) || !Number.isInteger(lineEnd) || lineStart < 1 || lineEnd < lineStart) {
     return undefined;
   }
   const end = Math.min(lineEnd, Math.max(lines.length, lineStart));
@@ -282,10 +303,7 @@ export function sanitizeLink(raw: unknown): MindStreamLink | undefined {
     return undefined;
   }
   const l = raw as Partial<MindStreamLink>;
-  if (typeof l.filePath !== "string" || !l.filePath || l.filePath.includes("\\") || l.filePath.startsWith("/") || /^[a-zA-Z]:/.test(l.filePath)) {
-    return undefined;
-  }
-  if (l.filePath.split("/").some((segment) => segment === ".." || segment === "")) {
+  if (!isSafeRelativePath(l.filePath)) {
     return undefined;
   }
   if (!Number.isInteger(l.lineStart) || (l.lineStart as number) < 1) {

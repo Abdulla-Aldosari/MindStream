@@ -146,6 +146,10 @@ src/
                          the save guard (StorageProblem, StorageError, getProblem()).
   workspaceStorage.ts     Thin helper: binds a StorageService to the open workspace
                          folder (.vscode/mindstream.data.json at the project root).
+  workspaceFolder.ts      resolveWorkspaceFolder(): the one place that picks the workspace
+                         folder (the first one). Used by activate(), the commands deps, and
+                         the sidebar's linked-location opener; multi-root support changes
+                         only this function. No vscode import.
   itemsStore.ts           ItemsStore: CRUD for notes, status changes (unknown statuses refused;
                          completedAt exists only while done, canceledAt only while canceled),
                          archiving independent of status, permanent deletion, and host-side code link
@@ -181,14 +185,104 @@ src/
                          and guardWhenWorkPaused(). See §10.
   workPauseStore.ts        WorkPauseStore: reads/writes the single Work Pause note
                          (data key workPauseNote) through IStorage. See §10.
+  notesService.ts          NotesService: the single entry point for every change to notes,
+                         types, categories, and the Work Pause note, from any caller
+                         (sidebar, command, automated caller). Work Pause lock, save guard,
+                         input checks, NOT_FOUND, CONFLICT, onDidChange. See "NotesService".
+  noteInput.ts             Pure input checks and limits for NotesService (cleanTitle,
+                         cleanTasks, cleanLabel, cleanIcon, MAX_*), and the field comparison
+                         used by conflict checks (sameFieldValue, changedSince).
+  domainError.ts           DomainError and the stable refusal codes (ERROR_CODES,
+                         errorCodeOf(), refusal(), noteNotFound(), WORK_PAUSED_MESSAGE).
+  mcp/noteView.ts          Pure shaping of notes for an agent: toNoteSummary(), toNoteDetail()
+                         (ids and labels side by side, task indexes, the link's location
+                         and state, never its anchor text), toCodeExcerpt() (linked lines
+                         plus context, capped). No vscode, no MCP SDK.
+  mcp/notesQuery.ts        NotesQuery: everything an agent reads. listNotes(filter) (validated,
+                         INVALID_INPUT on any bad field, ordered by priority then latest
+                         change, paged), getNote() (re-finds the code link, then excerpts
+                         it), listTypesAndCategories(), getWorkPauseNote(), projectSummary().
+                         Reads never refuse while work is paused or saving is off.
+  mcp/mcpTypes.ts         Shared types of the tool layer: ToolContext, ToolDefinition,
+                         ToolResult (ok with a summary and data, or a refusal with a
+                         code, a message, and the current value). No SDK, no vscode.
+  mcp/toolKit.ts          defineTool(): builds a tool from a spec (plain JSON Schema that
+                         always requires `workspace`, annotations, a handler that returns
+                         a refusal as a result and refuses unknown arguments) and the
+                         sentences every description carries (workspace, paused, data).
+  mcp/toolErrors.ts       toToolError(): a refusal becomes { code, message, current };
+                         `current` is shaped as a note, the Work Pause note, or an
+                         existing entry. Any other error is rethrown (a bug).
+  mcp/readTools.ts,       The 12 tools, each one call to NotesQuery (reads) or
+  mcp/writeTools.ts,     NotesService (writes); they add no rule of their own.
+  mcp/noteStateTools.ts,
+  mcp/catalogTools.ts     No tool deletes, pauses or resumes work, writes the Work Pause
+                         note, or edits a link. toolKit.ts holds the rule sentences the
+                         tools, prompts, and rules share (WRITE_RULE, STATUS_RULE,
+                         USER_FIRST_RULE, WORK_PAUSE_NOTE_RULE, TASKS_RULE, DATA_RULE).
+  mcp/tools.ts            MCP_TOOLS (the one list a server registers) and findTool().
+  mcp/httpGuard.ts        checkRequest(): loopback peer, no Origin header, Host naming this
+                         server, then the bearer token in constant time. Pure.
+  mcp/workspaceMatch.ts   Pure path matching for the `workspace` argument: normalizeFolder(),
+                         isInside() (separator boundary only), matchWorkspace() (longest
+                         folder wins), requireWorkspace(). The platform is passed in.
+  mcp/routerRegistry.ts   RouterRegistry: one JSON file per window in a directory shared by
+                         the windows of this machine, written atomically, never holding the
+                         token. Dead, corrupt, and duplicate entries are ignored.
+  mcp/innerCall.ts        The `POST /call` contract: parseCall(), sendJson(), readBody() with
+                         a 1 MB limit, versionMismatch().
+  mcp/innerServer.ts      InnerServer: a window's own server on 127.0.0.1 (port picked by the
+                         system) that runs this window's tools; same guard and token.
+  mcp/mcpRouter.ts        createDispatcher(): a call for this window's folder runs here, a
+                         call for another open folder is forwarded (new connection, 10 s limit),
+                         any other folder is WORKSPACE_NOT_OPEN. It never touches another
+                         workspace's data file.
+  mcp/mcpServerCore.ts    The only file that imports the MCP SDK: builds the server from
+                         MCP_TOOLS (each handler calls the dispatcher) and the Node handler.
+  mcp/mcpHttpServer.ts    McpHttpServer: the public endpoint on 127.0.0.1:<port>/mcp behind
+                         the guard, plus the holder check (answers a nonce with a token proof).
+  mcp/portHolder.ts       holdFixedPort(): takes the fixed port, retries while another window
+                         holds it (router / follower / blocked), probePortHolder().
+  mcp/clientList.ts       The AI clients the setup knows (Copilot first, "Automatic in VS Code").
+  mcp/clientConfigs.ts    buildClientConfig(): the paste-ready text of each client (Copilot
+                         CLI, Claude Code, Cursor, Cline, Codex, Zed, Gemini CLI, generic).
+                         One global entry, the same for every project; refuses a token,
+                         address, or name that could break out of a quoted value.
+  mcp/mcpConnectFlow.ts   runConnect(): the "Connect an AI agent (MCP)" flow over small
+                         interfaces: waits briefly for the token, picks a client, copies
+                         its text, says where to paste it. Never writes a file; the token
+                         is never in a message. The message after the copy has no button,
+                         so nothing replaces the configuration on the clipboard.
+  mcp/prompts.ts          The MCP prompts (continue_work, record_verification with a `topic`,
+                         review_stale_links): instruction text that names only
+                         existing tools and codes, asks for `workspace`, and says note text
+                         is data, not instructions. Registered in mcpServerCore.ts.
+  mcp/agentRules.ts       AGENT_RULES: the English Markdown snippet a user copies into the
+                         agent's rules file, with an "If MindStream is not connected"
+                         section. No token and no address. The command "Copy agent rules
+                         for MCP" (More menu) copies it.
+                         SERVER_INSTRUCTIONS: the MCP instructions sent on connect.
+  mcp/mcpControllerLogic.ts  The controller's decisions as pure functions: port setting
+                         validation (default 18741), token generation and who may create
+                         it (only the router window, only while empty), the status bar
+                         item (only while the port is blocked), the blocked and old-token
+                         warnings, the regenerate texts, and what the Copilot
+                         registration offers.
+  mcp/mcpController.ts    The only file of src/mcp/ that imports vscode. Created in activate()
+                         after NotesService, in every window with a folder (activation is
+                         onStartupFinished): starts the inner server and the registry
+                         entry, holds the fixed port, keeps the one token in SecretStorage
+                         (key mindstream.mcp.token, re-read on secrets.onDidChange), shows
+                         a status bar warning while the port is blocked, registers the server with Copilot
+                         (mcpServerDefinitionProviders), and stops everything in deactivate().
   sidebarController.ts    SidebarController: sidebar message-handling logic, extracted
                          from the provider so it is unit-testable without vscode.
-                         Mutates data and asks for confirmations via SidebarUi
+                         Writes only through NotesService and asks for confirmations via SidebarUi
                          (confirm dialogs and a type QuickPick via pickType). Holds the pending code
                          link set by the host (setPendingLink); addItem attaches it only when the
                          webview sends linked true, and updateItem never touches a link.
-                         Answers every note editor Save through SidebarUi.answerNoteSave.
-                         Unarchiving a note re-resolves its link (injected LinkTracker).
+                         Answers every note editor Save through SidebarUi.answerNoteSave and
+                         every Work Pause Save through SidebarUi.answerWorkPauseSave.
   descriptionDraft.ts     Pure rules of the description editor tab (§12): the one active
                           draft with its saved and live texts, draftFileName(), normalizeEol().
   descriptionEditor.ts    DescriptionEditor: the `vscode` layer of §12 (a FileSystemProvider
@@ -369,6 +463,13 @@ real VS Code window. `npm test` never runs them (Mocha's spec is
   To create a link through the UI, right-click the target line and wait for the
   status bar to show that line before choosing "Add note to this line": the
   command reads the cursor when it runs, which is a moment after the click.
+- MCP specs (`mcp*.spec.ts`) give every window a free `mindstream.mcp.port`, so a test never
+  touches 18741 on the developer's machine. `e2e/mcpAgent.ts` holds the helpers: `Agent`
+  connects the official v2 client with the address and token that "Connect an AI agent
+  (MCP)" put on the clipboard (the Generic client), so a spec drives MindStream the way a
+  user's agent does. Two windows cannot share one user-data folder (the second VS Code
+  process exits), so routing between windows is tested in `test/` (three windows in one
+  process) and checked by hand (plan section 9.2).
 - A step that asserts a command is hidden from the palette (work paused) uses
   `expectCommandHidden()`: it types the title, checks no entry matches, and
   always closes the palette, so it can never cover the sidebar's More button.
@@ -391,11 +492,16 @@ real VS Code window. `npm test` never runs them (Mocha's spec is
    that single `StorageService` (implementing `IStorage`), so all three
    share the same in-memory `MindStreamData` and persist to the same
    `.vscode/mindstream.data.json`.
-3. `SidebarProvider` is constructed with those three registries and renders
-   the webview; it receives messages from the webview app (`media/sidebar/`) via
-   `webview.onDidReceiveMessage`, delegates data mutations to
-   `SidebarController` (which asks for confirmations through `SidebarUi`),
-   then calls `postState()` to push the updated state back to the webview.
+3. `NotesService` is constructed over those registries, `WorkPauseStore`, and
+   `LinkTracker`; every change to the data goes through it (see "NotesService").
+   `SidebarProvider` renders the webview; it receives messages from the webview
+   app (`media/sidebar/`) via `webview.onDidReceiveMessage`, delegates them to
+   `SidebarController` (which writes through `NotesService` and asks for
+   confirmations through `SidebarUi`), then calls `postState()` to push the
+   updated state back to the webview. `NotesService.onDidChange` refreshes the
+   view after a change stored by any other caller
+   (`SidebarProvider.onDataChanged()`, skipped while a webview message is being
+   handled, which refreshes once at its end).
 4. Commands registered in `extension.ts` (Command Palette / view-title menu)
    call the `commands.ts` handlers (with an injected `CommandsDeps`), which
    in turn call into the registries/`SidebarProvider` methods or the
@@ -420,6 +526,10 @@ real VS Code window. `npm test` never runs them (Mocha's spec is
 7. `SidebarProvider.refresh()` also publishes the Work Pause lock as the VS Code
    context key `mindstream.workPaused`, so the title-bar buttons and the
    More menu follow it (see §10).
+8. An agent's request reaches the notes through `McpController` (see §13): the router
+   window picks the window that owns the `workspace` folder, that window's tool handler
+   calls `NotesService` (a write) or `NotesQuery` (a read), and `NotesService.onDidChange`
+   refreshes the sidebar exactly as it does for a change made in the sidebar.
 
 ### Key conventions to keep in mind
 
@@ -498,9 +608,10 @@ any automated caller get the same answer.
 | `setLink`, `mapLinks` (host-side link tracking) | allowed: not a user edit                  |
 | Read, export, report, import/merge              | allowed                                   |
 
-- The check runs after the note is found (an unknown id stays a silent no-op)
-  and before any other check, so `changeStatus` to the same status is refused
-  too: an automated caller never mistakes a refusal for success.
+- `NotesService` checks it after the note is found (an unknown id is
+  `NOT_FOUND`) and before any other check, so `changeStatus` to the same status
+  is refused too: an automated caller never mistakes a refusal for success.
+  `ItemsStore` keeps the same check for direct callers.
 - `ArchivedNoteError` (`code` `NOTE_ARCHIVED`) has a complete message: `Not
 saved: the note "<title>" is archived, and archived notes are read-only.
 Nothing was changed. Unarchive it first, then try again.`
@@ -520,12 +631,87 @@ Nothing was changed. Unarchive it first, then try again.`
 A note cannot be saved without a type, so the data always holds one.
 
 - `normalizeData()` restores the default types when `types` is missing or empty.
-- `TypesRegistry.remove()` throws when asked to remove the last type, and the
-  `deleteType` message in `SidebarController` says why before any dialog.
-- `SidebarController` refuses `addItem` and `updateItem` whose `typeId` (a
-  missing one included) or `categoryId` does not exist: it answers
-  `noteSaveResult` with `ok: false` and throws, so the editor stays open with
-  what was typed. A save is never answered as stored when nothing was written.
+- `TypesRegistry.remove()` throws when asked to remove the last type.
+  `NotesService.typeDeletionProblem()` states why a type cannot be deleted (the
+  last one, or used by notes); the `deleteType` message shows it before any
+  dialog, and `NotesService.deleteType()` refuses the same cases.
+- `NotesService` refuses a note whose `typeId` (a missing one from the form
+  included) or `categoryId` does not exist (`NOT_FOUND`); the editor gets
+  `noteSaveResult` with `ok: false` and stays open with what was typed. A save
+  is never answered as stored when nothing was written.
+
+### NotesService (`notesService.ts`)
+
+The single entry point for every change to notes, types, categories, and the
+Work Pause note. The sidebar (`SidebarController`) calls it, and so will any
+automated caller (an MCP server for an agent); rules live here once. It has no
+`vscode` import and is tested with `InMemoryStorage` and `FakeFiles`.
+
+Every write, in order:
+
+1. `storage.reloadIfExternal()` picks up a change made outside this instance
+   (and emits `onDidChange` when it did).
+2. Refuses while work is paused (`WORK_PAUSED`) or the data file cannot be
+   trusted (`STORAGE_BLOCKED`).
+3. Checks ids (`NOT_FOUND`, never a silent no-op), archived notes
+   (`NOTE_ARCHIVED`), and input (`INVALID_INPUT`, `DUPLICATE`,
+   `LINK_INVALID`), with the limits in `noteInput.ts` (title 300, description
+   50000, names 80, 200 tasks of 500). Input over a limit is refused, never cut.
+4. Refuses content changed since the caller read it (`CONFLICT`, see below).
+5. Writes once (a value that would not change anything writes nothing), then
+   emits `onDidChange`.
+
+Rules:
+
+- A refused write changes nothing. Every message reads `Not saved: <reason>.
+Nothing was changed. <fix>` (`refusal()`); `errorCodeOf()` returns the code,
+  and `ERROR_CODES` lists them all.
+- No dialogs: confirmations belong to the caller. `checkWritable()` lets the
+  caller refuse (with the reason) before asking the user anything.
+- While work is paused only `saveWorkPauseNote(text, { userEditWhilePaused:
+true })`, used by the sidebar's note panel, is allowed. Nothing in the
+  service pauses or resumes work: only the user's commands do.
+- Defaults for a new note: the General category, the category's
+  `defaultTypeId` (else the first type), `pending`, and `DEFAULT_PRIORITY`
+  while priority is on. While `mindstream.priority.style` is `off`, no priority
+  is written and a sent one is refused.
+- `setArchived(id, false)` re-resolves the note's code link
+  (`LinkTracker.resolveItem`), which is not re-checked while archived.
+- `linkFor({ filePath, lineStart, lineEnd })` builds a link from the file's
+  current content (`LinkFiles`, an open editor's unsaved text included) and
+  refuses a path outside the workspace (`isSafeRelativePath`), a missing file,
+  or lines the file does not have. Links are never edited.
+- `deleteCategory` removes the category and its notes in one save
+  (`CategoriesRegistry.removeWithNotes`); the General category is refused.
+- Names of types and categories are unique, ignoring case (`DUPLICATE`
+  carries the existing entry in `current`).
+
+### Concurrency: content written elsewhere is never overwritten
+
+Two kinds of writes:
+
+| Kind                      | Examples                                                                          | Rule                                    |
+| ------------------------- | --------------------------------------------------------------------------------- | --------------------------------------- |
+| A command on one value    | status, archive, one task (`setTaskCompleted`), title, type, category, priority   | applied at once, no base needed         |
+| A rewrite of content read | the note form's Save, replacing the description or the task list, Work Pause text | needs a base; changed since: `CONFLICT` |
+
+- The note form sends `base`: the editable fields as they were when it opened
+  (`NoteForm.baseOf`). Only a listed field that changed refuses
+  (`changedSince`), so a status changed elsewhere never blocks it; line endings
+  and blank tasks are not differences. The message names the changed fields,
+  and the form stays open with what was typed. While the form is open, every
+  `state` runs `checkOpenNoteChanged()`, which shows `#f-changed-notice` as
+  soon as the stored note differs (or is gone), before Save.
+- An automated caller passes `expectedUpdatedAt` (the note's `updatedAt` when
+  it read it). Replacing the description or the tasks without a base is refused
+  (`INVALID_INPUT`), so a stale copy can never overwrite. `CONFLICT` carries
+  the current note in `current`, so the caller can redo its change.
+  `appendDescription` adds a paragraph and needs no base.
+- `setTaskCompleted` refuses (`CONFLICT`) when the task at `index` no longer
+  has the expected title.
+- The Work Pause panel sends the text it started editing as `base`; once a
+  note exists, a save without a base is refused. The panel keeps the draft
+  until the host answers `workPauseSaveResult { ok }`.
 
 - **Category default types.** A category may carry an optional
   `defaultTypeId`. When the "New note" form opens (or the category changes
@@ -937,9 +1123,11 @@ cardIndicator }`. `postState()` sends it as `priority`, together with
 - `"off"` disables every flag: no card indicator, no editor control, and no
   priority entries in the View menu. Stored priorities stay in the file.
 
-### Save rules (`SidebarController`)
+### Save rules (`SidebarController` and `NotesService`)
 
-`SidebarController` receives a `priorityEnabled()` callback (the live setting).
+Both receive a `priorityEnabled()` callback (the live setting). `NotesService`
+refuses a priority sent while the system is off; the controller sends only a
+valid level, and only while it is on.
 
 | Message      | Enabled                                                                                 | Disabled                          |
 | ------------ | --------------------------------------------------------------------------------------- | --------------------------------- |
@@ -956,7 +1144,8 @@ cardIndicator }`. `postState()` sends it as `priority`, together with
 - Saving: `saveModal()` sends `addItem`/`updateItem` with a `saveId`, disables
   `#modal-save`, and keeps the editor open. The host answers with
   `noteSaveResult` (`saveId`, `ok`); the editor closes only when `ok` is true,
-  so a refused save (storage problem, work paused) keeps everything typed. A
+  so a refused save (storage problem, work paused, a note changed elsewhere)
+  keeps everything typed. An edit Save also sends `base` (see "Concurrency"). A
   refused `addItem` keeps the host's pending code link for the retry. Closing
   or reopening the editor forgets a Save still waiting, so a late answer never
   closes a newer form.
@@ -1067,9 +1256,9 @@ next `refreshAll()`/`resolveItem()` re-finds the code. While the sidebar is hidd
 
 Archived notes still follow live edits, renames, and deletes, but `refreshAll()`
 skips them, so their files are not read on every startup and window focus. Any
-path that unarchives a note must re-resolve its link: `toggleArchive` in
-`SidebarController` awaits `LinkTracker.resolveItem()` after a real unarchive,
-before the view refreshes. Until then an archived note's badge may show its last
+path that unarchives a note must re-resolve its link: `NotesService.setArchived()`
+awaits `LinkTracker.resolveItem()` after a real unarchive, before the view
+refreshes, so the sidebar and any automated caller get the same behavior. Until then an archived note's badge may show its last
 known location; opening the link always re-resolves it first.
 
 ### Showing the path
@@ -1089,9 +1278,12 @@ segments are dropped (the note is kept).
 
 ## 10. Work Pause note
 
-A hand-off note written before stepping away for a long time ("where I stopped,
-what is next"). It is not a regular note: while work is **paused** the whole UI is
-locked and the sidebar shows nothing but this note.
+The user's own note, written before stepping away from the project for a long
+time ("where I stopped, what is next"). It is not a regular note: while work is
+**paused** the whole UI is locked and the sidebar shows nothing but this note, so
+the user is sure to read it when they come back. Only the user writes it (the
+sidebar's note panel); it is not a record of agent sessions, and no MCP tool
+writes it.
 
 ### Data
 
@@ -1202,9 +1394,12 @@ only when the user saves text (`saveWorkPauseNote` with `pause: true`).
 
 ### Messages
 
-- `saveWorkPauseNote` (`text`, `pause?`) → `WorkPauseStore.save`.
+- `saveWorkPauseNote` (`text`, `pause?`, `base`) → `NotesService.saveWorkPauseNote`
+  (allowed while paused), answered by `workPauseSaveResult { ok }`. The draft stays
+  open until `ok`; a note changed elsewhere since editing started is refused
+  (`CONFLICT`) and the draft is kept.
 - `confirmDiscardWorkPauseDraft` → host confirmation, answered by `workPauseDiscardAnswer`.
-- Host → webview: `openWorkPauseEditor`, `workPauseDiscardAnswer`, and `state.workPause`.
+- Host → webview: `openWorkPauseEditor`, `workPauseDiscardAnswer`, `workPauseSaveResult`, and `state.workPause`.
 
 The discard question is a modal `showWarningMessage` ("Discard your unsaved changes to the note?").
 
@@ -1226,8 +1421,9 @@ delete, Markdown export, and JSON import/merge need nothing extra.
   whose `title` is a string, trims it and folds line breaks into spaces (a title
   is one line), drops empty titles, caps it at `MAX_TASK_TITLE` (500), reads
   `completed` as true only when it is exactly `true`, and returns `undefined`
-  when nothing is left. `normalizeData()` and `SidebarController` both use it.
-- No minimum or maximum number of tasks.
+  when nothing is left. `normalizeData()` uses it, and `NotesService` (through
+  `cleanTasks`) uses it after refusing a title over 500 characters.
+- A note holds at most `MAX_TASKS` (200) tasks; a longer list is refused.
 
 ### Rules
 
@@ -1430,3 +1626,166 @@ into `#f-desc` while the tab is open.
 end the draft first. A `descriptionEditorOpened` answer that arrives after the
 form closed sends `closeDescriptionEditor`, so no tab is left without an owner.
 Focus mode hides the whole description field, button included.
+
+## 13. MCP server (`src/mcp/`)
+
+An AI agent reads and writes the notes through the Model Context Protocol. The server
+runs inside the extension host, in every window that has a workspace folder, with no
+user action (activation is `onStartupFinished`). It adds no write rule of its own: every
+write is a call to `NotesService`, every read a call to `NotesQuery`.
+
+### Architecture and the dependency rule
+
+```
+mcpController (vscode) -> mcpHttpServer -> mcpServerCore (SDK) -> mcpRouter -> tools/prompts -> NotesService / NotesQuery
+                       |-> innerServer ------------------------------------------------------> tools
+                       |-> routerRegistry, portHolder                mcpRouter -> routerRegistry, workspaceMatch
+                       `-> clientConfigs, mcpConnectFlow (pure)      mcpHttpServer, innerServer -> httpGuard
+```
+
+- Only `mcpServerCore.ts` imports `@modelcontextprotocol/*` (SDK v2, bundled by esbuild
+  as CJS). Only `mcpController.ts` imports `vscode`. `test/mcpImports.test.ts` enforces
+  both, and that the tool layer imports no transport.
+- The SDK is `@modelcontextprotocol/server` and `/node` (dependencies) and `/client`
+  (a devDependency, tests only). The server is stateless: a server instance per request
+  (`createMcpHandler`), no session store. A client of the 2025 protocol is served too.
+
+### One endpoint for every workspace
+
+A client keeps one global entry (`http://127.0.0.1:18741/mcp`, one token) while every
+window serves its own folder.
+
+- **Inner server** (`innerServer.ts`): every window listens on `127.0.0.1` on a port the
+  system picks and serves `POST /call` for its own workspace only. It is the only writer
+  of its data file.
+- **Registry** (`routerRegistry.ts`): every window writes `window-<pid>.json` (protocol,
+  folder, inner port, pid, start time; never the token) into `globalStorageUri/router`,
+  atomically, and deletes it on deactivate. Dead, corrupt, and duplicate entries are
+  ignored (the newest live entry of a folder wins).
+- **Fixed port** (`portHolder.ts`): every window tries to listen on `mindstream.mcp.port`
+  (default 18741, machine scope). The operating system lets one succeed: that window is
+  the router. The others retry every 3 s, so one takes over within seconds after the
+  router closes. A port held by a program that is not MindStream is `blocked`.
+- **Routing** (`mcpRouter.ts`): every tool takes a required `workspace` (the absolute
+  path of the agent's project root). The router picks the registered folder that is the
+  longest prefix of it on a separator boundary (`workspaceMatch.ts`; case-insensitive on
+  Windows only). Its own folder runs locally; another window's is forwarded to that
+  window's inner server (a new connection per call, 10 s limit); no match is
+  `WORKSPACE_NOT_OPEN` with the open folders. Only a refused connection (`ECONNREFUSED`)
+  proves that nothing ran: that entry is dropped and answered as not open. Any other
+  failure (a reset, a timeout, a non-200 answer) is `WORKSPACE_NOT_RESPONDING`, keeps the
+  entry, and is never retried: it is the one refusal that cannot promise "Nothing was
+  changed". Calls are not pooled because a reset of an idle pooled socket cannot be told
+  apart from a reset after the call ran.
+  A protocol version mismatch is `WORKSPACE_NOT_RESPONDING` with "reload the windows".
+  The router never reads or writes another workspace's data file. Every success carries
+  `workspace` (the matched folder) in its data.
+
+### Security (`httpGuard.ts`)
+
+Every listener (public and inner) checks, in order: the peer is loopback; no `Origin`
+header (a browser always sends one, an agent never does); the `Host` header names this
+server (`127.0.0.1:<port>` or `localhost:<port>`, against DNS rebinding); the bearer
+token, compared in constant time. A server with an empty token refuses everything. A
+refusal is logged as status and reason only, never the token or the body.
+
+The holder check (`GET /mindstream-health?nonce=<32 hex>`) never carries the token,
+because whatever holds the port may be another program. It passes the peer checks
+(`checkPeer`: loopback, no `Origin`, `Host`) but not the token check. The holder answers
+`{ protocol, proof }`, where `proof = holderProof(token, nonce)` (HMAC-SHA256 keyed by the
+token). The prober (`probePortHolder`) sends a fresh random nonce and calls the holder
+MindStream only when `verifyHolderProof` succeeds; with no token it sends nothing. A
+holder with no token yet answers 503.
+
+### Token and port
+
+One token per user in `SecretStorage` (key `mindstream.mcp.token`): 32 random bytes,
+base64url. Only the window that holds the port creates it, and only while it is empty;
+the others re-read it every 500 ms and on `secrets.onDidChange`. "Regenerate MCP token"
+stores a new one after a confirmation, then confirms with a "Connect an AI agent" button
+that runs the connect command. The token is never in a setting, a project file, the
+registry, a log line, or a message. `SecretStorage` keeps secrets on the client, so every
+window (local, WSL, SSH) reads the same token: one regenerate changes it in all of them,
+and both texts say that every agent entry, WSL and SSH included, must be copied again.
+Each machine still has its own registry and port.
+
+A request refused with a well-formed bearer token (43 base64url characters) that is not
+the current one sets `wrongToken` on the guard result; the public server calls
+`onWrongToken`, and the controller warns once per session that an agent uses an old
+token, with the same button. A missing or malformed header never warns. The warning is
+skipped for the rest of the session after "Regenerate MCP token", whose confirmation
+already says it.
+
+### Tools, prompts, and the rules snippet
+
+- 12 tools (`tools.ts`: `MCP_TOOLS`): five read (`project_summary`, `list_notes`,
+  `get_note`, `list_types_and_categories`, `get_work_pause_note`) and seven write
+  (`add_note`, `update_note`, `set_note_status`, `set_task_completed`,
+  `set_note_archived`, `add_category`, `add_type`). Every input schema is plain JSON
+  Schema (`toolKit.ts`) with a required `workspace`; an argument the tool does not take
+  is refused, and so is an unknown tool name. No tool deletes, pauses or resumes work,
+  writes the Work Pause note, edits a code link, imports, exports, or changes settings.
+- The Work Pause note is the user's own note for a long absence (section 10).
+  `WORK_PAUSE_NOTE_RULE` says so in `get_work_pause_note`, the rules snippet, and the
+  server instructions: an agent reads it only when the user asks, it is not a record of
+  agent sessions, and no tool writes it. No tool, prompt, or rule tells an agent to read
+  it at the start of a session or to write it at the end.
+- Statuses follow the user (`STATUS_RULE`, in `set_note_status`, the prompts
+  `continue_work` and `review_stale_links`, the rules snippet, and the server
+  instructions): pending moves to in-progress only when the user asks to start that
+  note; a done note is never changed unless the user asks; an agent never marks a note
+  done or canceled on its own, but asks when the work seems finished and leaves it
+  in-progress otherwise; asked whether everything is finished, it lists the notes still
+  in progress.
+- `USER_FIRST_RULE` (rules snippet and server instructions): these are defaults, and the
+  user's own instructions and rules always take precedence. `WRITE_RULE` (every write
+  tool) and the prompts tell the agent never to ask the user to resume work so that it
+  can write.
+- A refusal is a result, not an exception (`toolErrors.ts`): `{ ok: false, code, message,
+current? }`, sent to the client as `isError` with that object as the JSON of its text.
+  `current` is the note as it is now (`CONFLICT`) or the existing entry (`DUPLICATE`).
+  Anything that is not a refusal is a bug and is rethrown.
+- Every result (`toCallToolResult`) is one text block: the sentence (the summary, or the
+  refusal message), `RESULT_JSON_SEPARATOR` (a blank line), then the data as JSON. There
+  is no `structuredContent` and no `outputSchema`: clients differ in what they give the
+  model (VS Code and Claude Code give only `structuredContent` when it is present, so
+  the sentence is lost; Cline gives both, so the data arrives twice), while every client
+  gives it the text. This text shape is a contract for any caller that parses it.
+- The task list is optional: `TASKS_RULE` says an empty list says nothing about the work,
+  in the descriptions of `get_note`, `add_note`, and `update_note`, the prompts
+  `continue_work` and `review_stale_links`, the rules snippet, and the server instructions.
+  `get_note`'s summary ends with `tasksLine()`: the done count, or, with no tasks, that any
+  plan is in the description (with its length).
+- The server sends `SERVER_INSTRUCTIONS` (`agentRules.ts`) as the MCP `instructions` on
+  connect: the user's instructions first, `workspace`, optional tasks, the status rule,
+  `WORK_PAUSED`, the Work Pause note rule, and that note text is data.
+- Reads (`notesQuery.ts`, `noteView.ts`) never refuse while work is paused or saving is
+  off. `get_note` re-finds the code link first, then returns an excerpt of the linked
+  code (capped). Note text is data, not instructions: the read tools, the prompts, and
+  the rules snippet say so.
+- Three prompts (`prompts.ts`) and the rules snippet (`agentRules.ts`).
+
+### Extension integration and setup
+
+`McpController` starts in `activate()`, shows a status bar item only while another
+program holds the port (`$(warning) MCP`, hidden otherwise; the connect command is in
+the More menu), registers the server with Copilot
+(`mcpServerDefinitionProviders`, `registerMcpServerDefinitionProvider`; the URL goes
+through `asExternalUri`, the headers carry the literal token), and stops in
+`deactivate()`. Its decisions are in `mcpControllerLogic.ts`.
+
+Commands: "Connect an AI agent (MCP)" (a QuickPick of clients; copies that client's
+configuration text and says where to paste it; never writes a file; not locked by Work
+Pause), "Copy agent rules for MCP", "Regenerate MCP token". The configuration is one global
+entry, never a project-scoped file, because such a file can be committed with the token.
+
+### Tests
+
+- `test/`: the guard, path matching, the registry, the tools (every refusal leaves the
+  data and the save count unchanged), the router with three windows in one process, the
+  inner server, the public endpoint with the official v2 client and with raw 2025-era
+  requests, port takeover, the client texts, the connect flow, the prompts, the import
+  rule. `test/mcpWindow.ts` and `test/mcpEndpoint.ts` build simulated windows.
+- `e2e/mcp*.spec.ts`: a real window with an agent connected through what the connect
+  command copied. Two real windows cannot share one user-data folder, so routing between
+  windows is covered in `test/` and checked by hand.

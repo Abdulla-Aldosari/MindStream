@@ -807,7 +807,7 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 
 .modal-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   font-weight: 600;
 }
@@ -879,6 +879,22 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 #f-desc:read-only {
   opacity: 0.6;
   cursor: default;
+}
+
+/* Shown at the top of the note form once its note changed elsewhere: Save
+   would be refused, so the user knows before typing more. */
+.form-notice {
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--vscode-editorWarning-foreground, var(--vscode-descriptionForeground));
+  background: var(--vscode-inputValidation-warningBackground, transparent);
+  color: var(--vscode-foreground);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.form-notice[hidden] {
+  display: none;
 }
 
 /* The "Editor tab..." hint: shown beside the open-in-editor button while the
@@ -1093,6 +1109,10 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 
 /* Viewer action bar: one fixed-height row that never wraps or overlaps.
    Chip heights match the modal buttons (27px, see .modal-card .btn rules). */
+.modal-card.viewer-card {
+  max-height: 95%;
+}
+
 .viewer-card .modal-actions {
   flex-wrap: nowrap;
   align-items: center;
@@ -1275,7 +1295,6 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
 
 .task-row.completed .task-title {
   color: var(--vscode-descriptionForeground);
-  text-decoration: line-through;
 }
 
 /* Checkbox button, drawn like the Work Pause note's check (theme checkbox tokens). */
