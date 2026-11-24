@@ -167,8 +167,10 @@ function renderView(item) {
 
   $("view-timestamps").textContent = `Created: ${formatDate(item.createdAt)}\u2003\u00b7\u2003Updated: ${formatDate(item.updatedAt)}`;
 
-  // An archived note is read-only: unarchive it to edit.
+  // An archived note is read-only: unarchive it to edit. The hint says why
+  // there is no Edit button.
   $("view-edit").hidden = !!item.archived;
+  $("view-archived-hint").hidden = !item.archived;
 }
 
 export function closeView(options) {

@@ -1213,6 +1213,21 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
   user-select: none;
 }
 
+.viewer-archived-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.6;
+  user-select: none;
+}
+
+.viewer-archived-hint[hidden] {
+  display: none;
+}
+
 /* ===== Task groups ===== */
 
 /* Progress bar (cards and viewer): completed / total tasks. The fill width is

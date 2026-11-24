@@ -631,7 +631,8 @@ Nothing was changed. Unarchive it first, then try again.`
 - Webview: an archived card's status is a plain badge (no click, no tooltip,
   default cursor) and the card has no Edit button; View, Unarchive, and Delete
   stay. The viewer hides Edit and shows the checklist read-only (disabled
-  checks, no row click).
+  checks, no row click) and a hint above the buttons (`#view-archived-hint`: "To edit
+  this note, unarchive it first.") that explains the missing Edit button.
 - A note archived elsewhere while its editor is open: Save is refused
   (`noteSaveResult` `ok: false`), the editor keeps what was typed, and only
   the user's Cancel closes it. The editor is never closed on the user's behalf.

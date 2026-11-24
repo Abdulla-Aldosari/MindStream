@@ -67,6 +67,8 @@ test("the viewer of an archived note has no Edit button and its tasks cannot be 
   const viewer = sidebar.locator("#view-modal");
   await expect(viewer).toBeVisible();
   await expect(viewer.locator("#view-edit")).toBeHidden();
+  await expect(viewer.locator("#view-archived-hint")).toBeVisible();
+  await expect(viewer.locator("#view-archived-hint")).toContainText("To edit this note, unarchive it first.");
   await expect(viewer.locator("#view-tasks-list")).toHaveClass(/read-only/);
   const rows = viewer.locator("#view-tasks-list .task-row");
   await expect(rows).toHaveCount(2);
@@ -78,6 +80,17 @@ test("the viewer of an archived note has no Edit button and its tasks cannot be 
   await session.page.waitForTimeout(500);
   await expect(rows.nth(1).locator(".task-check")).toHaveAttribute("aria-checked", "false");
   expect(readData(session).items[0].tasks?.map((t) => t.completed)).toEqual([true, false]);
+});
+
+test("the viewer of an active note shows Edit and no archived hint", async ({ launch }) => {
+  const session = await launch({ data: buildData([{ title: "Active release" }]) });
+  const sidebar = await showSidebar(session.page);
+  await card(sidebar, "Active release").dblclick();
+
+  const viewer = sidebar.locator("#view-modal");
+  await expect(viewer).toBeVisible();
+  await expect(viewer.locator("#view-edit")).toBeVisible();
+  await expect(viewer.locator("#view-archived-hint")).toBeHidden();
 });
 
 test("unarchiving makes the note editable again", async ({ launch }) => {

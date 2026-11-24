@@ -569,6 +569,10 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
       </div>
       <div id="view-link" class="viewer-link" hidden></div>
       <div id="view-timestamps" class="viewer-timestamps"></div>
+      <p id="view-archived-hint" class="viewer-archived-hint" hidden>
+        <span class="codicon codicon-archive" aria-hidden="true"></span>
+        <span>To edit this note, unarchive it first.</span>
+      </p>
       <div class="modal-actions">
         <div class="viewer-meta">
           <span id="view-type" class="card-type"></span>
