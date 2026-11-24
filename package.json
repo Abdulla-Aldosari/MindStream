@@ -37,6 +37,10 @@
     "task-queue",
     "vscode-extension"
   ],
+  "galleryBanner": {
+    "color": "#121314",
+    "theme": "dark"
+  },
   "private": false,
   "engines": {
     "vscode": "^1.101.0"
