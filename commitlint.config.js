@@ -59,7 +59,7 @@ const baseScopes = [
 
   // Tests, docs, and assets
   ["tests", "unit tests, shared test fakes, and the Playwright end-to-end tests that drive a real VS Code window", ["test/", "e2e/"]],
-  ["docs", "architecture documentation, screenshots, GIFs, and extension icons", ["docs/", "icons/"]],
+  ["docs", "architecture and user documentation (settings reference, FAQ), the contributing guide, screenshots, GIFs, and extension icons", ["docs/", "icons/", "CONTRIBUTING.md"]],
   ["readme", "text and content of README.md", ["README.md"]],
   ["license", "the LICENSE file", ["LICENSE"]],
 
