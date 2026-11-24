@@ -18,11 +18,50 @@ export const WORK_PAUSE_CONTEXT_KEY = "mindstream.workPaused";
 /** Longest note text (characters) that is stored. */
 export const MAX_WORK_PAUSE_TEXT = 10000;
 
-/** Webview messages that still work while work is paused; everything else is ignored. */
-const ALLOWED_WHILE_PAUSED: ReadonlySet<string> = new Set(["refresh", "saveWorkPauseNote", "confirmDiscardWorkPauseDraft"]);
+/** URI scheme of the read-only copy of the note opened in an editor tab. */
+export const WORK_PAUSE_DOC_SCHEME = "mindstream-pause";
+
+/** Path (and so the tab title) of that read-only copy. There is only ever one. */
+export const WORK_PAUSE_DOC_PATH = "/Work Pause note.md";
+
+/**
+ * Webview messages that still work while work is paused; everything else is
+ * ignored. Besides the note's own editor, these are the note card's buttons:
+ * copy, open a read-only copy, resume, and delete-then-resume.
+ */
+const ALLOWED_WHILE_PAUSED: ReadonlySet<string> = new Set([
+  "refresh",
+  "saveWorkPauseNote",
+  "confirmDiscardWorkPauseDraft",
+  "copyWorkPauseNote",
+  "openWorkPauseNoteInEditor",
+  "resumeWork",
+  "deleteWorkPauseNote",
+]);
 
 export function isAllowedDuringWorkPause(messageType: string): boolean {
   return ALLOWED_WHILE_PAUSED.has(messageType);
+}
+
+/**
+ * The text of the read-only copy of the note shown in an editor tab. It is a
+ * snapshot: it changes only when the user opens the copy again, never when the
+ * note changes. Before the first snapshot of this session (a tab restored by
+ * a window reload) it shows the stored note.
+ */
+export class WorkPauseCopy {
+  private snapshot: string | undefined;
+
+  constructor(private readonly storedText: () => string) {}
+
+  /** Replaces the snapshot with the note's current text. */
+  take(text: string): void {
+    this.snapshot = text;
+  }
+
+  content(): string {
+    return this.snapshot ?? this.storedText();
+  }
 }
 
 /**

@@ -182,9 +182,12 @@ src/
                          a UiPrefsMemento adapter over context.globalState.
   workPause.ts             Pure Work Pause rules: normalizeWorkPauseNote(), the
                          context key name, the messages allowed while locked,
-                         and guardWhenWorkPaused(). See §10.
-  workPauseStore.ts        WorkPauseStore: reads/writes the single Work Pause note
-                         (data key workPauseNote) through IStorage. See §10.
+                         guardWhenWorkPaused(), and WorkPauseCopy (the snapshot
+                         shown by the read-only editor tab). See §10.
+  workPauseStore.ts        WorkPauseStore: reads/writes/clears the single Work Pause
+                         note (data key workPauseNote) through IStorage. See §10.
+  workPauseDocument.ts     WorkPauseDocument: the `vscode` layer of the note's
+                         read-only editor tab (scheme `mindstream-pause`). See §10.
   notesService.ts          NotesService: the single entry point for every change to notes,
                          types, categories, and the Work Pause note, from any caller
                          (sidebar, command, automated caller). Work Pause lock, save guard,
@@ -370,7 +373,9 @@ media/
                           See section 9.
   viewOptions.js          ViewOptions: group/sort/priority-filter rules and the
                           View menu entries (pure, no DOM). See §7.
-  workPause.js             WorkPause: view/edit/cancel rules of the Work Pause note
+  workPause.js             WorkPause: view/edit/cancel rules of the Work Pause note,
+                          its age, the earlier-break choice, the editor hint, the
+                          draft preview, and the formatting example note
                           (pure, no DOM, loaded as a global before sidebar.js).
                           See §10.
   noteForm.js              NoteForm: snapshot(), hasChanges(), closeAction(): whether closing the
@@ -589,7 +594,7 @@ nothing at all, and its message alone explains it.
   watcher reload, `mindstream.refresh`, and window focus while a problem is set;
   `describeStorageTransition()` (compared by problem kind) decides whether to
   warn that saving is off or to say that it is back on.
-- Callers: `SidebarProvider.handleMessage` and `pauseWork`/`resumeWork` show the
+- Callers: `SidebarProvider.handleMessage` and `resumeWork` show the
   error and refresh the view; `LinkTracker` drops refused background writes
   silently (`flush`, `applyRename`, `applyDelete`, `setLink` calls), and
   `resolveItem` still returns the resolved location; `importJson` reports the
@@ -669,8 +674,12 @@ Nothing was changed. <fix>` (`refusal()`); `errorCodeOf()` returns the code,
 - No dialogs: confirmations belong to the caller. `checkWritable()` lets the
   caller refuse (with the reason) before asking the user anything.
 - While work is paused only `saveWorkPauseNote(text, { userEditWhilePaused:
-true })`, used by the sidebar's note panel, is allowed. Nothing in the
-  service pauses or resumes work: only the user's commands do.
+true })` and `deleteWorkPauseNote(base)`, used by the sidebar's note panel,
+  are allowed. `deleteWorkPauseNote` removes the note and so ends the pause;
+  `checkWorkPauseNoteDeletable(base)` refuses before the confirmation (saving
+  off, no note, or `CONFLICT` when the note on screen is no longer the stored
+  one). No automated caller is offered either. Pausing and resuming
+  otherwise happen only through the user's own clicks (§10).
 - Defaults for a new note: the General category, the category's
   `defaultTypeId` (else the first type), `pending`, and `DEFAULT_PRIORITY`
   while priority is on. While `mindstream.priority.style` is `off`, no priority
@@ -1294,18 +1303,20 @@ note list, filter, or Markdown export.
 
 - `text` is trimmed and capped at `MAX_WORK_PAUSE_TEXT` (10000 characters).
   `updatedAt` only moves when the text changes; the note shows it as
-  `Updated: <date>` at the bottom.
+  `Updated: <date> (<age>)` at the bottom (`today`, `yesterday`, `N days ago`,
+  counted in calendar days by `WorkPause.daysSince()`).
 - `normalizeWorkPauseNote()` drops a value that is not a plain object and falls
   back to empty values for wrong field types. Work is never paused without
   text, so a hand-edited file cannot lock the user in with an empty note.
 - `WorkPauseStore` (`src/workPauseStore.ts`) is the only writer: `save(text,
 pause?)`, `pause()` (refuses without text), `resume()` (keeps the text),
-  `isPaused()`. It uses `IStorage`, so it follows the same external-change reload
-  as the notes.
+  `clear()` (deletes the key, which also ends the pause), `isPaused()`. It uses
+  `IStorage`, so it follows the same external-change reload as the notes.
 
 ### Turning it on and off
 
-Only the More menu (`...` in the view title) changes the lock:
+Only the user changes the lock, from the More menu (`...` in the view title) or
+the note card:
 
 | State | More shows                                               | Command                       |
 | ----- | -------------------------------------------------------- | ----------------------------- |
@@ -1315,9 +1326,44 @@ Only the More menu (`...` in the view title) changes the lock:
 VS Code has no checked state for a contributed command, so the pair of commands
 with opposite `when` clauses on the context key `mindstream.workPaused`
 provides the check mark. The titles state the action and the way out in plain
-words. `pause` ("Pause work and show note") with a saved note locks at once; with
-no note it opens the editor first (`openWorkPauseEditor`), and the lock turns on
-only when the user saves text (`saveWorkPauseNote` with `pause: true`).
+words.
+
+- **Pausing always opens the editor first.** `SidebarProvider.pauseWork()`
+  reveals the view and posts `openWorkPauseEditor { note }` (the stored note
+  travels with the request, so a page created by the reveal has it). The lock
+  turns on only when the user saves (`saveWorkPauseNote` with `pause: true`).
+  Saving the same text pauses without moving `updatedAt`.
+- **A note from an earlier break is never locked in unread.** When a note is
+  saved (`WorkPause.needsFreshStartChoice()`), the editor shows it with a
+  `#work-pause-earlier` bar: its date and age, `Start a new note` (empties the
+  textarea only; nothing is stored until Save) and `Keep it` (hides the bar;
+  typing does the same). Cancel always leaves the stored note as it was; a
+  blank draft leaves at once without asking.
+- **On the locked card:** `Resume work` (`resumeWork`, the same as the More
+  item; the note is kept) and `Delete & resume` (`deleteWorkPauseNote` with
+  `base`, the text on screen). The host checks first
+  (`checkWorkPauseNoteDeletable`: saving off, `CONFLICT`), then asks with a
+  modal (`Delete and Resume`), then `NotesService.deleteWorkPauseNote()`
+  removes the key in one write.
+
+### Read-only editor tab and copy
+
+Two header buttons work in view mode, locked or not: `Copy note` and `Open in
+editor`. Both send no text: the controller reads the stored note.
+
+- `copyWorkPauseNote` → `vscode.env.clipboard` and a status-bar message.
+- `openWorkPauseNoteInEditor` → `WorkPauseDocument.open()`
+  (`src/workPauseDocument.ts`): a `TextDocumentContentProvider` for the scheme
+  `mindstream-pause` and the single URI `mindstream-pause:/Work Pause note.md`.
+  - A content-provider document is read-only, so it is never dirty and closing
+    never asks to save. No file is created, nothing is written.
+  - The text is a snapshot (`WorkPauseCopy` in `src/workPause.ts`): it changes
+    only when the user opens it again, never when the note is edited, saved, or
+    deleted. Before the first snapshot of a session (a tab restored by a
+    window reload) it shows the stored note.
+  - One tab only: one URI opens one document; `open()` fires `onDidChange`, then
+    shows the document in the editor group where its tab already is.
+  - The tab stays open after resuming, so a long note stays at hand while working.
 
 ### The lock (two layers)
 
@@ -1332,8 +1378,9 @@ only when the user saves text (`saveWorkPauseNote` with `pause: true`).
    while locked, so running one by id has no effect either. `importJson`
    checks the lock itself. Webview messages go through
    `isAllowedDuringWorkPause()` in both `SidebarProvider.handleMessage()` and
-   `SidebarController.handleMessage()`: only `refresh`, `saveWorkPauseNote`, and
-   `confirmDiscardWorkPauseDraft` are processed.
+   `SidebarController.handleMessage()`: only `refresh`, `saveWorkPauseNote`,
+   `confirmDiscardWorkPauseDraft`, and the card's buttons (`copyWorkPauseNote`,
+   `openWorkPauseNoteInEditor`, `resumeWork`, `deleteWorkPauseNote`) are processed.
 
 `importJson` never imports a paused state: `Replace` takes the file's note
 (not paused) and `Merge` keeps the current note.
@@ -1381,10 +1428,35 @@ only when the user saves text (`saveWorkPauseNote` with `pause: true`).
     `span.work-pause-list-start` (a block with a 10px top margin) so the group is
     spaced from the line above; like the heading, it gets no trailing `\n`. The very
     first line of the note and a line right after a blank line are not wrapped.
-- View mode shows the text and an edit button. Edit mode shows a textarea with
-  Cancel/Save; Save is disabled for blank text.
+- View mode shows the text and the header buttons (copy, open in editor, edit);
+  while locked the footer also shows `Delete & resume` and `Resume work`. Edit
+  mode hides them and shows a textarea with Cancel/Save; Save is disabled for
+  blank text.
+- **Preview while editing.** Edit mode replaces the view-mode header buttons
+  with `#work-pause-edit-tools`: `Preview formatting` and `Formatting example`.
+  The preview toggle (`aria-pressed`; its icon, label, and tooltip name what the
+  next click does) swaps the textarea for `#work-pause-preview`, rendered by
+  `WorkPause.previewHtml()`: the draft trimmed, then `renderNoteHtml()`, so it
+  looks exactly as Save will show it (direction included), or an empty-state
+  line for a blank draft. Nothing is saved or sent; the draft stays in the
+  textarea, and Save and Cancel work from the preview. Every way into or out
+  of edit mode turns the preview off.
+- **Formatting example.** `#work-pause-example` is a page of its own over the
+  whole sidebar (`position: fixed; inset: 0`, above the Work Pause overlay,
+  below tooltips; `body.work-pause-locked` keeps it visible). It shows
+  `WorkPause.EXAMPLE_NOTE` (a realistic note that uses every pattern) rendered
+  by `renderNoteHtml()` on the note's paper, a `Show source` toggle to the raw
+  text, and a legend. While it is open the editor underneath is `inert`. The
+  close button and `Esc` (`handleWorkPauseEscape()`: the example first, then
+  the editor's Cancel) return to the editor with the draft untouched; leaving
+  edit mode closes it.
+- **Hints in edit mode.** The placeholder lists the questions to answer (where
+  you stopped, what is half-done, the next step, what not to forget). Under the
+  textarea, `#work-pause-hint` (`WorkPause.editHint()`) says what Save does
+  (opened by "Pause work": it locks; while paused: there is one note and saving
+  replaces it) and the formatting the view understands.
 - Cancel and `Esc` share one path (`requestWorkPauseCancel`): `WorkPause.cancelAction()`
-  returns `leave` when the draft equals the saved text, otherwise `confirm`, which
+  returns `leave` when the draft equals the saved text or is blank, otherwise `confirm`, which
   sends `confirmDiscardWorkPauseDraft`. The host asks with a modal
   `showWarningMessage` (`SidebarUi.confirmDiscardWorkPauseDraft`) and answers with
   `workPauseDiscardAnswer { discard }`.
@@ -1399,9 +1471,16 @@ only when the user saves text (`saveWorkPauseNote` with `pause: true`).
   open until `ok`; a note changed elsewhere since editing started is refused
   (`CONFLICT`) and the draft is kept.
 - `confirmDiscardWorkPauseDraft` → host confirmation, answered by `workPauseDiscardAnswer`.
-- Host → webview: `openWorkPauseEditor`, `workPauseDiscardAnswer`, `workPauseSaveResult`, and `state.workPause`.
+- `copyWorkPauseNote`, `openWorkPauseNoteInEditor` → the stored text to the
+  clipboard / the read-only tab (`SidebarUi.copyWorkPauseNote`, `openWorkPauseNoteInEditor`).
+- `resumeWork` → `WorkPauseStore.resume()`.
+- `deleteWorkPauseNote` (`base`) → `checkWorkPauseNoteDeletable`, then
+  `SidebarUi.confirmDeleteWorkPauseNote`, then `NotesService.deleteWorkPauseNote`.
+- Host → webview: `openWorkPauseEditor { note }`, `workPauseDiscardAnswer`, `workPauseSaveResult`, and `state.workPause`.
 
 The discard question is a modal `showWarningMessage` ("Discard your unsaved changes to the note?").
+The delete question is a modal with the detail that the note is deleted for good and can be
+opened in the editor or copied first; its button is `Delete and Resume`.
 
 ## 11. Task groups
 

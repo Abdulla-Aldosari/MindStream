@@ -6,7 +6,35 @@
  *-------------------------------------------------*/
 
 import * as assert from "assert";
-import { MAX_WORK_PAUSE_TEXT, guardWhenWorkPaused, isAllowedDuringWorkPause, normalizeWorkPauseNote } from "../src/workPause";
+import { MAX_WORK_PAUSE_TEXT, WorkPauseCopy, guardWhenWorkPaused, isAllowedDuringWorkPause, normalizeWorkPauseNote } from "../src/workPause";
+
+describe("WorkPauseCopy", () => {
+  it("shows the stored note until the first snapshot (a tab restored by a reload)", () => {
+    let stored = "Stored";
+    const copy = new WorkPauseCopy(() => stored);
+    assert.strictEqual(copy.content(), "Stored");
+    stored = "Changed";
+    assert.strictEqual(copy.content(), "Changed");
+  });
+
+  it("is a snapshot: a later change to the note does not reach it until it is taken again", () => {
+    let stored = "First";
+    const copy = new WorkPauseCopy(() => stored);
+    copy.take("First");
+    stored = "Second";
+    assert.strictEqual(copy.content(), "First");
+    copy.take("Second");
+    assert.strictEqual(copy.content(), "Second");
+  });
+
+  it("keeps its text after the note is deleted", () => {
+    let stored = "Keep me";
+    const copy = new WorkPauseCopy(() => stored);
+    copy.take(stored);
+    stored = "";
+    assert.strictEqual(copy.content(), "Keep me");
+  });
+});
 
 describe("guardWhenWorkPaused", () => {
   it("runs the handler with its arguments while the lock is off", () => {
@@ -75,6 +103,12 @@ describe("isAllowedDuringWorkPause", () => {
     assert.strictEqual(isAllowedDuringWorkPause("refresh"), true);
     assert.strictEqual(isAllowedDuringWorkPause("saveWorkPauseNote"), true);
     assert.strictEqual(isAllowedDuringWorkPause("confirmDiscardWorkPauseDraft"), true);
+  });
+
+  it("allows the note card's buttons: copy, open in editor, resume, delete and resume", () => {
+    for (const type of ["copyWorkPauseNote", "openWorkPauseNoteInEditor", "resumeWork", "deleteWorkPauseNote"]) {
+      assert.strictEqual(isAllowedDuringWorkPause(type), true, type);
+    }
   });
 
   it("blocks every other message, including destructive ones", () => {

@@ -16,7 +16,7 @@ import { initPriorityControl } from "./priorityControl.js";
 import { initNoteEditor, requestCloseModal } from "./noteEditor.js";
 import { initTaskEditor } from "./taskEditor.js";
 import { closeView, initNoteViewer } from "./noteViewer.js";
-import { initWorkPausePanel, isWorkPauseShown, requestWorkPauseCancel } from "./workPausePanel.js";
+import { handleWorkPauseEscape, initWorkPausePanel, isWorkPauseShown } from "./workPausePanel.js";
 import { closeCategoriesModal, initCategoriesModal } from "./categoriesModal.js";
 import { closeWeeklyReport, initWeeklyReport } from "./weeklyReport.js";
 import { closeIconsModal, closeTypesModal, initTypesModal } from "./typesModal.js";
@@ -39,10 +39,11 @@ initTypesModal();
 
 // Esc closes the topmost overlay. Registered after every other listener.
 document.addEventListener("keydown", (e) => {
-  // The Work Pause note covers the whole page: Esc only ever concerns its editor.
+  // The Work Pause note covers the whole page: Esc only ever concerns its
+  // formatting example (closed first) or its editor.
   if (isWorkPauseShown()) {
     if (e.key === "Escape") {
-      requestWorkPauseCancel();
+      handleWorkPauseEscape();
     }
     return;
   }

@@ -24,7 +24,7 @@ _A thought strikes mid-code. One shortcut later, it's a saved note, without ever
 - Export Markdown and Export JSON.
 - Import JSON with merge/replace options.
 - Weekly Report modal, plus Export Weekly Report (Markdown).
-- Work pause note: before you step away for a long time, write where you stopped and what comes next. While work is paused, the whole panel is locked and shows only that note, until you resume from the **More** (`...`) menu.
+- Work pause note: before you step away for a long time, write where you stopped and what comes next. While work is paused, the whole panel is locked and shows only that note, until you click **Resume work** on it (or use the **More** (`...`) menu). You can copy the note, open it as a read-only editor tab that stays open while you work, or delete it and resume. Pausing again shows the earlier note first, with the choice to start a new one.
 
 ## Organize & Customize
 
@@ -130,7 +130,7 @@ A single JSON file inside the workspace: `.vscode/mindstream.data.json`. Because
 - `MindStream: Copy agent rules for MCP`
 - `MindStream: Regenerate MCP token`
 
-While work is paused, every command above is unavailable; resume with `✓ Work paused - click to resume` in the **More** menu.
+While work is paused, every command above is unavailable; resume with **Resume work** on the note, or `✓ Work paused - click to resume` in the **More** menu.
 
 ## Requirements
 

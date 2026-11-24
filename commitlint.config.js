@@ -47,8 +47,8 @@ const baseScopes = [
   ["uiPrefs", "global per-user UI preferences such as note-editor description height", ["src/uiPrefs.ts"]],
   [
     "workPause",
-    "Work Pause note: the single hand-off note stored in the data file, its lock rules, the lock guard, and its store (the webview parts live under media/)",
-    ["src/workPause.ts", "src/workPauseStore.ts"],
+    "Work Pause note: the single hand-off note stored in the data file, its lock rules, the lock guard, its store, and its read-only editor tab (the webview parts live under media/)",
+    ["src/workPause.ts", "src/workPauseStore.ts", "src/workPauseDocument.ts"],
   ],
 
   [

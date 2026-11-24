@@ -34,7 +34,7 @@ const WORKSPACE_LINE =
   "Pass the absolute path of your project root (the folder open in VS Code) as `workspace` in every MindStream tool call. If a call answers WORKSPACE_NOT_OPEN, tell the user instead of guessing another path.";
 
 const WRITE_LINE =
-  "If a write is refused with WORK_PAUSED, do not retry, and do not ask the user to resume so that you can write: tell the user that work is paused. Only they resume it, by their own decision, from the MindStream More menu.";
+  "If a write is refused with WORK_PAUSED, do not retry, and do not ask the user to resume so that you can write: tell the user that work is paused. Only they resume it, by their own decision, in the MindStream sidebar.";
 
 function lines(...parts: string[]): string {
   return parts.join("\n\n");

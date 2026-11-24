@@ -15,9 +15,111 @@ const WP = require("../media/workPause.js") as {
   canSave(draft: unknown): boolean;
   cancelAction(saved: unknown, draft: unknown): "leave" | "confirm";
   directionFor(text: unknown): "rtl" | "ltr";
-  updatedLabel(updatedAt: unknown, format: (d: Date) => string): string;
+  updatedLabel(updatedAt: unknown, format: (d: Date) => string, now?: Date): string;
   renderNoteHtml(text: unknown): string;
+  daysSince(updatedAt: unknown, now: unknown): number | null;
+  ageText(days: number | null | undefined): string;
+  needsFreshStartChoice(note: unknown): boolean;
+  editHint(locking: boolean): string;
+  earlierNoteLabel(updatedAt: unknown, format: (d: Date) => string, now: Date): string;
+  previewHtml(draft: unknown): string;
+  EXAMPLE_NOTE: string;
 };
+
+describe("WorkPause draft preview and formatting example", () => {
+  it("previews a draft exactly as Save will show it (trimmed, then rendered)", () => {
+    const draft = "  # Title\n[ ] task `x`  \n";
+    assert.strictEqual(WP.previewHtml(draft), WP.renderNoteHtml(draft.trim()));
+  });
+
+  it("shows an empty-state line for a blank draft", () => {
+    for (const blank of ["", "  \n ", undefined, null]) {
+      assert.ok(WP.previewHtml(blank).includes("Nothing to preview yet."));
+    }
+  });
+
+  it("escapes HTML typed in the draft", () => {
+    const out = WP.previewHtml("<img src=x onerror=alert(1)>");
+    assert.ok(!out.includes("<img"));
+    assert.ok(out.includes("&lt;img"));
+  });
+
+  it("the example uses every pattern the view understands", () => {
+    const html = WP.renderNoteHtml(WP.EXAMPLE_NOTE);
+    assert.ok(html.includes('class="work-pause-h1"'), "heading");
+    assert.ok(html.includes('class="work-pause-divider"'), "divider");
+    assert.ok(html.includes('class="work-pause-code"'), "inline code");
+    assert.ok(html.includes("<svg"), "done task");
+    assert.ok(html.includes('<span class="work-pause-check" aria-hidden="true"></span>'), "open task");
+    assert.ok(html.includes('class="work-pause-list-start"'), "task group spacing");
+    assert.ok(/^- \[x\] /m.test(WP.EXAMPLE_NOTE) && /^\* \[ \] /m.test(WP.EXAMPLE_NOTE), "both list markers");
+  });
+
+  it("the example fits in a note and reads left to right", () => {
+    assert.ok(WP.EXAMPLE_NOTE.length < 10000);
+    assert.strictEqual(WP.directionFor(WP.EXAMPLE_NOTE), "ltr");
+  });
+});
+
+describe("WorkPause note age and the earlier-break choice", () => {
+  // Local dates, so the calendar-day count does not depend on the time zone.
+  const at = (y: number, m: number, d: number, h = 12) => new Date(y, m - 1, d, h).toISOString();
+  const now = new Date(2026, 10, 24, 9);
+
+  it("counts whole calendar days, not 24-hour periods", () => {
+    assert.strictEqual(WP.daysSince(at(2026, 11, 24, 1), now), 0);
+    assert.strictEqual(WP.daysSince(at(2026, 11, 23, 23), now), 1);
+    assert.strictEqual(WP.daysSince(at(2026, 8, 31), now), 85);
+  });
+
+  it("is null without a valid date, and 0 for a date in the future", () => {
+    for (const bad of ["", undefined, null, "garbage"]) {
+      assert.strictEqual(WP.daysSince(bad, now), null);
+    }
+    assert.strictEqual(WP.daysSince(at(2026, 11, 20), "not a date"), null);
+    assert.strictEqual(WP.daysSince(at(2026, 12, 1), now), 0);
+  });
+
+  it("words the age", () => {
+    assert.strictEqual(WP.ageText(0), "today");
+    assert.strictEqual(WP.ageText(1), "yesterday");
+    assert.strictEqual(WP.ageText(84), "84 days ago");
+    assert.strictEqual(WP.ageText(null), "");
+  });
+
+  it("adds the age to the updated line only when now is given", () => {
+    const format = () => "D";
+    assert.strictEqual(WP.updatedLabel(at(2026, 11, 22), format, now), "Updated: D (2 days ago)");
+    assert.strictEqual(WP.updatedLabel(at(2026, 11, 22), format), "Updated: D");
+  });
+
+  it("asks about an earlier note whenever one is saved and work is not paused", () => {
+    assert.strictEqual(WP.needsFreshStartChoice({ text: "Old note", paused: false }), true);
+    assert.strictEqual(WP.needsFreshStartChoice({ text: "  ", paused: false }), false);
+    assert.strictEqual(WP.needsFreshStartChoice({ text: "Locked", paused: true }), false);
+    assert.strictEqual(WP.needsFreshStartChoice(undefined), false);
+  });
+
+  it("names the date and age of the earlier note, or only the fact without a date", () => {
+    const label = WP.earlierNoteLabel(at(2026, 9, 1), () => "1 Sep", now);
+    assert.ok(label.includes("1 Sep"));
+    assert.ok(label.includes("84 days ago"));
+    assert.ok(label.includes("earlier break"));
+    assert.strictEqual(
+      WP.earlierNoteLabel("", () => "x", now),
+      "This note was written for an earlier break."
+    );
+  });
+
+  it("the editor hint says what Save does, and the formatting", () => {
+    assert.ok(WP.editHint(true).startsWith("Saving pauses work"));
+    assert.ok(WP.editHint(false).includes("saving replaces it"));
+    for (const hint of [WP.editHint(true), WP.editHint(false)]) {
+      assert.ok(hint.includes("# heading"));
+      assert.ok(hint.includes("[ ] task"));
+    }
+  });
+});
 
 describe("WorkPause webview rules", () => {
   it("an incoming state never replaces a draft that is being edited", () => {
@@ -46,7 +148,11 @@ describe("WorkPause webview rules", () => {
 
   it("cancel asks for confirmation when the draft differs from the saved text", () => {
     assert.strictEqual(WP.cancelAction("saved", "edited"), "confirm");
-    assert.strictEqual(WP.cancelAction("saved", ""), "confirm");
+  });
+
+  it("cancel leaves at once when the draft is blank (Start a new note, then nothing typed): the saved note was never touched", () => {
+    assert.strictEqual(WP.cancelAction("saved", ""), "leave");
+    assert.strictEqual(WP.cancelAction("saved", "  \n "), "leave");
   });
 
   it("with no saved note, cancel leaves an empty draft and confirms a typed one", () => {

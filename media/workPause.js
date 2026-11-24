@@ -35,12 +35,70 @@ const WorkPause = (() => {
 
   /**
    * What Cancel / Esc does while editing:
-   * - "leave": nothing would be lost, go back at once;
-   * - "confirm": the draft differs from the saved text, so ask the host first
-   *   (the answer arrives as a message).
+   * - "leave": nothing would be lost (the draft equals the saved text, or it is
+   *   blank and so could never be saved), go back at once;
+   * - "confirm": the draft has text that differs from the saved text, so ask
+   *   the host first (the answer arrives as a message).
    */
   function cancelAction(savedText, draft) {
-    return hasUnsavedChanges(savedText, draft) ? "confirm" : "leave";
+    return canSave(draft) && hasUnsavedChanges(savedText, draft) ? "confirm" : "leave";
+  }
+
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  /**
+   * Whole calendar days between `updatedAt` and `now` (local time), or null
+   * when the date is missing or invalid. A date in the future counts as 0.
+   */
+  function daysSince(updatedAt, now) {
+    if (!updatedAt) {
+      return null;
+    }
+    const then = new Date(updatedAt);
+    if (isNaN(then.getTime()) || !(now instanceof Date) || isNaN(now.getTime())) {
+      return null;
+    }
+    const startOf = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    return Math.max(0, Math.round((startOf(now) - startOf(then)) / DAY_MS));
+  }
+
+  /** "today", "yesterday", or "N days ago"; "" for null. */
+  function ageText(days) {
+    if (days === null || days === undefined) {
+      return "";
+    }
+    if (days === 0) {
+      return "today";
+    }
+    return days === 1 ? "yesterday" : `${days} days ago`;
+  }
+
+  /**
+   * Whether "Pause work" must first ask about the note already saved: always
+   * when one exists, because it was written for an earlier break.
+   */
+  function needsFreshStartChoice(note) {
+    return !!note && !note.paused && canSave(note.text);
+  }
+
+  const FORMAT_HINT = "Formatting: # heading · [ ] task · `code` · --- divider.";
+
+  /**
+   * The hint under the editor. `locking`: this Save also pauses work (the
+   * editor was opened by "Pause work"); otherwise work is already paused.
+   */
+  function editHint(locking) {
+    const what = locking ? "Saving pauses work: MindStream shows only this note until you resume." : "There is one note only: saving replaces it.";
+    return `${what} ${FORMAT_HINT}`;
+  }
+
+  /** The line above the editor when "Pause work" finds a note from an earlier break. */
+  function earlierNoteLabel(updatedAt, format, now) {
+    const date = updatedAt ? new Date(updatedAt) : null;
+    if (!date || isNaN(date.getTime())) {
+      return "This note was written for an earlier break.";
+    }
+    return `This note is from ${format(date)} (${ageText(daysSince(updatedAt, now))}). It was written for an earlier break.`;
   }
 
   // A letter of the Arabic script (the lookahead excludes Arabic-Indic digits
@@ -61,14 +119,19 @@ const WorkPause = (() => {
 
   /**
    * Builds the "last updated" line, or "" when no valid date is known.
-   * `format` turns a Date into text (the webview passes toLocaleString).
+   * `format` turns a Date into text (the webview passes toLocaleString). With
+   * `now`, the age follows: "Updated: <date> (84 days ago)".
    */
-  function updatedLabel(updatedAt, format) {
+  function updatedLabel(updatedAt, format, now) {
     if (!updatedAt) {
       return "";
     }
     const date = new Date(updatedAt);
-    return isNaN(date.getTime()) ? "" : `Updated: ${format(date)}`;
+    if (isNaN(date.getTime())) {
+      return "";
+    }
+    const age = now ? ageText(daysSince(updatedAt, now)) : "";
+    return age ? `Updated: ${format(date)} (${age})` : `Updated: ${format(date)}`;
   }
 
   /**
@@ -129,7 +192,57 @@ const WorkPause = (() => {
       .join("");
   }
 
-  return { shouldReplaceDraft, hasUnsavedChanges, canSave, cancelAction, directionFor, updatedLabel, renderNoteHtml };
+  /**
+   * The preview of a draft: rendered exactly as it will look once saved (Save
+   * trims the text), or an empty-state line when there is nothing to show.
+   */
+  function previewHtml(draft) {
+    const text = String(draft == null ? "" : draft).trim();
+    return text ? renderNoteHtml(text) : '<span class="work-pause-preview-empty">Nothing to preview yet.</span>';
+  }
+
+  // The formatting example: a realistic note that uses every pattern the view
+  // understands (heading, checked and open tasks with both list markers,
+  // inline code, divider, plain paragraphs).
+  const EXAMPLE_NOTE = [
+    "# Where I stopped",
+    "Moving the data file to atomic saves. `AtomicWriter` is finished and tested;",
+    "`StorageService.save()` still writes the file directly.",
+    "",
+    "# Done",
+    "- [x] `AtomicWriter`: write to a temp file, then rename",
+    "- [x] Retry the rename while Windows holds a lock",
+    "- [x] Unit tests for both paths",
+    "",
+    "# Half-done",
+    "- [ ] Switch `StorageService.save()` to `AtomicWriter`",
+    "- [ ] Test a rename refused by a full disk",
+    "",
+    "---",
+    "# Next step",
+    "Run `npm test`, wire the writer in, then run `npm run test:e2e`.",
+    "",
+    "# Don't forget",
+    "* [ ] Branch `feat/atomic-save` is not pushed yet",
+    "* [ ] Ask about the backup file name before merging",
+  ].join("\n");
+
+  return {
+    previewHtml,
+    EXAMPLE_NOTE,
+    shouldReplaceDraft,
+    hasUnsavedChanges,
+    canSave,
+    cancelAction,
+    daysSince,
+    ageText,
+    needsFreshStartChoice,
+    editHint,
+    earlierNoteLabel,
+    directionFor,
+    updatedLabel,
+    renderNoteHtml,
+  };
 })();
 
 // Exposes the helpers to Node-based unit tests. This branch never runs in the

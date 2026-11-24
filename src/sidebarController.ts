@@ -41,6 +41,10 @@ export interface WebviewMessage {
     | "openLink"
     | "saveWorkPauseNote"
     | "confirmDiscardWorkPauseDraft"
+    | "copyWorkPauseNote"
+    | "openWorkPauseNoteInEditor"
+    | "resumeWork"
+    | "deleteWorkPauseNote"
     | "confirmCloseNoteForm"
     | "newNoteFormOpened"
     | "openDescriptionEditor"
@@ -51,8 +55,9 @@ export interface WebviewMessage {
   pause?: boolean;
   /**
    * What a Save is based on: `updateItem` sends the note's fields as they were
-   * when the form opened, `saveWorkPauseNote` the text when editing started.
-   * A change made elsewhere since then refuses the Save (`CONFLICT`).
+   * when the form opened, `saveWorkPauseNote` the text when editing started,
+   * `deleteWorkPauseNote` the text the card showed. A change made elsewhere
+   * since then refuses the request (`CONFLICT`).
    */
   base?: unknown;
   /**
@@ -99,6 +104,12 @@ export interface SidebarUi {
   answerWorkPauseDiscard(discard: boolean): void;
   /** Tells the webview whether the Work Pause note was stored; a refused save keeps the draft open. */
   answerWorkPauseSave(ok: boolean): void;
+  /** Puts the Work Pause note's text on the clipboard. */
+  copyWorkPauseNote(text: string): Promise<void>;
+  /** Shows a read-only copy of the Work Pause note in its single editor tab. */
+  openWorkPauseNoteInEditor(text: string): Promise<void>;
+  /** Asks before deleting the Work Pause note (which also resumes work). */
+  confirmDeleteWorkPauseNote(): Promise<boolean>;
   /**
    * Asks what to do with the changes of the note form that is being closed:
    * store them (`save`, which the form runs as its own Save), `discard` them,
@@ -218,6 +229,32 @@ export class SidebarController {
         break;
       case "confirmDiscardWorkPauseDraft":
         this.ui.answerWorkPauseDiscard(await this.ui.confirmDiscardWorkPauseDraft());
+        break;
+      // The note card's buttons. Copy and the editor tab use the stored text, never text from the webview.
+      case "copyWorkPauseNote": {
+        const text = this.workPause.get().text;
+        if (text) {
+          await this.ui.copyWorkPauseNote(text);
+        }
+        break;
+      }
+      case "openWorkPauseNoteInEditor": {
+        const text = this.workPause.get().text;
+        if (text) {
+          await this.ui.openWorkPauseNoteInEditor(text);
+        }
+        break;
+      }
+      case "resumeWork":
+        // The user's own click on the card, like the More menu item: the note is kept.
+        this.workPause.resume();
+        break;
+      case "deleteWorkPauseNote":
+        // Refused with its reason before the question, so the user is never asked for nothing.
+        this.notes.checkWorkPauseNoteDeletable(msg.base);
+        if (await this.ui.confirmDeleteWorkPauseNote()) {
+          this.notes.deleteWorkPauseNote(msg.base);
+        }
         break;
       case "confirmCloseNoteForm":
         // Only a question: nothing is read or written here. The form runs its own Save when the answer is "save".

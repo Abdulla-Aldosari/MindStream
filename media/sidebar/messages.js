@@ -47,7 +47,7 @@ export function initMessages() {
     }
     if (msg.type === "openWorkPauseEditor") {
       if (!isWorkPaused()) {
-        openWorkPauseEditor();
+        openWorkPauseEditor(msg.note);
       }
       return;
     }

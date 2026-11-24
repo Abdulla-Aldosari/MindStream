@@ -51,5 +51,5 @@ export function noteNotFound(id: unknown): DomainError {
 /** Refuses every write while work is paused; only the user can resume. */
 export const WORK_PAUSED_MESSAGE = refusal(
   "work is paused in MindStream, and nothing can be changed while it is paused",
-  `Only the user can resume work, from the MindStream sidebar's More menu: "✓ Work paused - click to resume".`
+  `Only the user can resume work, in the MindStream sidebar: "Resume work" on the note, or "✓ Work paused - click to resume" in the More menu.`
 );

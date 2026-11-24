@@ -490,4 +490,53 @@ describe("NotesService Work Pause note", () => {
     notes.saveWorkPauseNote("Same", { base: "Same", pause: true });
     assert.strictEqual(workPause.isPaused(), true);
   });
+
+  describe("deleteWorkPauseNote", () => {
+    it("deletes the note while paused, which resumes work, in one write", () => {
+      const { notes, workPause, storage, changes } = setup();
+      workPause.save("Away", true);
+      const saves = storage.saved.length;
+      const before = changes();
+      notes.deleteWorkPauseNote("Away");
+      assert.strictEqual(workPause.isPaused(), false);
+      assert.strictEqual(workPause.get().text, "");
+      assert.ok(!("workPauseNote" in storage.getData()));
+      assert.strictEqual(storage.saved.length, saves + 1);
+      assert.strictEqual(changes(), before + 1);
+    });
+
+    it("matches the shown text ignoring line endings and outer spaces", () => {
+      const { notes, workPause } = setup();
+      workPause.save("Line 1\nLine 2", true);
+      notes.deleteWorkPauseNote("  Line 1\r\nLine 2 ");
+      assert.strictEqual(workPause.get().text, "");
+    });
+
+    it("refuses (CONFLICT) when the note changed since it was shown, changing nothing", () => {
+      const { notes, workPause, snapshot } = setup();
+      workPause.save("Newer text", true);
+      const unchanged = snapshot();
+      assert.throws(() => notes.deleteWorkPauseNote("Older text"), code("CONFLICT"));
+      assert.throws(() => notes.deleteWorkPauseNote(undefined), code("CONFLICT"));
+      unchanged();
+    });
+
+    it("refuses (INVALID_INPUT) when there is no note", () => {
+      const { notes, snapshot } = setup();
+      const unchanged = snapshot();
+      assert.throws(() => notes.deleteWorkPauseNote(""), code("INVALID_INPUT"));
+      unchanged();
+    });
+
+    it("refuses while saving is off (STORAGE_BLOCKED): the note and the lock stay", () => {
+      const { notes, workPause, storage, snapshot } = setup();
+      workPause.save("Away", true);
+      storage.problem = BLOCKED;
+      const unchanged = snapshot();
+      assert.throws(() => notes.checkWorkPauseNoteDeletable("Away"), code("STORAGE_BLOCKED"));
+      assert.throws(() => notes.deleteWorkPauseNote("Away"), code("STORAGE_BLOCKED"));
+      assert.strictEqual(workPause.isPaused(), true);
+      unchanged();
+    });
+  });
 });

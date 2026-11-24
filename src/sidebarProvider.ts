@@ -20,6 +20,7 @@ import { getBodyClass } from "./util";
 import { DEFAULT_PRIORITY, normalizePriorityStyle, PRIORITIES, PRIORITY_LABEL, PriorityStyle, priorityFeatures } from "./priority";
 import { DescriptionEditor } from "./descriptionEditor";
 import { WorkPauseStore } from "./workPauseStore";
+import { WorkPauseDocument } from "./workPauseDocument";
 import { NotesService } from "./notesService";
 import { MAX_LABEL, MAX_NOTE_DESCRIPTION, MAX_NOTE_TITLE } from "./noteInput";
 import { WORK_PAUSE_CONTEXT_KEY, isAllowedDuringWorkPause } from "./workPause";
@@ -62,6 +63,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
     private readonly links: LinkTracker,
     private readonly notes: NotesService,
     private readonly descriptionEditor: DescriptionEditor,
+    private readonly workPauseDocument: WorkPauseDocument,
     private readonly isDevMode: boolean = false
   ) {
     this.controller = new SidebarController(items, types, categories, this.emoji, this.uiPrefs, this.workPause, this.notes, this, () => this.priorityEnabled());
@@ -117,20 +119,20 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
   }
 
   /**
-   * "Pause work and show note" in the More menu. With a saved note it locks at
-   * once; with none it first opens the editor, and the lock only turns on once a
-   * note is saved.
+   * "Pause work and show note" in the More menu. It always opens the note's
+   * editor first, so a note left from an earlier break is never locked in
+   * unread: the editor shows it with a choice to start a new one, and the lock
+   * only turns on when the user saves. The note travels with the request, so
+   * a page that was just created never opens the editor without it.
    */
-  pauseWork(): void {
-    if (this.workPause.get().text.trim()) {
-      this.reportFailure(() => this.workPause.pause());
-      this.refresh();
+  async pauseWork(): Promise<void> {
+    if (this.workPause.isPaused() || !(await this.revealView())) {
       return;
     }
-    void this._view?.webview.postMessage({ type: "openWorkPauseEditor" });
+    void this._view?.webview.postMessage({ type: "openWorkPauseEditor", note: this.workPause.get() });
   }
 
-  /** "✓ Work paused - click to resume" in the More menu: the only way out of the lock. */
+  /** "✓ Work paused - click to resume" in the More menu; the note card's "Resume work" does the same. */
   resumeWork(): void {
     this.reportFailure(() => this.workPause.resume());
     this.refresh();
@@ -337,6 +339,24 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
 
   answerWorkPauseSave(ok: boolean): void {
     void this._view?.webview.postMessage({ type: "workPauseSaveResult", ok });
+  }
+
+  async copyWorkPauseNote(text: string): Promise<void> {
+    await vscode.env.clipboard.writeText(text);
+    vscode.window.setStatusBarMessage("MindStream: Work Pause note copied.", 3000);
+  }
+
+  async openWorkPauseNoteInEditor(text: string): Promise<void> {
+    await this.workPauseDocument.open(text);
+  }
+
+  async confirmDeleteWorkPauseNote(): Promise<boolean> {
+    const pick = await vscode.window.showWarningMessage(
+      "Delete the Work Pause note and resume work?",
+      { modal: true, detail: "The note is deleted permanently. To keep it at hand while you work, open it in the editor or copy it first." },
+      "Delete and Resume"
+    );
+    return pick === "Delete and Resume";
   }
 
   async confirmCloseNoteForm(): Promise<NoteCloseChoice> {
@@ -667,16 +687,45 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
             <h2 id="work-pause-title" class="work-pause-title">Pick up where you left off</h2>
             <p class="work-pause-subtitle">A note to your future self</p>
           </div>
-          <button id="work-pause-edit" class="work-pause-edit" type="button" aria-label="Edit note" data-tooltip="Edit note">
-            <span class="codicon codicon-edit" aria-hidden="true"></span>
-          </button>
+          <div id="work-pause-tools" class="work-pause-tools">
+            <button id="work-pause-copy" class="work-pause-edit" type="button" aria-label="Copy note" data-tooltip="Copy note">
+              <span class="codicon codicon-copy" aria-hidden="true"></span>
+            </button>
+            <button id="work-pause-open" class="work-pause-edit" type="button" aria-label="Open in editor" data-tooltip="Open in editor" data-tooltip-footer="A read-only copy that stays open after you resume. Opening it again refreshes the same tab.">
+              <span class="codicon codicon-go-to-file" aria-hidden="true"></span>
+            </button>
+            <button id="work-pause-edit" class="work-pause-edit" type="button" aria-label="Edit note" data-tooltip="Edit note">
+              <span class="codicon codicon-edit" aria-hidden="true"></span>
+            </button>
+          </div>
+          <div id="work-pause-edit-tools" class="work-pause-tools" hidden>
+            <button id="work-pause-preview-toggle" class="work-pause-edit" type="button" aria-label="Preview formatting" aria-pressed="false" data-tooltip="Preview formatting">
+              <span class="codicon codicon-eye" aria-hidden="true"></span>
+            </button>
+            <button id="work-pause-example-open" class="work-pause-edit" type="button" aria-label="Formatting example" data-tooltip="Formatting example">
+              <span class="codicon codicon-lightbulb" aria-hidden="true"></span>
+            </button>
+          </div>
         </header>
         <div class="work-pause-body">
+          <div id="work-pause-earlier" class="work-pause-earlier" role="status" hidden>
+            <p id="work-pause-earlier-text" class="work-pause-earlier-text"></p>
+            <div class="work-pause-earlier-actions">
+              <button id="work-pause-fresh" class="btn btn-primary" type="button">Start a new note</button>
+              <button id="work-pause-keep" class="btn btn-ghost" type="button">Keep it</button>
+            </div>
+          </div>
           <div id="work-pause-view" class="work-pause-text" tabindex="0"></div>
-          <textarea id="work-pause-input" class="work-pause-input" hidden aria-label="Note text" maxlength="10000" placeholder="What were you doing? Where did you stop? What is the next step?"></textarea>
+          <div id="work-pause-preview" class="work-pause-text work-pause-preview" tabindex="0" role="region" aria-label="Preview" hidden></div>
+          <textarea id="work-pause-input" class="work-pause-input" hidden aria-label="Note text" aria-describedby="work-pause-hint" maxlength="10000" placeholder="Where did you stop?&#10;What is half-done?&#10;What is the next step?&#10;Anything not to forget?"></textarea>
+          <p id="work-pause-hint" class="work-pause-hint" hidden></p>
         </div>
         <footer class="work-pause-footer">
           <span id="work-pause-updated" class="work-pause-updated"></span>
+          <div id="work-pause-view-actions" class="work-pause-actions" hidden>
+            <button id="work-pause-delete" class="btn btn-ghost work-pause-delete" type="button">Delete &amp; resume</button>
+            <button id="work-pause-resume" class="btn btn-primary" type="button">Resume work</button>
+          </div>
           <div id="work-pause-actions" class="work-pause-actions" hidden>
             <button id="work-pause-cancel" class="btn btn-ghost" type="button">Cancel</button>
             <button id="work-pause-save" class="btn btn-primary" type="button">Save</button>
@@ -684,6 +733,33 @@ export class SidebarProvider implements vscode.WebviewViewProvider, SidebarUi {
         </footer>
       </div>
     </section>
+  </div>
+  <div id="work-pause-example" class="work-pause-example" role="dialog" aria-modal="true" aria-labelledby="work-pause-example-title" hidden>
+    <header class="work-pause-example-header">
+      <span class="work-pause-badge" aria-hidden="true"><span class="codicon codicon-lightbulb"></span></span>
+      <div class="work-pause-heading">
+        <h2 id="work-pause-example-title" class="work-pause-title">Formatting example</h2>
+        <p class="work-pause-subtitle">How a well-written note looks</p>
+      </div>
+      <div class="work-pause-tools">
+        <button id="work-pause-example-source" class="work-pause-edit" type="button" aria-label="Show source" aria-pressed="false" data-tooltip="Show source">
+          <span class="codicon codicon-code" aria-hidden="true"></span>
+        </button>
+        <button id="work-pause-example-close" class="work-pause-edit" type="button" aria-label="Close" data-tooltip="Close" data-tooltip-footer="Back to the editor (Esc)">
+          <span class="codicon codicon-close" aria-hidden="true"></span>
+        </button>
+      </div>
+    </header>
+    <div class="work-pause-example-body">
+      <div id="work-pause-example-view" class="work-pause-text work-pause-example-sheet" tabindex="0" dir="ltr"></div>
+      <pre id="work-pause-example-raw" class="work-pause-example-sheet work-pause-example-raw" tabindex="0" dir="ltr" hidden></pre>
+      <ul class="work-pause-example-legend">
+        <li><code class="work-pause-code"># </code> at the start of a line: a heading</li>
+        <li><code class="work-pause-code">- [ ]</code> or <code class="work-pause-code">- [x]</code>: an open or a done task (<code class="work-pause-code">*</code> works too)</li>
+        <li><code class="work-pause-code">\`text\`</code>: inline code</li>
+        <li><code class="work-pause-code">---</code> alone on a line: a divider</li>
+      </ul>
+    </div>
   </div>
   <script nonce="${nonce}" src="${codiconNamesUri}"></script>
   <script nonce="${nonce}" src="${iconClassUri}"></script>

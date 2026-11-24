@@ -83,6 +83,24 @@ class FakeUi implements SidebarUi {
     this.workPauseSaveAnswers.push(ok);
   }
 
+  copiedWorkPause: string[] = [];
+  openedWorkPause: string[] = [];
+  confirmDeleteWorkPauseResult = true;
+  deleteWorkPauseQuestions = 0;
+
+  async copyWorkPauseNote(text: string): Promise<void> {
+    this.copiedWorkPause.push(text);
+  }
+
+  async openWorkPauseNoteInEditor(text: string): Promise<void> {
+    this.openedWorkPause.push(text);
+  }
+
+  async confirmDeleteWorkPauseNote(): Promise<boolean> {
+    this.deleteWorkPauseQuestions += 1;
+    return this.confirmDeleteWorkPauseResult;
+  }
+
   closeFormChoice: "save" | "discard" | "cancel" = "cancel";
   closeFormQuestions = 0;
   closeFormAnswers: ("save" | "discard" | "cancel")[] = [];
@@ -670,6 +688,62 @@ describe("SidebarController Work Pause", () => {
       workPause.resume();
       await controller.handleMessage({ type: "addItem", title: "After", typeId });
       assert.strictEqual(items.list().length, 1);
+    });
+
+    it("copy and open in editor use the stored text, not text from the webview", async () => {
+      const { controller, ui, storage } = await locked();
+      await controller.handleMessage({ type: "copyWorkPauseNote", text: "forged" });
+      await controller.handleMessage({ type: "openWorkPauseNoteInEditor", text: "forged" });
+      assert.deepStrictEqual(ui.copiedWorkPause, ["Locked"]);
+      assert.deepStrictEqual(ui.openedWorkPause, ["Locked"]);
+      assert.strictEqual(storage.saved.length, 0);
+    });
+
+    it("Resume work on the card resumes and keeps the note", async () => {
+      const { controller, workPause } = await locked();
+      await controller.handleMessage({ type: "resumeWork" });
+      assert.strictEqual(workPause.isPaused(), false);
+      assert.strictEqual(workPause.get().text, "Locked");
+    });
+
+    it("Delete & resume asks first, then deletes the note, which resumes work", async () => {
+      const { controller, workPause, ui, storage } = await locked();
+      await controller.handleMessage({ type: "deleteWorkPauseNote", base: "Locked" });
+      assert.strictEqual(ui.deleteWorkPauseQuestions, 1);
+      assert.strictEqual(workPause.isPaused(), false);
+      assert.strictEqual(workPause.get().text, "");
+      assert.ok(!("workPauseNote" in storage.getData()));
+    });
+
+    it("Delete & resume does nothing when the user cancels", async () => {
+      const { controller, workPause, ui, storage } = await locked();
+      ui.confirmDeleteWorkPauseResult = false;
+      await controller.handleMessage({ type: "deleteWorkPauseNote", base: "Locked" });
+      assert.strictEqual(workPause.isPaused(), true);
+      assert.strictEqual(workPause.get().text, "Locked");
+      assert.strictEqual(storage.saved.length, 0);
+    });
+
+    it("Delete & resume refuses (CONFLICT) before asking when the note changed since it was shown", async () => {
+      const { controller, workPause, ui } = await locked();
+      await assert.rejects(
+        controller.handleMessage({ type: "deleteWorkPauseNote", base: "An older text" }),
+        (err: unknown) => err instanceof DomainError && err.code === "CONFLICT"
+      );
+      assert.strictEqual(ui.deleteWorkPauseQuestions, 0);
+      assert.strictEqual(workPause.get().text, "Locked");
+      assert.strictEqual(workPause.isPaused(), true);
+    });
+
+    it("Delete & resume refuses before asking while saving is off, and the data is unchanged", async () => {
+      const { controller, workPause, ui, storage } = await locked();
+      const before = JSON.stringify(storage.getData());
+      storage.problem = BLOCKED;
+      await assert.rejects(controller.handleMessage({ type: "deleteWorkPauseNote", base: "Locked" }), (err: unknown) => err instanceof StorageError);
+      assert.strictEqual(ui.deleteWorkPauseQuestions, 0);
+      assert.strictEqual(JSON.stringify(storage.getData()), before);
+      assert.strictEqual(workPause.isPaused(), true);
+      assert.strictEqual(storage.saved.length, 0);
     });
   });
 });

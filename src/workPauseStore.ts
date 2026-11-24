@@ -73,6 +73,20 @@ export class WorkPauseStore {
     }
   }
 
+  /**
+   * Deletes the note, which also ends the pause (work is never paused without
+   * a note). Writes nothing when there is no note. A refused save leaves the
+   * note in place.
+   */
+  clear(): void {
+    const data = this.storage.getData();
+    if (!("workPauseNote" in data)) {
+      return;
+    }
+    delete data.workPauseNote;
+    this.storage.saveData(data);
+  }
+
   private write(note: MindStreamWorkPauseNote): void {
     const data = this.storage.getData();
     data.workPauseNote = note;

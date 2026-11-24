@@ -6,10 +6,10 @@
  *-------------------------------------------------*/
 
 import * as assert from "assert";
-import { createEmptyData } from "../src/storage";
+import { StorageError, createEmptyData } from "../src/storage";
 import { WorkPauseStore } from "../src/workPauseStore";
 import { MAX_WORK_PAUSE_TEXT } from "../src/workPause";
-import { InMemoryStorage } from "./helpers";
+import { BLOCKED, InMemoryStorage } from "./helpers";
 
 function setup() {
   const storage = new InMemoryStorage(createEmptyData());
@@ -91,6 +91,32 @@ describe("WorkPauseStore", () => {
     assert.strictEqual(store.get().text, "Keep me");
     store.resume();
     assert.strictEqual(storage.saved.length, 3);
+  });
+
+  it("clear deletes the note and so ends the pause", () => {
+    const { storage, store } = setup();
+    store.save("Away", true);
+    store.clear();
+    assert.ok(!("workPauseNote" in storage.getData()));
+    assert.deepStrictEqual(store.get(), { text: "", updatedAt: "", paused: false });
+    assert.strictEqual(storage.saved.length, 2);
+  });
+
+  it("clear writes nothing when there is no note", () => {
+    const { storage, store } = setup();
+    store.clear();
+    assert.strictEqual(storage.saved.length, 0);
+  });
+
+  it("clear refused by the storage keeps the note and the lock", () => {
+    const { storage, store } = setup();
+    store.save("Away", true);
+    const before = JSON.stringify(storage.getData());
+    storage.problem = BLOCKED;
+    assert.throws(() => store.clear(), StorageError);
+    assert.strictEqual(JSON.stringify(storage.getData()), before);
+    assert.strictEqual(store.isPaused(), true);
+    assert.strictEqual(storage.saved.length, 1);
   });
 
   it("does not touch notes, types, or categories", () => {

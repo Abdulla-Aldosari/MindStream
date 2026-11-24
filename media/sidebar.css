@@ -24,7 +24,8 @@
   --ms-modal-card-background: var(--vscode-sideBar-background, var(--vscode-activeSessionView-background));
 }
 
-body.vscode-dark {
+body.vscode-dark,
+body.vscode-high-contrast {
   --ms-blend-color: #ffffff;
   --ms-deep-color: #000000;
   --work-pause-shadow-color: #000000;
@@ -2042,7 +2043,7 @@ body:has(.modal:not([hidden])) .list::-webkit-scrollbar-track {
    on the sheet itself, and a `filter` on the card would rasterize the text into
    a layer that the tilt then resamples, making it blurry. */
 
-body.work-pause-locked > :not(.work-pause):not(script):not(.tooltip) {
+body.work-pause-locked > :not(.work-pause):not(.work-pause-example):not(script):not(.tooltip) {
   display: none !important;
 }
 
@@ -2234,6 +2235,13 @@ body.work-pause-locked > :not(.work-pause):not(script):not(.tooltip) {
   background: var(--vscode-toolbar-hoverBackground);
 }
 
+/* Copy, open in editor, and edit: icon buttons on the trailing edge of the header. */
+.work-pause-tools {
+  flex: none;
+  display: flex;
+  gap: 2px;
+}
+
 .work-pause-edit:focus-visible,
 .work-pause-text:focus-visible {
   outline: 1px solid var(--vscode-focusBorder);
@@ -2345,6 +2353,51 @@ body.work-pause-locked > :not(.work-pause):not(script):not(.tooltip) {
   outline-offset: -1px;
 }
 
+/* Hint under the editor: what saving does, and the formatting it understands. */
+.work-pause-hint {
+  flex: none;
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* "Pause work" found a note from an earlier break: start a new one or keep it. */
+.work-pause-earlier {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  color: var(--work-pause-ink);
+  background: color-mix(in srgb, #ffa800 20%, transparent);
+  border: 1px solid color-mix(in srgb, #ffa800 30%, transparent);
+  border-radius: var(--radius-sm);
+}
+
+.work-pause-earlier-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.work-pause-earlier-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.work-pause-earlier-actions .btn {
+  white-space: nowrap;
+}
+
+.work-pause-earlier-actions .btn-ghost {
+  --wpea-color: color-mix(in srgb, var(--ms-blend-color) 7%, transparent);
+  background: var(--wpea-color);
+  border-color: var(--wpea-color);
+}
+
 /* The "Updated" date sits on the leading edge, the buttons on the trailing
    edge; neither flips with the note text direction. */
 .work-pause-footer {
@@ -2381,6 +2434,124 @@ body.work-pause-locked > :not(.work-pause):not(script):not(.tooltip) {
 .work-pause-actions .btn:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+/* The draft shown formatted while editing: the same look as the saved note,
+   framed like the textarea it replaces so the switch does not jump. */
+.work-pause-preview {
+  min-height: 72px;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px dashed var(--work-pause-line);
+  border-radius: var(--radius-sm);
+}
+
+.work-pause-preview-empty {
+  font-style: italic;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* The preview toggle while the preview is on. */
+.work-pause-edit[aria-pressed="true"] {
+  color: var(--vscode-foreground);
+  background: var(--vscode-toolbar-activeBackground, var(--vscode-toolbar-hoverBackground));
+}
+
+/* Formatting example: a page of its own over the whole sidebar, above the
+   Work Pause overlay and below tooltips. */
+.work-pause-example {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  overflow: hidden;
+  color: var(--vscode-foreground);
+  background: var(--vscode-sideBar-background);
+  container-type: inline-size;
+  --work-pause-accent: #8189a9;
+  --work-pause-ink: var(--vscode-editor-foreground, var(--vscode-foreground));
+  --work-pause-paper: color-mix(in srgb, var(--work-pause-accent) 12%, var(--vscode-editor-background));
+  --work-pause-line: color-mix(in srgb, var(--work-pause-accent) 38%, var(--vscode-widget-border, transparent));
+}
+
+.work-pause-example-header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--work-pause-line);
+}
+
+.work-pause-example-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+/* The sample note sits on the same paper as the real note. */
+.work-pause-example-sheet {
+  flex: none;
+  margin: 0;
+  padding: 14px 16px;
+  color: var(--work-pause-ink);
+  background: var(--work-pause-paper);
+  border: 1px solid var(--work-pause-line);
+  border-radius: var(--radius-md);
+  overflow: visible;
+}
+
+.work-pause-example-sheet:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+.work-pause-example-raw {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.work-pause-example-legend {
+  flex: none;
+  margin: 0;
+  padding-inline-start: 18px;
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--vscode-descriptionForeground);
+}
+
+.work-pause-example-legend .work-pause-code {
+  padding: 1px 5px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.92em;
+  color: var(--vscode-textPreformat-foreground, inherit);
+  background: color-mix(in srgb, var(--work-pause-ink) 14%, var(--work-pause-paper));
+  border-radius: 3px;
+}
+
+@container (max-width: 240px) {
+  .work-pause-example {
+    padding: 12px;
+  }
+
+  .work-pause-example .work-pause-subtitle,
+  .work-pause-example .work-pause-badge {
+    display: none;
+  }
+}
+
+/* Deleting the note cannot be undone, so its button reads as a warning. */
+.work-pause-actions .work-pause-delete {
+  color: var(--vscode-errorForeground);
 }
 
 /* Narrow sidebar: drop the subtitle and the badge, tighten the padding. */

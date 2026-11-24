@@ -614,4 +614,37 @@ export class NotesService {
     this.emit();
     return { note: this.deps.workPause.get(), changed: true };
   }
+
+  /**
+   * Refuses, with the reason, when the Work Pause note cannot be deleted now:
+   * saving is off, or the note the user is looking at (`base`) is no longer
+   * the stored one. Allowed while work is paused (deleting also resumes).
+   * The caller runs it before asking the user to confirm.
+   */
+  checkWorkPauseNoteDeletable(base: unknown): void {
+    this.beginWrite(true);
+    const current = this.deps.workPause.get();
+    const lf = (value: unknown) => (typeof value === "string" ? value.replace(/\r\n?/g, "\n").trim() : "");
+    if (!current.text) {
+      throw invalid("there is no Work Pause note to delete", "Refresh the panel.");
+    }
+    if (lf(base) !== lf(current.text)) {
+      throw new DomainError(
+        "CONFLICT",
+        refusal("the Work Pause note was changed elsewhere after it was shown", "Read the note as it is now, then delete it again if you still want to."),
+        current
+      );
+    }
+  }
+
+  /**
+   * Deletes the Work Pause note and so resumes work: the user's own decision,
+   * from the note card, after confirming. `base` is the text the user saw.
+   * No automated caller is offered this.
+   */
+  deleteWorkPauseNote(base: unknown): void {
+    this.checkWorkPauseNoteDeletable(base);
+    this.deps.workPause.clear();
+    this.emit();
+  }
 }

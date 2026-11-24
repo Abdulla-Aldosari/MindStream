@@ -23,6 +23,7 @@ import { WorkPauseStore } from "./workPauseStore";
 import { NotesService } from "./notesService";
 import { normalizePriorityStyle } from "./priority";
 import { DescriptionEditor } from "./descriptionEditor";
+import { WorkPauseDocument } from "./workPauseDocument";
 import { normalizeTabCloseBehavior } from "./noteFormSettings";
 import { WORK_PAUSE_CONTEXT_KEY, guardWhenWorkPaused } from "./workPause";
 import { resolveWorkspaceFolder } from "./workspaceFolder";
@@ -197,7 +198,9 @@ export function activate(context: vscode.ExtensionContext): void {
   const unlessWorkPaused = guardWhenWorkPaused(() => workPause.isPaused());
   const descriptionEditor = new DescriptionEditor(() => normalizeTabCloseBehavior(vscode.workspace.getConfiguration("mindstream").get<string>("descriptionTab.onClose")));
   context.subscriptions.push(descriptionEditor);
-  sidebar = new SidebarProvider(context.extensionUri, items, types, categories, emoji, uiPrefs, workPause, linkTracker, notes, descriptionEditor, isDevMode);
+  const workPauseDocument = new WorkPauseDocument(() => workPause.get().text);
+  context.subscriptions.push(workPauseDocument);
+  sidebar = new SidebarProvider(context.extensionUri, items, types, categories, emoji, uiPrefs, workPause, linkTracker, notes, descriptionEditor, workPauseDocument, isDevMode);
   // A change stored by any caller (or an outside change picked up before a write) reaches the view.
   context.subscriptions.push(notes.onDidChange(() => sidebar?.onDataChanged()));
   registerLinkTracking(context, folder, linkTracker, () => sidebar?.refresh());

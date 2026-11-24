@@ -256,7 +256,9 @@ test("pausing work closes the description tab", async ({ launch }) => {
   await sidebar.locator("#f-desc-external").click();
   await expect(descriptionTab(session.page, "Paused edit.md")).toBeVisible();
 
+  // "Pause work" opens the note's editor first; the lock turns on with Save.
   await runCommand(session.page, "MindStream: Pause work and show note");
+  await sidebar.locator("#work-pause-save").click();
   await expect(sidebar.locator("body")).toHaveClass(/work-pause-locked/);
   await expect(descriptionTab(session.page, "Paused edit.md")).toHaveCount(0);
 });
