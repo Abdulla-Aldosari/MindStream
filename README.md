@@ -8,7 +8,7 @@ them from idea to done, without ever leaving the editor.
 
 <!-- asset: hero.gif -->
 
-![Capturing a coding idea as a note in MindStream](https://raw.githubusercontent.com/Abdulla-Aldosari/repo-assets/refs/heads/main/MindStream/coming-soon-image-pending.png)
+![Capturing a coding idea as a note in MindStream](https://raw.githubusercontent.com/Abdulla-Aldosari/repo-assets/refs/heads/main/MindStream/hero-screenshot.gif)
 
 _A thought strikes mid-code. One shortcut later, it's a saved note, without ever leaving the editor._
 
@@ -61,9 +61,6 @@ _A thought strikes mid-code. One shortcut later, it's a saved note, without ever
 > it offers to open a folder for you.
 
 ## Key Features
-
-The features with a demo come first and are explained in detail; the others
-follow with a shorter description.
 
 | Feature                                                       | In short                                              |
 | ------------------------------------------------------------- | ----------------------------------------------------- |
