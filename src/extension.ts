@@ -17,7 +17,7 @@ import { LinkTracker } from "./linkTracker";
 import { createLinkFiles, createLinkFromActiveEditor, registerLinkTracking } from "./linkIntegration";
 import { buildWeeklyReport } from "./report";
 import { IStorage, StorageProblem, describeStorageTransition } from "./storage";
-import { debounce, isDemoCapture } from "./util";
+import { debounce } from "./util";
 import { CommandsDeps, exportJson, exportMarkdown, exportWeeklyReport, importJson, requireWorkspace } from "./commands";
 import { WorkPauseStore } from "./workPauseStore";
 import { NotesService } from "./notesService";
@@ -177,7 +177,7 @@ export function activate(context: vscode.ExtensionContext): void {
   };
   const uiPrefs = new UiPrefsRegistry(uiPrefsMemento);
 
-  const isDevMode = context.extensionMode === vscode.ExtensionMode.Development && !isDemoCapture();
+  const isDevMode = context.extensionMode === vscode.ExtensionMode.Development;
   const linkFiles = createLinkFiles(folder.uri);
   const linkTracker = new LinkTracker(items, linkFiles);
   const workPause = new WorkPauseStore(storage);
